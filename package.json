@@ -1,14 +1,14 @@
 {
-  "name": "5ire",
-  "productName": "5ire",
+  "name": "OMNI-OS",
+  "productName": "OMNI OS",
   "version": "0.9.7",
   "description": "A Sleek Desktop AI Assistant & MCP Client",
   "main": "src/main/main.ts",
-  "repository": "https://github.com/nanbingxyz/5ire.git",
+  "repository": "https://github.com/sub-arjun/OMNI-OS.git",
   "author": {
-    "name": "Ironben",
-    "email": "support@5ire.app",
-    "url": "https://5ire.app"
+    "name": "Arjun",
+    "email": "support@becomeomni.com",
+    "url": "https://becomeomni.com"
   },
   "license": "Apache-2.0",
   "scripts": {
@@ -210,8 +210,8 @@
     "zustand": "^4.3.9"
   },
   "build": {
-    "productName": "5ire",
-    "appId": "app.5ire.desktop",
+    "productName": "OMNI OS",
+    "appId": "app.omni.desktop",
     "compression": "maximum",
     "asar": true,
     "asarUnpack": [
@@ -219,9 +219,9 @@
     ],
     "protocols": [
       {
-        "name": "5ire-deep-linking",
+        "name": "omni-deep-linking",
         "schemes": [
-          "app5ire"
+          "appomni"
         ]
       }
     ],
@@ -316,7 +316,7 @@
       }
     ]
   },
-  "devEngines": {
+  "engines": {
     "node": ">=16.x",
     "npm": ">=7.x"
   },

@@ -14,6 +14,8 @@ import {
   bundleIcon,
   Wand24Filled,
   Wand24Regular,
+  ReceiptSparkles24Regular,
+  ReceiptSparkles24Filled,
 } from '@fluentui/react-icons';
 import { useTranslation } from 'react-i18next';
 import useNav from 'hooks/useNav';
@@ -36,6 +38,7 @@ const EmojiSparkleIcon = bundleIcon(
 const ChatAddIcon = bundleIcon(ChatAdd24Filled, ChatAdd24Regular);
 const KnowledgeIcon = bundleIcon(Library24Filled, Library24Regular);
 const WandIcon = bundleIcon(Wand24Filled, Wand24Regular);
+const PromptsIcon = bundleIcon(ReceiptSparkles24Filled, ReceiptSparkles24Regular);
 
 const IS_ASSISTANTS_ENABLED = false;
 
@@ -56,6 +59,7 @@ export default function GlobalNav({ collapsed }: { collapsed: boolean }) {
     Mousetrap.bind('alt+2', () => navigate('/knowledge'));
     Mousetrap.bind('alt+3', () => navigate('/bookmarks'));
     Mousetrap.bind('mod+n', () => navigate(`/chats/${tempChatId}`));
+    Mousetrap.bind('mod+p', () => navigate('/prompts'));
     if (numOfActiveServers === 0) {
       loadConfig(true);
     }
@@ -64,6 +68,7 @@ export default function GlobalNav({ collapsed }: { collapsed: boolean }) {
       Mousetrap.unbind('alt+2');
       Mousetrap.unbind('alt+3');
       Mousetrap.unbind('mod+n');
+      Mousetrap.unbind('mod+p');
     };
   }, []);
 
@@ -130,6 +135,16 @@ export default function GlobalNav({ collapsed }: { collapsed: boolean }) {
           onClick={() => navigate('/knowledge')}
         >
           {collapsed ? null : t('Common.Knowledge')}
+        </Button>
+      </div>
+      <div className={`px-2  my-1 ${collapsed ? 'mx-auto' : ''}`}>
+        <Button
+          appearance="subtle"
+          icon={<PromptsIcon />}
+          className="w-full justify-start"
+          onClick={() => navigate('/prompts')}
+        >
+          {collapsed ? null : t('Common.Prompts')}
         </Button>
       </div>
       <div className={`px-2  my-1 ${collapsed ? 'mx-auto' : ''}`}>

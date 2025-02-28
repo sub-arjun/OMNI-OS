@@ -66,7 +66,7 @@ class AppUpdater {
   constructor() {
     autoUpdater.setFeedURL({
       provider: 'generic',
-      url: 'https://github.com/nanbingxyz/5ire/releases/latest/download/',
+      url: 'https://github.com/sub-arjun/OMNI-OS/releases/latest/download/',
     });
 
     autoUpdater.on('update-available', () => {
@@ -129,11 +129,11 @@ class AppUpdater {
 }
 let downloader: Downloader;
 let mainWindow: BrowserWindow | null = null;
-const protocol = app.isPackaged ? 'app.5ire' : 'app.5ire.dev';
+const protocol = app.isPackaged ? 'app.omni' : 'app.omni.dev';
 
 // IPCs
-ipcMain.on('ipc-5ire', async (event) => {
-  event.reply('ipc-5ire', {
+ipcMain.on('ipc-omni', async (event) => {
+  event.reply('ipc-omni', {
     darkMode: nativeTheme.shouldUseDarkColors,
   });
 });

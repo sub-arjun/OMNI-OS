@@ -110,13 +110,8 @@ export default function useChatContext(): IChatContext {
     };
 
     const isStream = () => {
-      const { chat } = useChatStore.getState();
-      let stream = true;
-      if (!isNil(chat?.stream)) {
-        stream = chat.stream;
-      }
-      // debug(`Chat(${chat.id}):isStream: ${stream}`);
-      return stream;
+      // Always use streaming mode, ignoring any stored settings
+      return true;
     };
 
     const isToolEnabled = () => {

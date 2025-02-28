@@ -18,24 +18,38 @@ import {
   DataUsage24Regular,
   Fire24Regular,
   Fire24Filled,
+  Wifi124Filled,
+  Wifi124Regular,
+  DataArea24Regular,
+  DataArea24Filled,
   ReceiptSparkles24Regular,
   Settings24Regular,
   SignOut24Regular,
+  Record24Filled,
+  Record24Regular,
 } from '@fluentui/react-icons';
 import { useTranslation } from 'react-i18next';
 import useAppearanceStore from 'stores/useAppearanceStore';
 import useNav from 'hooks/useNav';
-import { useEffect, useState} from 'react';
+import { useEffect, useState, memo, useCallback } from 'react';
 import useToast from 'hooks/useToast';
 import useAuthStore from 'stores/useAuthStore';
+import { useDrop } from 'react-dnd';
+import { DragItemType } from '@/renderer/types/dnd';
+import { css, cx } from '@emotion/css';
+import { ProviderType } from '@/types/llm';
+import { MenuButtonProps } from './MenuButton';
+import { useChat } from '@/renderer/hooks/useChat';
+import { useToast as useToastRenderer } from '@/renderer/hooks/useToast';
 
-const debug = Debug('5ire:components:layout:aside:WorkspaceMenu');
+const debug = Debug('OMNI-OS:components:layout:aside:WorkspaceMenu');
 
 const FireIcon = bundleIcon(Fire24Filled, Fire24Regular);
 
 export default function WorkspaceMenu({ collapsed }: { collapsed: boolean }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
+  const [hovered, setHovered] = useState(false);
   const navigate = useNav();
   const { notifySuccess, notifyError } = useToast();
   const theme = useAppearanceStore((state) => state.theme);
@@ -66,10 +80,9 @@ export default function WorkspaceMenu({ collapsed }: { collapsed: boolean }) {
 
   useEffect(() => {
     Mousetrap.bind('mod+,', () => navigate('/settings'));
-    Mousetrap.bind('mod+p', () => navigate('/prompts'));
     return () => {
       Mousetrap.unbind('mod+k');
-      Mousetrap.unbind('mod+p');
+      Mousetrap.unbind('mod+,');
     };
   }, []);
 
@@ -81,13 +94,20 @@ export default function WorkspaceMenu({ collapsed }: { collapsed: boolean }) {
         >
           <MenuTrigger disableButtonEnhancement>
             <MenuButton
-              icon={<FireIcon />}
+              icon={
+                <span 
+                  onMouseEnter={() => setHovered(true)} 
+                  onMouseLeave={() => setHovered(false)}
+                >
+                  {hovered ? <Record24Regular /> : <Record24Filled />}
+                </span>
+              }
               appearance="subtle"
               style={{borderColor: 'transparent', boxShadow: 'none'}}
               className="w-full justify-start outline-none"
               onClick={() => setOpen(true)}
             >
-              {collapsed ? null : t('Common.Workspace')}
+              {collapsed ? null : <span className="text-2xl font-black tracking-wide" style={{ fontSize: '1.6rem', textShadow: '0 0 1px rgba(255,255,255,0.3)' }}>OMNI OS</span>}
             </MenuButton>
           </MenuTrigger>
           {collapsed ? null : user ? (
@@ -160,20 +180,14 @@ export default function WorkspaceMenu({ collapsed }: { collapsed: boolean }) {
               {t('Common.Settings')}
             </MenuItem>
             <MenuItem
-              icon={<ReceiptSparkles24Regular />}
-              onClick={() => {
-                navigate('/prompts');
-              }}
-            >
-              {t('Common.Prompts')}
-            </MenuItem>
-            <MenuItem
               icon={<DataUsage24Regular />}
-              onClick={() => {
-                navigate('/usage');
+              onClick={(e) => {
+                e.preventDefault();
+                // Prevent navigation to analytics
               }}
+              style={{ opacity: 0.6, cursor: 'not-allowed' }}
             >
-              {t('Common.Analytics')}
+              {t('Common.Analytics')} <span className="text-xs ml-2">(Coming Soon)</span>
             </MenuItem>
             {user ? (
               <div>

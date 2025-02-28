@@ -13,6 +13,7 @@ import Doubao from './Doubao';
 import Grok from './Grok';
 import DeepSeek from './DeepSeek';
 import Mistral from './Mistral';
+import OMNI from './OMNI';
 
 export const providers: { [key: string]: IServiceProvider } = {
   OpenAI,
@@ -28,6 +29,7 @@ export const providers: { [key: string]: IServiceProvider } = {
   Doubao,
   DeepSeek,
   '5ire':Fire,
+  'OMNI':OMNI,
 };
 
 export function getProvider(providerName: ProviderType): IServiceProvider {

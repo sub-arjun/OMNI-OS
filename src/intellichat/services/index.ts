@@ -13,6 +13,7 @@ import FireChatService from './FireChatService';
 import DoubaoChatService from './DoubaoChatService';
 import GrokChatService from './GrokChatService';
 import DeepSeekChatService from './DeepSeekChatService';
+import OMNIChatService from './OMNIChatService';
 import INextChatService from './INextCharService';
 
 export default function createService(
@@ -46,6 +47,8 @@ export default function createService(
       return new GrokChatService(chatCtx);
     case 'DeepSeek':
       return new DeepSeekChatService(chatCtx);
+    case 'OMNI':
+      return new OMNIChatService(chatCtx);
     default:
       throw new Error(`Invalid provider:${providerName}`);
   }

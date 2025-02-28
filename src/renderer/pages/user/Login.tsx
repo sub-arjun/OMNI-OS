@@ -65,7 +65,10 @@ export default function Login() {
   };
 
   const onTabSelect = (event: SelectTabEvent, data: SelectTabData) => {
-    setTab(data.value);
+    // Only allow email and password tab
+    if (data.value === 'emailAndPassword') {
+      setTab(data.value);
+    }
   };
 
   const sendOneTimePassword = async () => {
@@ -112,7 +115,9 @@ export default function Login() {
           <Tab value="emailAndPassword">
             {t('Auth.Tab.SignInWithPasswordAndEmail')}
           </Tab>
-          <Tab value="emailOTP">{t('Auth.Tab.SignInWithEmailOTP')}</Tab>
+          <Tab value="emailOTP" disabled style={{ opacity: 0.6, cursor: 'not-allowed' }}>
+            {t('Auth.Tab.SignInWithEmailOTP')} <span className="text-xs ml-2">(Coming Soon)</span>
+          </Tab>
         </TabList>
         <div
           style={{ maxWidth: '400px' }}
@@ -187,16 +192,20 @@ export default function Login() {
                 content={t('Account.Info.ResetPassword')}
                 relationship="label"
               >
-                <Button appearance="subtle">
-                  {t('Account.ForgotPassword')}
+                <Button 
+                  appearance="subtle" 
+                  disabled 
+                  style={{ opacity: 0.6, cursor: 'not-allowed' }}
+                >
+                  {t('Account.ForgotPassword')} <span className="text-xs">(Coming Soon)</span>
                 </Button>
               </Tooltip>
             </div>
           ) : null}
           <div>
-            <Link to="/user/register" className="underline">
-              {t('Account.NoAccountAndSignUp')}
-            </Link>
+            <span className="text-gray-500" style={{ opacity: 0.6, cursor: 'not-allowed' }}>
+              {t('Account.NoAccountAndSignUp')} <span className="text-xs">(Coming Soon)</span>
+            </span>
           </div>
         </div>
       </div>

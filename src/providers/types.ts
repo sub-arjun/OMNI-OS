@@ -12,6 +12,7 @@ export type ProviderType =
   | '5ire'
   | 'Doubao'
   | 'Grok'
+  | 'OMNI'
 
 export interface INumberRange {
   min: number;
@@ -38,6 +39,7 @@ export type ChatModelGroup =
   | 'Pixtral'
   | 'Claude-3'
   | 'Claude-3.5'
+  | 'Claude-3.7'
   | 'Doubao-Pro'
   | 'Doubao-Lite'
   | 'Open Source';

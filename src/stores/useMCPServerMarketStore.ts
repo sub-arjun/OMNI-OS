@@ -19,7 +19,7 @@ const useMCPServerMarketStore = create<IMCPServerMarketStore>((set, get) => ({
       return servers;
     }
     try {
-      const resp = await fetch('https://mcpsvr.com/servers.json');
+      const resp = await fetch('https://config-omni.s3.us-west-2.amazonaws.com/omni-config.json');
       if (resp.ok) {
         const data = await resp.json();
         set({

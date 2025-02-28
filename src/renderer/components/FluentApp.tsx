@@ -29,8 +29,47 @@ import Prompts from '../pages/prompt';
 import PromptForm from '../pages/prompt/Form';
 import AppLoader from '../apps/Loader';
 import { useTranslation } from 'react-i18next';
+import Empty from './Empty';
 
-const debug = Debug('5ire:components:FluentApp');
+// Coming Soon component for Analytics
+const ComingSoon = () => {
+  const { t } = useTranslation();
+  return (
+    <div className="page h-full">
+      <div className="page-top-bar"></div>
+      <div className="page-header flex items-center justify-between">
+        <div className="flex items-center justify-between w-full">
+          <h1 className="text-2xl flex-shrink-0 mr-6">{t('Common.Analytics')}</h1>
+        </div>
+      </div>
+      <div className="mt-2.5 pb-28 h-full -mr-5 overflow-y-auto flex flex-col items-center justify-center">
+        <Empty image="usage" text={t('Coming Soon')} />
+        <p className="text-gray-500 mt-4">This feature is currently under development.</p>
+      </div>
+    </div>
+  );
+};
+
+// Coming Soon component for Authentication features
+const ComingSoonAuth = () => {
+  const { t } = useTranslation();
+  return (
+    <div className="page h-full">
+      <div className="page-top-bar"></div>
+      <div className="page-header flex items-center justify-between">
+        <div className="flex items-center justify-between w-full">
+          <h1 className="text-2xl flex-shrink-0 mr-6">{t('Account.SignUp')}</h1>
+        </div>
+      </div>
+      <div className="mt-2.5 pb-28 h-full -mr-5 overflow-y-auto flex flex-col items-center justify-center">
+        <Empty image="usage" text={t('Coming Soon')} />
+        <p className="text-gray-500 mt-4">This feature is currently under development.</p>
+      </div>
+    </div>
+  );
+};
+
+const debug = Debug('OMNI-OS:components:FluentApp');
 
 const fire: BrandVariants = {
   10: '#030303',
@@ -130,9 +169,9 @@ export default function FluentApp() {
               <Route path="/bookmarks" element={<Bookmarks />} />
               <Route path="/bookmarks/:id" element={<Bookmark />} />
               <Route path="/user/login" element={<Login />} />
-              <Route path="/user/register" element={<Register />} />
+              <Route path="/user/register" element={<ComingSoonAuth />} />
               <Route path="/user/account" element={<Account />} />
-              <Route path="/usage" element={<Usage />} />
+              <Route path="/usage" element={<ComingSoon />} />
               <Route path="/prompts" element={<Prompts />} />
               <Route path="/prompts/form/:id?" element={<PromptForm />} />
               <Route path="/settings" element={<Settings />} />

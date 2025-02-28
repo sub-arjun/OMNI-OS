@@ -145,6 +145,8 @@ const useChatStore = create<IChatStore>((set, get) => ({
       chat,
     ) as IChat;
     debug('Init a chat', $chat);
+    $chat.input = chat.input || '';
+    $chat.stream = true;
     set({ chat: $chat, messages: [] });
     return $chat;
   },
@@ -210,7 +212,7 @@ const useChatStore = create<IChatStore>((set, get) => ({
         $chat.temperature || null,
         $chat.maxCtxMessages || null,
         $chat.maxTokens || null,
-        isNil($chat.stream) ? 1 : $chat.stream ? 1 : 0,
+        1,
         prompt,
         $chat.input,
         $chat.createdAt,
@@ -273,8 +275,8 @@ const useChatStore = create<IChatStore>((set, get) => ({
     }
     if (!isNil(chat.stream)) {
       stats.push('stream = ?');
-      $chat.stream = chat.stream;
-      params.push($chat.stream ? 1 : 0);
+      $chat.stream = true;
+      params.push(1);
     }
     if (!isUndefined(chat.input)) {
       $chat.input = chat.input as string;
@@ -587,7 +589,7 @@ const useChatStore = create<IChatStore>((set, get) => ({
             state.tempStage.systemMessage = stage.systemMessage;
           }
           if (!isUndefined(stage.stream)) {
-            state.tempStage.stream = stage.stream;
+            state.tempStage.stream = true;
           }
         }),
       );
