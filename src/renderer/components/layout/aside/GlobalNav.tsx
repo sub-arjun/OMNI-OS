@@ -76,7 +76,7 @@ export default function GlobalNav({ collapsed }: { collapsed: boolean }) {
     <div
       className={`relative ${
         collapsed ? 'text-center' : ''
-      } border-b border-base py-2`}
+      } border-b border-base/40 py-2`}
     >
       <div className={`px-2 my-1 ${collapsed ? 'mx-auto' : ''}`}>
         <WorkspaceMenu collapsed={collapsed} />
@@ -86,7 +86,7 @@ export default function GlobalNav({ collapsed }: { collapsed: boolean }) {
           <Button
             appearance="subtle"
             icon={<EmojiSparkleIcon />}
-            className="w-full justify-start"
+            className="w-full justify-start hover:bg-black/10 dark:hover:bg-white/10"
           >
             {collapsed ? null : t('Common.Assistants')}
           </Button>
@@ -97,7 +97,7 @@ export default function GlobalNav({ collapsed }: { collapsed: boolean }) {
           <Button
             appearance="subtle"
             icon={<AppsIcon />}
-            className="w-full justify-start"
+            className="w-full justify-start hover:bg-black/10 dark:hover:bg-white/10"
             onClick={() => navigate('/apps')}
           >
             {collapsed ? null : t('Common.Apps')}
@@ -109,7 +109,7 @@ export default function GlobalNav({ collapsed }: { collapsed: boolean }) {
           appearance="subtle"
           title="Alt+1"
           icon={<WandIcon />}
-          className="w-full justify-start"
+          className="w-full justify-start hover:bg-black/10 dark:hover:bg-white/10"
           onClick={() => navigate('/tool')}
         >
           {collapsed ? null : (
@@ -131,7 +131,7 @@ export default function GlobalNav({ collapsed }: { collapsed: boolean }) {
           appearance="subtle"
           title="Alt+2"
           icon={<KnowledgeIcon />}
-          className="w-full justify-start"
+          className="w-full justify-start hover:bg-black/10 dark:hover:bg-white/10"
           onClick={() => navigate('/knowledge')}
         >
           {collapsed ? null : t('Common.Knowledge')}
@@ -141,7 +141,7 @@ export default function GlobalNav({ collapsed }: { collapsed: boolean }) {
         <Button
           appearance="subtle"
           icon={<PromptsIcon />}
-          className="w-full justify-start"
+          className="w-full justify-start hover:bg-black/10 dark:hover:bg-white/10"
           onClick={() => navigate('/prompts')}
         >
           {collapsed ? null : t('Common.Prompts')}
@@ -152,7 +152,7 @@ export default function GlobalNav({ collapsed }: { collapsed: boolean }) {
           appearance="subtle"
           title="Alt+3"
           icon={<BookmarkMultipleIcon />}
-          className="w-full justify-start"
+          className="w-full justify-start hover:bg-black/10 dark:hover:bg-white/10"
           onClick={() => {
             navigate('/bookmarks');
           }}
@@ -165,7 +165,7 @@ export default function GlobalNav({ collapsed }: { collapsed: boolean }) {
           appearance="subtle"
           title="Mod+n"
           icon={<ChatAddIcon />}
-          className="w-full justify-start"
+          className="w-full justify-start hover:bg-black/10 dark:hover:bg-white/10"
           onClick={async () => navigate(`/chats/${tempChatId}`)}
         >
           {collapsed ? null : t('Chat.New')}

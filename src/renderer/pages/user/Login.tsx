@@ -41,8 +41,9 @@ export default function Login() {
   const [isEmailValid, setIsEmailValid] = useState<boolean>(true);
   const session = useAuthStore((state) => state.session);
   const getPalette = useAppearanceStore((state) => state.getPalette);
+  const theme = useAppearanceStore((state) => state.theme);
 
-  // 如果用户已登录，则自动跳转到主页
+  // Redirect if user is already logged in
   useEffect(() => {
     if (session) {
       navigate('/user/account');
@@ -102,112 +103,238 @@ export default function Login() {
     setLoading(false);
   };
 
+  // Handle keydown event for Enter key on password field
+  const handleKeyDown = (event: React.KeyboardEvent) => {
+    if (event.key === 'Enter' && !loading) {
+      signInWithEmailAndPassword();
+    }
+  };
+
   return (
-    <div className="page h-full">
-      <div className="page-top-bar"></div>
-      <div className="page-header flex items-center justify-between">
-        <div className="flex items-center justify-between w-full">
-          <h1 className="text-2xl flex-shrink-0 mr-6">{t('Common.SignIn')}</h1>
+    <div className="page h-full flex flex-col items-center justify-center relative">
+      {/* Background pattern overlay */}
+      <div 
+        className="absolute inset-0 z-0" 
+        style={{
+          background: theme === 'dark' 
+            ? `radial-gradient(circle at 50% 50%, rgba(100, 100, 100, 0.1) 0%, rgba(0, 0, 0, 0) 70%), 
+               radial-gradient(circle at 75% 20%, rgba(100, 100, 100, 0.1) 0%, rgba(0, 0, 0, 0) 60%)`
+            : `radial-gradient(circle at 50% 50%, rgba(0, 0, 0, 0.05) 0%, rgba(0, 0, 0, 0) 70%), 
+               radial-gradient(circle at 75% 20%, rgba(0, 0, 0, 0.05) 0%, rgba(0, 0, 0, 0) 60%)`,
+          backgroundSize: '100% 100%',
+          backgroundPosition: 'center center',
+        }}
+      />
+      
+      {/* Login brand element */}
+      <div className="absolute top-8 left-1/2 transform -translate-x-1/2 opacity-90">
+        <h1 className="text-3xl font-light tracking-wider">
+          <span className="font-bold">OMNI</span>OS
+        </h1>
+      </div>
+      
+      {/* Main login card with animation */}
+      <div 
+        className="w-full max-w-md p-10 rounded-xl bg-brand-surface-1 shadow-xl border border-gray-200 dark:border-gray-700 relative z-10"
+        style={{
+          boxShadow: theme === 'dark' 
+            ? '0 10px 40px rgba(0, 0, 0, 0.5)' 
+            : '0 10px 40px rgba(0, 0, 0, 0.15)',
+          backgroundColor: theme === 'dark' ? '#2A2A2A' : '#FFFFFF',
+        }}
+      >
+        <div className="flex justify-center mb-8">
+          <img 
+            src="/logo.png" 
+            alt="OMNI Logo" 
+            className="h-18 w-auto animate-fade-in-up"
+            style={{
+              animation: 'fadeInUp 0.6s ease-out 0.2s both',
+            }}
+            onError={(e) => {
+              // Fallback if image doesn't exist
+              e.currentTarget.style.display = 'none';
+            }}
+          />
+        </div>
+        
+        <h1 
+          className="text-3xl font-bold text-center mb-4"
+          style={{
+            color: theme === 'dark' ? '#FFFFFF' : '#333333',
+          }}
+        >
+          {t('Common.SignIn')}
+        </h1>
+        
+        <div className="mb-8">
+          <h2 className="text-xl mb-2 font-medium text-center" style={{ color: theme === 'dark' ? '#EAEAEA' : '#333333' }}>
+            Welcome to <span className="font-bold">OMNI</span>OS
+          </h2>
+          <p className="text-center text-sm" style={{ color: theme === 'dark' ? '#BBBBBB' : '#555555' }}>
+            Please sign in to access the application.
+          </p>
+        </div>
+
+        <div>
+          <div className="mb-6 overflow-hidden">
+            <TabList 
+              selectedValue={tab} 
+              onTabSelect={onTabSelect}
+              size="small"
+              style={{ 
+                maxWidth: '100%',
+                display: 'flex',
+                flexDirection: 'row'
+              }}
+            >
+              <Tab 
+                value="emailAndPassword" 
+                style={{ 
+                  fontWeight: 600,
+                  flex: '1 0 auto',
+                  maxWidth: '55%'
+                }}
+              >
+                <span className="whitespace-nowrap">
+                  Email & Password
+                </span>
+              </Tab>
+              <Tab 
+                value="emailOTP" 
+                disabled 
+                style={{ 
+                  opacity: 0.6, 
+                  cursor: 'not-allowed',
+                  flex: '1 0 auto',
+                  maxWidth: '45%'
+                }}
+              >
+                <span className="whitespace-nowrap text-sm">
+                  Magic Link <span className="text-xs">(Soon)</span>
+                </span>
+              </Tab>
+            </TabList>
+          </div>
+          
+          <div className="flex flex-col gap-6 mt-6">
+            <div>
+              <Field label={t('Common.Email')} style={{ fontWeight: 600, fontSize: '1rem', marginBottom: '4px' }}>
+                <StateInput
+                  isValid={isEmailValid}
+                  onBlur={() => {
+                    setIsEmailValid(isValidEmail(email));
+                  }}
+                  value={email}
+                  onChange={onEmailChange}
+                  icon={<Mail20Regular />}
+                  errorMsg={t('Auth.Notification.InvalidEmailWarning')}
+                  contentAfter={
+                    tab === 'emailAndPassword' ? null : otpSent ? (
+                      <CheckmarkCircle20Filled
+                        primaryFill={getPalette('success')}
+                      />
+                    ) : (
+                      <StateButton
+                        size="small"
+                        appearance="primary"
+                        loading={loading}
+                        onClick={sendOneTimePassword}
+                      >
+                        {t('Auth.Action.sendOTPEmail')}
+                      </StateButton>
+                    )
+                  }
+                />
+                {tab === 'emailOTP' ? (
+                  otpSent ? (
+                    <div className="tips flex items-center mt-2">
+                      <b className="text-color-success">
+                        {t('Auth.Notification.OTPSentTitle')}
+                        {t('Auth.Notification.OTPSentInfo')}
+                      </b>
+                    </div>
+                  ) : (
+                    <div className="tips flex items-center mt-2">
+                      <Info16Regular />
+                      &nbsp;{t('Auth.Info.SignInWithEmailOTP')}
+                    </div>
+                  )
+                ) : null}
+              </Field>
+            </div>
+            
+            {tab === 'emailAndPassword' && (
+              <div>
+                <Field label={t('Common.Password')} style={{ fontWeight: 600, fontSize: '1rem', marginBottom: '4px' }}>
+                  <MaskableInput
+                    onChange={onPasswordChange}
+                    value={password}
+                    contentBefore={<Password20Regular />}
+                    onKeyDown={handleKeyDown}
+                  />
+                </Field>
+              </div>
+            )}
+            
+            {tab === 'emailAndPassword' && (
+              <div className="flex items-center justify-between gap-2 mt-2">
+                <StateButton
+                  loading={loading}
+                  appearance="primary"
+                  onClick={signInWithEmailAndPassword}
+                  style={{ 
+                    height: '44px',
+                    minWidth: '140px',
+                    fontWeight: 'bold',
+                    fontSize: '1rem',
+                    backgroundColor: theme === 'dark' ? '#636363' : '#494949',
+                  }}
+                  className="hover:shadow-lg"
+                >
+                  {t('Common.SignIn')}
+                </StateButton>
+                <Tooltip
+                  content={t('Account.Info.ResetPassword')}
+                  relationship="label"
+                >
+                  <Button 
+                    appearance="subtle" 
+                    disabled 
+                    style={{ opacity: 0.6, cursor: 'not-allowed' }}
+                  >
+                    {t('Account.ForgotPassword')} <span className="text-xs">(Coming Soon)</span>
+                  </Button>
+                </Tooltip>
+              </div>
+            )}
+            
+            <div className="text-center mt-6">
+              <span 
+                className="text-gray-500" 
+                style={{ 
+                  opacity: 0.8, 
+                  cursor: 'not-allowed',
+                  color: theme === 'dark' ? '#AAAAAA' : '#666666'
+                }}
+              >
+                {t('Account.NoAccountAndSignUp')} <span className="text-xs">(Coming Soon)</span>
+              </span>
+            </div>
+          </div>
         </div>
       </div>
-      <div className="mt-2.5 pb-12 h-full -mr-5 overflow-y-auto">
-        <TabList selectedValue={tab} onTabSelect={onTabSelect}>
-          <Tab value="emailAndPassword">
-            {t('Auth.Tab.SignInWithPasswordAndEmail')}
-          </Tab>
-          <Tab value="emailOTP" disabled style={{ opacity: 0.6, cursor: 'not-allowed' }}>
-            {t('Auth.Tab.SignInWithEmailOTP')} <span className="text-xs ml-2">(Coming Soon)</span>
-          </Tab>
-        </TabList>
-        <div
-          style={{ maxWidth: '400px' }}
-          className="flex flex-col gap-5 ml-3 mt-4"
-        >
-          <div>
-            <Field label={t('Common.Email')}>
-              <StateInput
-                isValid={isEmailValid}
-                onBlur={() => {
-                  setIsEmailValid(isValidEmail(email));
-                }}
-                value={email}
-                onChange={onEmailChange}
-                icon={<Mail20Regular />}
-                errorMsg={t('Auth.Notification.InvalidEmailWarning')}
-                contentAfter={
-                  tab === 'emailAndPassword' ? null : otpSent ? (
-                    <CheckmarkCircle20Filled
-                      primaryFill={getPalette('success')}
-                    />
-                  ) : (
-                    <StateButton
-                      size="small"
-                      appearance="primary"
-                      loading={loading}
-                      onClick={sendOneTimePassword}
-                    >
-                      {t('Auth.Action.sendOTPEmail')}
-                    </StateButton>
-                  )
-                }
-              />
-              {tab === 'emailOTP' ? (
-                otpSent ? (
-                  <div className="tips flex items-center mt-2">
-                    <b className="text-color-success">
-                      {t('Auth.Notification.OTPSentTitle')}
-                      {t('Auth.Notification.OTPSentInfo')}
-                    </b>
-                  </div>
-                ) : (
-                  <div className="tips flex items-center mt-2">
-                    <Info16Regular />
-                    &nbsp;{t('Auth.Info.SignInWithEmailOTP')}
-                  </div>
-                )
-              ) : null}
-            </Field>
-          </div>
-          <div>
-            {tab === 'emailAndPassword' ? (
-              <Field label={t('Common.Password')}>
-                <MaskableInput
-                  onChange={onPasswordChange}
-                  value={password}
-                  contentBefore={<Password20Regular />}
-                />
-              </Field>
-            ) : null}
-          </div>
-          {tab === 'emailAndPassword' ? (
-            <div className="flex items-start gap-2">
-              <StateButton
-                loading={loading}
-                appearance="primary"
-                onClick={signInWithEmailAndPassword}
-              >
-                {t('Common.SignIn')}
-              </StateButton>
-              <Tooltip
-                content={t('Account.Info.ResetPassword')}
-                relationship="label"
-              >
-                <Button 
-                  appearance="subtle" 
-                  disabled 
-                  style={{ opacity: 0.6, cursor: 'not-allowed' }}
-                >
-                  {t('Account.ForgotPassword')} <span className="text-xs">(Coming Soon)</span>
-                </Button>
-              </Tooltip>
-            </div>
-          ) : null}
-          <div>
-            <span className="text-gray-500" style={{ opacity: 0.6, cursor: 'not-allowed' }}>
-              {t('Account.NoAccountAndSignUp')} <span className="text-xs">(Coming Soon)</span>
-            </span>
-          </div>
-        </div>
+      
+      {/* Footer attribution */}
+      <div 
+        className="absolute bottom-6 text-center text-xs"
+        style={{ 
+          color: theme === 'dark' ? '#BBBBBB' : '#666666',
+          fontWeight: 500,
+          opacity: 0.95
+        }}
+      >
+        OMNI © {new Date().getFullYear()} • Secure AI Experience
       </div>
     </div>
   );

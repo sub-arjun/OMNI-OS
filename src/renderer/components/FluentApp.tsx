@@ -30,6 +30,8 @@ import PromptForm from '../pages/prompt/Form';
 import AppLoader from '../apps/Loader';
 import { useTranslation } from 'react-i18next';
 import Empty from './Empty';
+import ProtectedRoute from './ProtectedRoute';
+import useAuthStore from 'stores/useAuthStore';
 
 // Coming Soon component for Analytics
 const ComingSoon = () => {
@@ -107,6 +109,7 @@ export default function FluentApp() {
   const theme = useAppearanceStore((state) => state.theme);
   const language = useSettingsStore((state) => state.language);
   const setTheme = useAppearanceStore((state) => state.setTheme);
+  const user = useAuthStore((state) => state.user);
 
   useEffect(() => {
     window.electron.ipcRenderer.on('native-theme-change', (_theme: unknown) => {
@@ -151,30 +154,35 @@ export default function FluentApp() {
       data-theme={theme}
     >
       <Router>
-        <AppHeader />
+        {user && <AppHeader />}
         <Toaster toasterId="toaster" limit={5} offset={{ vertical: 25 }} />
         <div className="relative flex h-screen w-full overflow-hidden main-container">
-          <AppSidebar />
+          {user && <AppSidebar />}
           <main className="relative px-5 flex h-full w-full flex-col overflow-hidden">
             <Routes>
-              <Route index element={<Chat />} />
-              <Route path="/chats/:id?/:anchor?" element={<Chat />} />
-              <Route path="/knowledge" element={<Knowledge />} />
-              <Route
-                path="/knowledge/collection-form/:id?"
-                element={<KnowledgeCollectionForm />}
-              />
-              <Route path="/tool" element={<Tools />} />
-              <Route path="/apps/:key" element={<AppLoader />} />
-              <Route path="/bookmarks" element={<Bookmarks />} />
-              <Route path="/bookmarks/:id" element={<Bookmark />} />
+              {/* Public routes that don't require authentication */}
               <Route path="/user/login" element={<Login />} />
               <Route path="/user/register" element={<ComingSoonAuth />} />
-              <Route path="/user/account" element={<Account />} />
-              <Route path="/usage" element={<ComingSoon />} />
-              <Route path="/prompts" element={<Prompts />} />
-              <Route path="/prompts/form/:id?" element={<PromptForm />} />
-              <Route path="/settings" element={<Settings />} />
+              
+              {/* Protected routes that require authentication */}
+              <Route element={<ProtectedRoute />}>
+                <Route index element={<Chat />} />
+                <Route path="/chats/:id?/:anchor?" element={<Chat />} />
+                <Route path="/knowledge" element={<Knowledge />} />
+                <Route
+                  path="/knowledge/collection-form/:id?"
+                  element={<KnowledgeCollectionForm />}
+                />
+                <Route path="/tool" element={<Tools />} />
+                <Route path="/apps/:key" element={<AppLoader />} />
+                <Route path="/bookmarks" element={<Bookmarks />} />
+                <Route path="/bookmarks/:id" element={<Bookmark />} />
+                <Route path="/user/account" element={<Account />} />
+                <Route path="/usage" element={<ComingSoon />} />
+                <Route path="/prompts" element={<Prompts />} />
+                <Route path="/prompts/form/:id?" element={<PromptForm />} />
+                <Route path="/settings" element={<Settings />} />
+              </Route>
             </Routes>
             <div
               id="portal"

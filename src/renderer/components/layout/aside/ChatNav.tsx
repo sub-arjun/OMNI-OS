@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import useNav from 'hooks/useNav';
 import { Button, Tooltip } from '@fluentui/react-components';
-import { Chat20Regular, Chat20Filled } from '@fluentui/react-icons';
+import { Chat20Regular, Chat20Filled, Person20Regular, Bot20Regular } from '@fluentui/react-icons';
 import useChatStore from 'stores/useChatStore';
 import { IChat } from 'intellichat/types';
 import Mousetrap from 'mousetrap';
@@ -47,39 +47,55 @@ export default function ChatNav({ collapsed }: { collapsed: boolean }) {
     };
   }, [fetchChat,chats.length, currentChat?.id]);
 
-  const renderIconWithTooltip = (isActiveChat: boolean, summary: string) => {
+  // Determine if a chat is from the user or agent based on summary content
+  const isChatFromAgent = (summary: string | undefined) => {
+    if (!summary) return false;
+    // Check for common agent-initiated patterns
+    return summary.toLowerCase().includes('assistant') || 
+           summary.toLowerCase().includes('ai') ||
+           summary.toLowerCase().includes('generated') ||
+           summary.toLowerCase().includes('created');
+  };
+
+  const renderIconWithTooltip = (isActiveChat: boolean, chat: IChat) => {
+    const isAgentChat = isChatFromAgent(chat.summary);
     return (
       <Tooltip
         withArrow
-        content={summary?.substring(0, 200)}
+        content={chat.summary?.substring(0, 200)}
         relationship="label"
         positioning="above-start"
       >
-        {isActiveChat ? <Chat20Filled /> : <Chat20Regular />}
+        {isActiveChat ? 
+          <Chat20Filled /> : 
+          (isAgentChat ? <Bot20Regular /> : <Person20Regular />)
+        }
       </Tooltip>
     );
   };
 
   return (
-    <div className="h-full overflow-y-auto bg-brand-sidebar">
+    <div className="h-full overflow-y-auto chat-list-container">
       <div
         className={`flex flex-col pt-2.5 ${collapsed ? 'content-center' : ''}`}
       >
         {chats.map((chat: IChat) => {
+          const isActive = currentChat && currentChat.id === chat.id;
+          const isAgentChat = isChatFromAgent(chat.summary);
+          
           return (
             <div
-              className={`px-2 ${collapsed ? 'mx-auto' : ''} ${
-                currentChat && currentChat.id === chat.id ? 'active' : ''
+              className={`px-2 my-1 ${collapsed ? 'mx-auto' : ''} ${
+                isActive ? 'active' : ''
               }`}
               key={chat.id}
             >
               <Button
-                icon={renderIconWithTooltip(
-                  currentChat && currentChat.id === chat.id,
-                  chat.summary
-                )}
+                icon={renderIconWithTooltip(isActive, chat)}
                 appearance="subtle"
-                className="w-full justify-start latin"
+                className={`w-full justify-start latin hover:bg-black/10 dark:hover:bg-white/10 chat-item ${
+                  isAgentChat ? 'agent-chat' : 'user-chat'
+                }`}
                 onClick={() => navigate(`/chats/${chat.id}`)}
               >
                 {collapsed ? null : (

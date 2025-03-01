@@ -4,7 +4,7 @@ import {
   AccordionHeader,
   AccordionPanel,
 } from '@fluentui/react-components';
-import { PlayCircleHint16Regular } from '@fluentui/react-icons';
+import { PlayCircleHint16Regular, Info24Regular } from '@fluentui/react-icons';
 import useMarkdown from 'hooks/useMarkdown';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -36,16 +36,28 @@ export default function Sidebar({ chatId }: { chatId: string }) {
     };
   }, [theme]);
 
+  // Glass morphism styles are mostly defined in Chat.scss
+  // but we add some additional styles here for visual polish
+  const glassStyles = {
+    borderLeft: `1px solid rgba(var(--color-border), 0.4)`,
+  };
+
   return (
     <aside
       className={`right-sidebar ml-5 -mr-5 z-20 pt-2.5 flex-shrink-0 border-l w-72 ${
         chatSidebar.show ? 'hidden sm:flex' : 'hidden'
       }  inset-y-0 top-0 flex-col duration-300 md:relative pl-2`}
+      style={glassStyles}
     >
-      <div className="text-gray-300 dark:text-gray-600 font-bold text-lg mb-2">
+      {/* Glass reflection effect */}
+      <div className="absolute top-0 left-0 right-0 h-[1px] bg-white opacity-20"></div>
+      
+      <div className="flex text-gray-300 dark:text-gray-600 font-bold text-lg mb-2 items-center">
+        <Info24Regular className="mr-2 text-color-tertiary" />
         {t('Common.Inspector')}
       </div>
-      <div className="h-full overflow-x-hidden overflow-y-auto break-all -ml-2.5">
+      
+      <div className="h-full overflow-x-hidden overflow-y-auto break-all -ml-2.5 relative z-10">
         <Accordion multiple collapsible>
           {trace?.map((item: ITraceMessage, idx: number) => {
             return item.message === '' ? (
@@ -82,6 +94,16 @@ export default function Sidebar({ chatId }: { chatId: string }) {
             );
           })}
         </Accordion>
+        
+        {/* Show message when no trace is available */}
+        {(!trace || trace.length === 0) && (
+          <div className="text-center pt-6 px-4 text-sm text-gray-400">
+            <div className="mb-2 opacity-50">
+              <Info24Regular className="mx-auto" />
+            </div>
+            {t('Common.NoInspectorData')}
+          </div>
+        )}
       </div>
     </aside>
   );

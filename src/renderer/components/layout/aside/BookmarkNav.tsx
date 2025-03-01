@@ -70,7 +70,7 @@ export default function BookmarkNav({ collapsed }: { collapsed: boolean }) {
   };
 
   return (
-    <div className="h-full overflow-y-auto bg-brand-sidebar">
+    <div className="h-full overflow-y-auto">
       <div
         className={`flex flex-col pt-2.5 ${collapsed ? 'content-center' : ''}`}
       >

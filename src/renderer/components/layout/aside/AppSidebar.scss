@@ -1,9 +1,144 @@
 .app-sidebar{
   height:100vh;
-  --tw-bg-opacity: 0.9;
-  --tw-border-opacity:1;
+  --tw-bg-opacity: 0.75;
+  --tw-border-opacity: 0.4;
   background-color: rgba(var(--color-bg-sidebar),var(--tw-bg-opacity));
   border-color: rgba(var(--color-border),var(--tw-border-opacity));
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.18);
+  
+  position: relative;
+  z-index: 20;
+  
+  &::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 70px;
+    background: linear-gradient(
+      to bottom,
+      rgba(255, 255, 255, 0.15), 
+      rgba(255, 255, 255, 0)
+    );
+    opacity: 0.5;
+    z-index: -1;
+    pointer-events: none;
+  }
+  
+  &::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 1px;
+    background: linear-gradient(
+      to bottom,
+      rgba(255, 255, 255, 0.3), 
+      rgba(255, 255, 255, 0.05)
+    );
+    opacity: 0.8;
+    z-index: -1;
+    pointer-events: none;
+  }
+  
+  .active button {
+    background-color: rgba(var(--color-accent), 0.15) !important;
+    position: relative;
+    
+    &::before {
+      content: "";
+      position: absolute;
+      left: -8px;
+      top: 50%;
+      transform: translateY(-50%);
+      height: 60%;
+      width: 3px;
+      background-color: rgba(var(--color-accent), 0.8);
+      border-radius: 0 2px 2px 0;
+    }
+  }
+  
+  /* Chat list container styling */
+  .chat-list-container {
+    position: relative;
+    
+    /* Custom scrollbar for the chat list */
+    &::-webkit-scrollbar {
+      width: 6px;
+    }
+    
+    &::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    
+    &::-webkit-scrollbar-thumb {
+      background-color: rgba(var(--color-border), 0.5);
+      border-radius: 6px;
+      border: 2px solid transparent;
+    }
+    
+    &::-webkit-scrollbar-thumb:hover {
+      background-color: rgba(var(--color-accent), 0.3);
+    }
+    
+    /* Chat item styling */
+    .chat-item {
+      border-radius: 6px;
+      margin-bottom: 2px;
+      transition: all 0.2s ease;
+      position: relative;
+      overflow: hidden;
+      
+      &:hover {
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+      }
+    }
+    
+    /* User chat styling */
+    .user-chat {
+      background-color: rgba(var(--color-bg-surface-1), 0.3);
+      border: 1px solid rgba(var(--color-border), 0.3);
+      border-radius: 3px 6px 6px 6px;
+      
+      svg {
+        opacity: 0.8;
+      }
+    }
+    
+    /* Agent chat styling */
+    .agent-chat {
+      background-color: rgba(var(--color-bg-surface-2), 0.3);
+      transform: translateY(-1px);
+      box-shadow: 0 3px 8px rgba(0, 0, 0, 0.1), 0 0 12px rgba(var(--color-bg-surface-2), 0.3);
+      border: 1px solid rgba(var(--color-border), 0.2);
+      margin-bottom: 6px;
+      border-radius: 6px 3px 6px 6px;
+      animation: sidebar-glow 3s ease-in-out infinite alternate;
+      
+      svg {
+        opacity: 0.9;
+      }
+      
+      &:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15), 0 0 16px rgba(var(--color-bg-surface-2), 0.4);
+      }
+    }
+  }
+}
+
+@keyframes sidebar-glow {
+  from {
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.1), 0 0 12px rgba(var(--color-bg-surface-2), 0.3);
+  }
+  to {
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.1), 0 0 16px rgba(var(--color-bg-surface-2), 0.5);
+  }
 }
 
 .Canny_BadgeContainer .Canny_Badge {
@@ -15,3 +150,4 @@
   padding: 5px;
   border: 1px solid white;
 }
+

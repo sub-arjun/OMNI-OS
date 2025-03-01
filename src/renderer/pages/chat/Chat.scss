@@ -3,11 +3,72 @@
   top: 0;
   z-index: 2;
   -webkit-app-region: drag;
+  position: relative;
+  
+  /* Container for the action buttons */
+  .action-buttons-container {
+    position: absolute;
+    right: 16px;
+    top: 8px;
+    display: flex;
+    gap: 4px;
+    padding: 4px 8px;
+    border-radius: 10px;
+    backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px);
+    background-color: rgba(var(--color-bg-base), 0.65);
+    border: 1px solid rgba(var(--color-border), 0.15);
+    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.07);
+    
+    &::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(
+        to right,
+        rgba(255, 255, 255, 0.2), 
+        rgba(255, 255, 255, 0.4),
+        rgba(255, 255, 255, 0.2)
+      );
+      opacity: 0.4;
+      pointer-events: none;
+      border-radius: 10px 10px 0 0;
+    }
+  }
+  
+  /* Make buttons not draggable */
+  button {
+    -webkit-app-region: no-drag;
+    transition: all 0.2s ease;
+    
+    &:hover {
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      background-color: rgba(var(--color-bg-surface-1), 0.4) !important;
+    }
+  }
 }
 .message {
   text-align: left;
   font-family: Barlow, -apple-system, BlinkMacSystemFont, PingFang SC, Hiragino Sans GB,
   Roboto, helvetica neue, helvetica, segoe ui, Arial, sans-serif;
+  
+  /* Add subtle glass effect to message boxes */
+  .msg-content {
+    position: relative;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    border-radius: 8px;
+    transition: all 0.2s ease;
+    
+    &:hover {
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+    }
+  }
 }
 [data-theme='dark'] .message :not(.think):not(.think *) {
   color: #d6d6d6;
@@ -55,9 +116,14 @@
   margin-left: 40px;
   margin-top: 7px;
   margin-bottom: 10px;
-  --tw-bg-opacity: 1;
+  --tw-bg-opacity: 0.7;
   background-color: rgba(var(--color-bg-sidebar), var(--tw-bg-opacity));
   visibility: hidden;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(var(--color-border), 0.3);
 }
 .message:hover .message-toolbar {
   visibility: visible;
@@ -68,13 +134,43 @@
 .message li{
   padding:2px 0;
 }
-.msg-prompt .avatar {
-  background-image: linear-gradient(to right, #fa709a 0%, #fee140 100%);
+
+/* Enhance user message (prompt) */
+.msg-prompt .msg-content {
+  background-color: rgba(var(--color-bg-surface-1), 0.45);
+  border: 1px solid rgba(var(--color-border), 0.35);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+  color: rgba(var(--color-text-primary), 0.92);
+  position: relative;
+  border-radius: 3px 8px 8px 8px;
 }
 
-.msg-reply .avatar {
-  background-image: linear-gradient(to top, #d9afd9 0%, #97d9e1 100%);
+/* Enhance AI message (reply) */
+.msg-reply .msg-content {
+  background-color: rgba(var(--color-bg-surface-2), 0.45);
+  border: 1px solid rgba(var(--color-border), 0.25);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.09), 0 0 16px rgba(var(--color-bg-surface-2), 0.4);
+  position: relative;
+  transform: translateY(-1px);
+  border-radius: 8px 3px 8px 8px;
+  animation: subtle-glow 3s ease-in-out infinite alternate;
+  
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12), 0 0 20px rgba(var(--color-bg-surface-2), 0.5);
+    transition: all 0.2s ease;
+  }
 }
+
+@keyframes subtle-glow {
+  from {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.09), 0 0 16px rgba(var(--color-bg-surface-2), 0.4);
+  }
+  to {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.09), 0 0 20px rgba(var(--color-bg-surface-2), 0.6);
+  }
+}
+
 .msg-reply ul, .msg-reply ol{
   margin-bottom:15px;
 }
@@ -170,19 +266,32 @@
 
 div.think{
  color: rgba(var(--color-text-info), 0.7);
- border-radius: 4px;
+ border-radius: 8px;
  font-size:13px;
  margin-bottom: 8px;
+ background-color: rgba(var(--color-bg-surface-1), 0.3);
+ backdrop-filter: blur(8px);
+ -webkit-backdrop-filter: blur(8px);
+ border: 1px solid rgba(var(--color-border), 0.2);
+ box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
 }
 [data-theme='dark'] div.think{
   color: #999;
 }
 div.think-header{
-  padding:4px 0;
+  padding:6px 8px;
   display:flex;
   justify-content: flex-start;
   align-items: center;
   gap: 2px;
+  border-bottom: 1px solid rgba(var(--color-border), 0.1);
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  border-radius: 8px 8px 0 0;
+  
+  &:hover {
+    background-color: rgba(var(--color-accent), 0.05);
+  }
 }
 div.think-header > div{
   display:flex;
@@ -194,8 +303,9 @@ div.think-header > div{
   border-bottom:none;
 }
 div.think-body{
-  padding: 8px;
-  border-left: 1px solid rgba(var(--color-border), 1);
+  padding: 8px 12px;
+  border-radius: 0 0 8px 8px;
+  
   p:not(:last-child){
     margin-bottom: 10px;
   }
@@ -211,8 +321,89 @@ div.think-body{
 
 .right-sidebar{
   height:100vh;
-  --tw-bg-opacity: 0.9;
-  --tw-border-opacity:1;
+  --tw-bg-opacity: 0.75;
+  --tw-border-opacity: 0.4;
   background-color: rgba(var(--color-bg-sidebar),var(--tw-bg-opacity));
   border-color: rgba(var(--color-border),var(--tw-border-opacity));
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 4px 20px 0 rgba(0, 0, 0, 0.15);
+  
+  position: relative;
+  z-index: 20;
+  
+  &::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 70px;
+    background: linear-gradient(
+      to bottom,
+      rgba(255, 255, 255, 0.12), 
+      rgba(255, 255, 255, 0)
+    );
+    opacity: 0.5;
+    z-index: -1;
+    pointer-events: none;
+  }
+  
+  &::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 1px;
+    background: linear-gradient(
+      to bottom,
+      rgba(255, 255, 255, 0.3), 
+      rgba(255, 255, 255, 0.05)
+    );
+    opacity: 0.8;
+    z-index: -1;
+    pointer-events: none;
+  }
+  
+  /* Improve the inspector message styling for glass background */
+  .inspector-message {
+    position: relative;
+    background-color: rgba(var(--color-bg-surface-1), 0.5);
+    border-radius: 6px;
+    padding: 4px;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    margin-bottom: 8px;
+    border: 1px solid rgba(var(--color-border), 0.3);
+    
+    pre {
+      background-color: rgba(0, 0, 0, 0.15);
+      border-radius: 4px;
+    }
+  }
+  
+  /* Style accordion items for glass morphism */
+  .fui-Accordion {
+    --accordion-header-hover-background: rgba(var(--color-accent), 0.06);
+  }
+  
+  .fui-AccordionHeader {
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+    border-radius: 4px;
+    margin-bottom: 2px;
+    
+    &:hover {
+      background-color: rgba(var(--color-accent), 0.05);
+    }
+  }
+  
+  .fui-AccordionPanel {
+    background-color: rgba(var(--color-bg-surface-1), 0.15);
+    border-radius: 0 0 6px 6px;
+    margin-bottom: 8px;
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+  }
 }

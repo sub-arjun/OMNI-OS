@@ -42,11 +42,6 @@ export default function LanguageSettings() {
           onChange={onLanguageChange}
         >
           <Radio name="language" value="en" label={t('Common.English')} />
-          <Radio
-            name="language"
-            value="zh-CN"
-            label={t('Common.SimpleChinese')}
-          />
           <Radio name="language" value="system" label={t('Appearance.System')} />
         </RadioGroup>
       </div>

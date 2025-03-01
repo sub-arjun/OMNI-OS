@@ -11,6 +11,7 @@ import useKnowledgeStore from 'stores/useKnowledgeStore';
 import useToast from 'hooks/useToast';
 import ToolSpinner from 'renderer/components/ToolSpinner';
 import useSettingsStore from 'stores/useSettingsStore';
+import { ICollectionFile } from 'types/knowledge';
 import {
   getNormalContent,
   getReasoningContent,
@@ -214,7 +215,7 @@ export default function Message({ message }: { message: IChatMessage }) {
               </div>
             ) : null}
             <div
-              className={`mt-1 break-all ${
+              className={`msg-content p-3 mt-1 break-all ${
                 fontSize === 'large' ? 'font-lg' : ''
               }`}
               dangerouslySetInnerHTML={{
@@ -254,7 +255,7 @@ export default function Message({ message }: { message: IChatMessage }) {
         >
           <div className="avatar flex-shrink-0 mr-2" />
           <div
-            className={`mt-1 break-all ${
+            className={`msg-content p-3 mt-1 break-all ${
               fontSize === 'large' ? 'font-lg' : ''
             }`}
             dangerouslySetInnerHTML={{
@@ -270,7 +271,9 @@ export default function Message({ message }: { message: IChatMessage }) {
           style={{ minHeight: '40px' }}
         >
           <div className="avatar flex-shrink-0 mr-2" />
-          {replyNode()}
+          <div className="flex-grow">
+            {replyNode()}
+          </div>
         </div>
         {citedFiles.length > 0 && (
           <div className="message-cited-files mt-2">
@@ -278,9 +281,16 @@ export default function Message({ message }: { message: IChatMessage }) {
               <Divider>{t('Common.References')}</Divider>
             </div>
             <ul>
-              {citedFiles.map((file: string) => (
-                <li className="text-gray-500" key={file}>
-                  {file}
+              {citedFiles.map((file: ICollectionFile, idx: number) => (
+                <li key={idx}>
+                  <a
+                    href={file.url}
+                    target="_blank"
+                    className="text-sm text-color-tertiary"
+                    rel="noreferrer"
+                  >
+                    {file.name || file.url}
+                  </a>
                 </li>
               ))}
             </ul>
