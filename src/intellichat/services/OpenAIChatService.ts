@@ -20,7 +20,7 @@ import OpenAI from '../../providers/OpenAI';
 import { urlJoin } from 'utils/util';
 import { captureException } from 'renderer/logging';
 
-const debug = Debug('5ire:intellichat:OpenAIChatService');
+const debug = Debug('OMNI-OS:intellichat:OpenAIChatService');
 
 export default class OpenAIChatService
   extends NextChatService

@@ -4,7 +4,7 @@ import useChatContext from './useChatContext';
 import createService from '../intellichat/services';
 import INextChatService from 'intellichat/services/INextCharService';
 
-const debug = Debug('5ire:hooks:useService');
+const debug = Debug('OMNI-OS:hooks:useService');
 
 export default function useChatService():INextChatService {
   const context = useChatContext();

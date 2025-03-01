@@ -24,7 +24,7 @@ import { IChat, IChatMessage, IPrompt, IStage } from 'intellichat/types';
 import { isValidTemperature } from 'intellichat/validators';
 import { getProvider } from 'providers';
 
-const debug = Debug('5ire:stores:useChatStore');
+const debug = Debug('OMNI-OS:stores:useChatStore');
 
 let defaultTempStage = {
   model: '',

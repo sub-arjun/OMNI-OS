@@ -21,6 +21,24 @@ export default {
       streamCustomizable: false,
     },
     models: {
+        'AutoOMNI 🪄AI chooses the best model🪄 (Experimental)': {
+        name: 'openrouter/auto',
+        label: 'OmniRouter',
+        contextWindow: 200000,
+        maxTokens: 4096,
+        defaultMaxTokens: 4000,
+        inputPrice: 0.003,
+        outputPrice: 0.015,
+        vision: {
+          enabled: true,
+          allowBase64: true,
+          allowUrl: true,
+        },
+        toolEnabled: true,
+        isDefault: true,
+        description: `OMNI automatically selects the optimal AI model for each request to balance performance and cost`,
+        group: 'OMNI',
+      },
       'anthropic/claude-3.7-sonnet': {
         name: 'anthropic/claude-3.7-sonnet',
         label: 'Claude 3.7 Sonnet',
@@ -35,7 +53,7 @@ export default {
           allowUrl: true,
         },
         toolEnabled: true,
-        isDefault: true,
+        isDefault: false,
         description: `Anthropic's latest and most advanced model with exceptional reasoning capabilities`,
         group: 'Claude-3.7',
       },
@@ -73,9 +91,9 @@ export default {
         description: `OpenAI's compact reasoning model with tool capabilities and excellent performance/cost ratio`,
         group: 'O',
       },
-      'openai/gpt-4.5 Orion': {
-        name: 'openai/gpt-4.5-preview',
-        label: 'GPT-4.5',
+      'openai/gpt-4o': {
+        name: 'openai/gpt-4o',
+        label: 'GPT-4o',
         contextWindow: 128000,
         maxTokens: 4096,
         defaultMaxTokens: 4000,
@@ -90,7 +108,21 @@ export default {
         description: `OpenAI's most advanced multimodal model with fast processing and strong vision capabilities`,
         group: 'GPT-4',
       },
-
+      'google/gemini-2.0-flash': {
+        name: 'google/gemini-2.0-flash-001',
+        contextWindow: 1048576,
+        maxTokens: 8192,
+        defaultMaxTokens:8000,
+        inputPrice: 0.0001,
+        outputPrice: 0.0004,
+        jsonModelEnabled: true,
+        toolEnabled: true,
+        vision:{
+          enabled:true,
+        },
+        description: `Next generation features, superior speed, native tool use, and multimodal generation`,
+        group: 'Gemini',
+      },
     },
   },
 } as IServiceProvider; 

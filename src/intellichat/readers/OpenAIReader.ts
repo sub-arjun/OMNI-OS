@@ -3,7 +3,7 @@ import { IChatResponseMessage } from 'intellichat/types';
 import BaseReader from './BaseReader';
 import IChatReader, { ITool } from './IChatReader';
 
-const debug = Debug('5ire:intellichat:OpenAIReader');
+const debug = Debug('OMNI-OS:intellichat:OpenAIReader');
 
 export default class OpenAIReader extends BaseReader implements IChatReader {
   protected parseReply(chunk: string): IChatResponseMessage {
@@ -11,6 +11,20 @@ export default class OpenAIReader extends BaseReader implements IChatReader {
     if (data.error) {
       throw new Error(data.error.message);
     }
+    
+    // Check if this is the final message with usage information
+    if (data.usage) {
+      debug(`Received token usage data: ${JSON.stringify(data.usage)}`);
+      return {
+        content: '',
+        reasoning: '',
+        isEnd: true,
+        toolCalls: [],
+        inputTokens: data.usage.prompt_tokens || 0,
+        outputTokens: data.usage.completion_tokens || 0,
+      };
+    }
+    
     if (data.choices.length === 0) {
       return {
         content: '',
@@ -19,11 +33,14 @@ export default class OpenAIReader extends BaseReader implements IChatReader {
         toolCalls: [],
       };
     }
+    
     const choice = data.choices[0];
+    const isFinished = choice.finish_reason != null;
+    
     return {
       content: choice.delta.content || '',
       reasoning: choice.delta.reasoning_content || '',
-      isEnd: false,
+      isEnd: isFinished,
       toolCalls: choice.delta.tool_calls,
     };
   }

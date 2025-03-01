@@ -35,7 +35,7 @@ import Sidebar from './Sidebar/Sidebar';
 import useInspectorStore from 'stores/useInspectorStore';
 import React from 'react';
 
-const debug = Debug('5ire:pages:chat');
+const debug = Debug('OMNI-OS:pages:chat');
 
 const MemoizedMessages = React.memo(Messages);
 
@@ -357,7 +357,7 @@ ${prompt}
   return (
     <div id="chat" className="relative h-screen flex flex-start">
       <div className="flex-grow relative">
-        <Header />
+        <Header key={activeChatId} />
         <div className="h-screen -mx-5 mt-10">
           <SplitPane
             split="horizontal"

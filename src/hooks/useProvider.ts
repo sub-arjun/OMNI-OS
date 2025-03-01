@@ -7,10 +7,12 @@ export default function useProvider() {
   const {session} = useAuthStore.getState()
 
   function getProviders(arg?:{withDisabled:boolean}): { [key: string]: IServiceProvider } {
+    // Only show OMNI provider in the frontend
+    // Filter out all providers except OMNI, but keep their code available
     return Object.values(providers).reduce(
       (acc: { [key: string]: IServiceProvider }, cur: IServiceProvider) => {
-        if(!arg?.withDisabled && cur.disabled) return acc;
-        if (!!session || !cur.isPremium) {
+        // Only allow OMNI provider to be shown in the frontend
+        if (cur.name === 'OMNI') {
           acc[cur.name] = cur;
         }
         return acc;
@@ -20,12 +22,9 @@ export default function useProvider() {
   }
 
   function getProvider(providerName: ProviderType): IServiceProvider {
-    const providers = getProviders();
-    let provider = providers[providerName];
-    if (!provider) {
-      return Object.values(providers)[0];
-    }
-    return provider;
+    const allProviders = getProviders();
+    // Always return OMNI provider, even if another provider is requested
+    return allProviders['OMNI'];
   }
 
   function getDefaultChatModel(provider: ProviderType): IChatModel {
@@ -48,15 +47,12 @@ export default function useProvider() {
     providerName: ProviderType,
     modelLabel: string
   ): IChatModel {
-    const _providers = getProviders();
-    let provider = _providers[providerName];
-    if (!provider) {
-      provider = Object.values(_providers)[0];
-    }
-    let model = provider.chat.models[modelLabel];
+    // Always use OMNI provider regardless of requested provider
+    const omniProvider = getProvider('OMNI');
+    let model = omniProvider.chat.models[modelLabel];
     if (!model) {
-      model = getDefaultChatModel(providerName);
-    }else{
+      model = getDefaultChatModel('OMNI');
+    } else {
       model.label = modelLabel;
     }
     return model;

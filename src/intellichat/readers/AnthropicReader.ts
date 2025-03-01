@@ -3,7 +3,7 @@ import { IChatResponseMessage } from 'intellichat/types';
 import BaseReader from './BaseReader';
 import { ITool } from './IChatReader';
 
-const debug = Debug('5ire:intellichat:AnthropicReader');
+const debug = Debug('OMNI-OS:intellichat:AnthropicReader');
 
 export default class AnthropicReader extends BaseReader {
   protected processChunk(chunk: string): IChatResponseMessage | null {

@@ -6,6 +6,9 @@
 import { IChatResponseMessage } from 'intellichat/types';
 import { merge } from 'lodash';
 import IChatReader, { IReadResult, ITool } from './IChatReader';
+import Debug from 'debug';
+
+const debug = Debug('OMNI-OS:intellichat:BaseReader');
 
 export default abstract class BaseReader implements IChatReader {
   protected streamReader: ReadableStreamDefaultReader<Uint8Array>;
@@ -90,6 +93,24 @@ export default abstract class BaseReader implements IChatReader {
   protected processChunk(chunk: string): IChatResponseMessage | null {
     if (!chunk || chunk.trim() === '') {
       return null;
+    }
+
+    try {
+      // Check if this is a JSON-formatted chunk with token usage information
+      const data = JSON.parse(chunk);
+      
+      // Handle OpenRouter/OpenAI format where token usage is in a usage field
+      if (data.usage && (data.usage.prompt_tokens || data.usage.completion_tokens)) {
+        debug(`Found token usage data in chunk: ${JSON.stringify(data.usage)}`);
+        return {
+          content: '',
+          isEnd: true,
+          inputTokens: data.usage.prompt_tokens || 0,
+          outputTokens: data.usage.completion_tokens || 0,
+        };
+      }
+    } catch (e) {
+      // Not JSON or failed to parse, continue with normal processing
     }
 
     // Default implementation treats each chunk as a complete message

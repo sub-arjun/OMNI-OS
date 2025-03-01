@@ -5,7 +5,7 @@ import * as logging from './logging';
 import path from 'path';
 import { isOneDimensionalArray } from '../utils/util';
 
-const dbPath = path.join(app.getPath('userData'), '5ire.db');
+const dbPath = path.join(app.getPath('userData'), 'omnios.db');
 const database = new Database(dbPath);
 
 function createTableChats() {

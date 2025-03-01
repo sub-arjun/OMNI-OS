@@ -17,7 +17,7 @@ import AnthropicReader from 'intellichat/readers/AnthropicReader';
 import NextChatService from './NextChatService';
 import { ITool } from 'intellichat/readers/IChatReader';
 
-const debug = Debug('5ire:intellichat:AnthropicChatService');
+const debug = Debug('OMNI-OS:intellichat:AnthropicChatService');
 
 export default class AnthropicChatService
   extends NextChatService

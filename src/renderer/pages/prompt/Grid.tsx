@@ -35,8 +35,10 @@ import {
   EditRegular,
   OptionsFilled,
   OptionsRegular,
+  ArrowDownload24Regular,
 } from '@fluentui/react-icons';
 import ConfirmDialog from 'renderer/components/ConfirmDialog';
+import ExportPromptDialog from 'renderer/components/ExportPromptDialog';
 import useNav from 'hooks/useNav';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -62,11 +64,13 @@ export default function Grid({
   const { t } = useTranslation();
   const [delConfirmDialogOpen, setDelConfirmDialogOpen] =
     useState<boolean>(false);
+  const [exportDialogOpen, setExportDialogOpen] = useState<boolean>(false);
+  const [exportJsonData, setExportJsonData] = useState<string>('');
   const [innerHeight, setInnerHeight] = useState(window.innerHeight);
   const [activePromptId, setActivePromptId] = useState<string | null>(null);
   const deletePrompt = usePromptStore((state) => state.deletePrompt);
   const updatePrompt = usePromptStore((state) => state.updatePrompt);
-  const { notifySuccess } = useToast();
+  const { notifySuccess, notifyError } = useToast();
   const navigate = useNav();
   const pinPrompt = (id: string) => {
     updatePrompt({ id, pinedAt: date2unix(new Date()) });
@@ -170,6 +174,79 @@ export default function Grid({
                     >
                       {t('Common.Delete')}{' '}
                     </MenuItem>
+                    <MenuItem
+                      icon={<ArrowDownload24Regular />}
+                      onClick={async () => {
+                        const promptToExport = prompts.find(p => p.id === item.id);
+                        if (!promptToExport) return;
+
+                        try {
+                          // First fetch the complete prompt data to ensure we get all fields
+                          const getPrompt = usePromptStore.getState().getPrompt;
+                          const fullPromptData = await getPrompt(promptToExport.id);
+                          
+                          // Print original prompt object to debug
+                          console.log('Original prompt object from grid:', JSON.stringify(promptToExport, null, 2));
+                          console.log('Full prompt data from store:', JSON.stringify(fullPromptData, null, 2));
+                          
+                          // Create a complete exported version of the prompt with all necessary fields
+                          const exportData = {
+                            // Required fields
+                            name: fullPromptData.name,
+                            
+                            // IMPORTANT: Content fields with explicit access and safety defaults
+                            systemMessage: fullPromptData.systemMessage ?? "",
+                            userMessage: fullPromptData.userMessage ?? "",
+                            
+                            // Configuration fields with proper type handling
+                            maxTokens: typeof fullPromptData.maxTokens === 'number' ? fullPromptData.maxTokens : null,
+                            temperature: typeof fullPromptData.temperature === 'number' ? fullPromptData.temperature : null,
+                            
+                            // Array fields with proper type handling
+                            systemVariables: Array.isArray(fullPromptData.systemVariables) ? 
+                              [...fullPromptData.systemVariables] : [],
+                            userVariables: Array.isArray(fullPromptData.userVariables) ? 
+                              [...fullPromptData.userVariables] : [],
+                            models: Array.isArray(fullPromptData.models) ? 
+                              [...fullPromptData.models] : []
+                          };
+                          
+                          // Verify system prompt and user message are properly loaded
+                          console.log('System message content:', exportData.systemMessage);
+                          console.log('User message content:', exportData.userMessage);
+                          
+                          // Log to console for comprehensive debugging
+                          console.log('Exporting prompt:', {
+                            name: exportData.name,
+                            systemMessage: `${exportData.systemMessage.length} chars`,
+                            userMessage: `${exportData.userMessage.length} chars`,
+                            maxTokens: exportData.maxTokens,
+                            temperature: exportData.temperature,
+                            systemVariables: exportData.systemVariables.length + ' items',
+                            userVariables: exportData.userVariables.length + ' items',
+                            models: exportData.models.length + ' models'
+                          });
+
+                          // Format the JSON with pretty printing
+                          const json = JSON.stringify(exportData, null, 2);
+                          
+                          // Debug the final JSON to ensure all fields are present
+                          console.log('Final JSON to be displayed:', json);
+                          console.log('systemMessage length in JSON:', (exportData.systemMessage || '').length);
+                          console.log('userMessage length in JSON:', (exportData.userMessage || '').length);
+                          
+                          // Store the JSON and show the dialog
+                          setExportJsonData(json);
+                          setExportDialogOpen(true);
+                          notifySuccess(t('Common.ExportSuccess'));
+                        } catch (error) {
+                          console.error('Export error:', error);
+                          notifyError(t('Common.ExportFailed'));
+                        }
+                      }}
+                    >
+                      {t('Common.Export')}{' '}
+                    </MenuItem>
                     {item.pined ? (
                       <MenuItem
                         icon={<PinOffIcon />}
@@ -265,6 +342,11 @@ export default function Grid({
           setActivePromptId(null);
           notifySuccess(t('Prompt.Notification.Deleted'));
         }}
+      />
+      <ExportPromptDialog
+        open={exportDialogOpen}
+        setOpen={setExportDialogOpen}
+        jsonData={exportJsonData}
       />
     </div>
   );

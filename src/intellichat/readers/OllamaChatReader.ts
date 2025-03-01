@@ -3,7 +3,7 @@ import { IChatResponseMessage } from 'intellichat/types';
 import IChatReader from './IChatReader';
 import OpenAIReader from './OpenAIReader';
 
-const debug = Debug('5ire:intellichat:OllamaReader');
+const debug = Debug('OMNI-OS:intellichat:OllamaReader');
 
 export default class OllamaReader extends OpenAIReader implements IChatReader {
   protected parseReply(chunk: string): IChatResponseMessage {

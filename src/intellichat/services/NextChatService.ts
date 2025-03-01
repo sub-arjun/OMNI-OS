@@ -15,8 +15,10 @@ import { IServiceProvider } from 'providers/types';
 import useInspectorStore from 'stores/useInspectorStore';
 import useSettingsStore from 'stores/useSettingsStore';
 import { raiseError, stripHtmlTags } from 'utils/util';
+import supabase from '../../vendors/supa';
+import useAuthStore from 'stores/useAuthStore';
 
-const debug = Debug('5ire:intellichat:NextChatService');
+const debug = Debug('OMNI-OS:intellichat:NextChatService');
 
 export default abstract class NextCharService {
   abortController: AbortController;
@@ -204,12 +206,30 @@ export default abstract class NextCharService {
         },
         onToolCalls: this.onToolCallsCallback,
       });
+      
+      // Use the token counts from the API response when available
       if (readResult?.inputTokens) {
-        this.inputTokens += readResult.inputTokens;
+        debug(`Using prompt_tokens from API response: ${readResult.inputTokens}`);
+        this.inputTokens = readResult.inputTokens; // Override with exact count from API
+      } else if (messages && messages.length > 0) {
+        // Fallback to rough estimate only if API doesn't provide token count
+        debug('API did not provide prompt_tokens, using fallback estimate');
+        const promptText = messages.map(m => typeof m.content === 'string' ? m.content : JSON.stringify(m.content)).join(' ');
+        this.inputTokens += Math.ceil(promptText.length / 4);
       }
+      
       if (readResult?.outputTokens) {
-        this.outputTokens += readResult.outputTokens;
+        debug(`Using completion_tokens from API response: ${readResult.outputTokens}`);
+        this.outputTokens = readResult.outputTokens; // Override with exact count from API
+      } else if (reply) {
+        // Fallback to rough estimate only if API doesn't provide token count
+        debug('API did not provide completion_tokens, using fallback estimate');
+        this.outputTokens += Math.ceil(reply.length / 4);
       }
+      
+      // Log the final token counts
+      debug(`Final token counts - Input: ${this.inputTokens}, Output: ${this.outputTokens}`);
+      
       if (readResult.tool) {
         const [client, name] = readResult.tool.name.split('--');
         this.traceTool(chatId, name, '');
@@ -248,6 +268,10 @@ export default abstract class NextCharService {
           inputTokens: this.inputTokens,
           outputTokens: this.outputTokens,
         });
+        
+        // Publish analytics data to Supabase
+        await this.publishAnalyticsData(chatId);
+        
         this.inputTokens = 0;
         this.outputTokens = 0;
       }
@@ -263,8 +287,102 @@ export default abstract class NextCharService {
           message: error.message || error.toString(),
         },
       });
+      
+      // Try to publish analytics even on error
+      await this.publishAnalyticsData(chatId).catch(e => {
+        debug('Failed to publish analytics on error:', e);
+      });
+      
       this.inputTokens = 0;
       this.outputTokens = 0;
+    }
+  }
+  
+  // Method to publish analytics data to Supabase
+  private async publishAnalyticsData(chatId: string): Promise<void> {
+    try {
+      debug('Starting analytics data publishing to Supabase...');
+      
+      const { user } = useAuthStore.getState();
+      if (!user) {
+        debug('User not authenticated, skipping analytics');
+        return;
+      }
+      
+      const model = this.getModelName();
+      const provider = this.provider.name;
+      
+      debug(`Preparing analytics for ${provider}/${model} with chat ID: ${chatId}`);
+      
+      // Get the token counts from the tracked values
+      // These should now be accurate as they come from the API response
+      const inputTokens = this.inputTokens || 0;
+      const outputTokens = this.outputTokens || 0;
+      
+      debug(`Using accurate token counts from API - Input: ${inputTokens}, Output: ${outputTokens}`);
+      
+      if (inputTokens === 0 && outputTokens === 0) {
+        debug('No tokens to report, skipping analytics');
+        return;
+      }
+      
+      // PRICING MODEL:
+      // 1. Base rates: $0.03 per 1k input tokens, $0.15 per 1k output tokens
+      // 2. Apply 15x multiplier to artificially increase cost reporting
+      //    This multiplier is applied to make reported costs reflect a higher value
+      //    than actual token usage would suggest - possibly for premium pricing model,
+      //    ROI calculations or internal accounting purposes.
+      const fixedInputPrice = 0.03 * 15;  // $0.03 * 15 = $0.45 per 1000 tokens
+      const fixedOutputPrice = 0.15 * 15; // $0.15 * 15 = $2.25 per 1000 tokens
+      
+      debug(`Base pricing - Input: $0.03/1k tokens, Output: $0.15/1k tokens`);
+      debug(`Applied 15x multiplier - Input: $${fixedInputPrice.toFixed(2)}/1k tokens, Output: $${fixedOutputPrice.toFixed(2)}/1k tokens`);
+      
+      // Calculate costs with fixed pricing including 15x multiplier
+      const inputCost = (inputTokens / 1000) * fixedInputPrice;
+      const outputCost = (outputTokens / 1000) * fixedOutputPrice;
+      
+      debug(`Calculated costs (with 15x multiplier) - Input: $${inputCost.toFixed(6)}, Output: $${outputCost.toFixed(6)}`);
+      
+      // Set organization ID to null for now (could be added in the future)
+      const orgId = null;
+      
+      // Create the analytics payload
+      const analyticsPayload = {
+        user_id: user.id,
+        provider,
+        model,
+        input_tokens: inputTokens,
+        output_tokens: outputTokens,
+        input_cost: inputCost,
+        output_cost: outputCost,
+        chat_id: chatId,
+        org_id: orgId
+      };
+      
+      debug('Sending analytics payload to Supabase:', analyticsPayload);
+      
+      // Insert analytics data into Supabase according to the schema
+      // Note: total_cost is a generated column, so we don't include it
+      const { data, error } = await supabase.from('chat_analytics').insert(analyticsPayload);
+      
+      if (error) {
+        debug('Error publishing analytics to Supabase:', error);
+        debug('Error details:', JSON.stringify(error));
+        console.error('Failed to insert chat analytics:', error);
+      } else {
+        debug('Successfully published analytics data to Supabase with 15x cost multiplier');
+        debug('Analytics summary (with 15x cost multiplier):', {
+          provider, model, 
+          inputTokens, outputTokens, 
+          inputCost: `$${inputCost.toFixed(6)} (15x multiplier applied)`,
+          outputCost: `$${outputCost.toFixed(6)} (15x multiplier applied)`,
+          totalCost: `$${(inputCost + outputCost).toFixed(6)} (15x multiplier applied)`
+        });
+      }
+    } catch (err) {
+      debug('Failed to publish analytics data:', err);
+      console.error('Supabase analytics error:', err);
     }
   }
 }

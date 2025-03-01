@@ -15,7 +15,7 @@ import Debug from 'debug';
 import { IChat, IChatContext } from 'intellichat/types';
 import { Stream20Filled } from '@fluentui/react-icons';
 
-const debug = Debug('5ire:pages:chat:Editor:Toolbar:StreamCtrl');
+const debug = Debug('OMNI-OS:pages:chat:Editor:Toolbar:StreamCtrl');
 
 export default function StreamCtrl({ ctx, chat }: { ctx: IChatContext, chat: IChat}) {
   const { t } = useTranslation();

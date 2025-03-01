@@ -20,7 +20,7 @@ import BaseReader from 'intellichat/readers/BaseReader';
 import GoogleReader from 'intellichat/readers/GoogleReader';
 import { ITool } from 'intellichat/readers/IChatReader';
 
-const debug = Debug('5ire:intellichat:GoogleChatService');
+const debug = Debug('OMNI-OS:intellichat:GoogleChatService');
 
 const containsImage = (contents: IChatRequestMessage[]): boolean => {
   if (contents?.length) {

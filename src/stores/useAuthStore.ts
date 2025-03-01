@@ -9,7 +9,7 @@ import {
   User,
 } from '@supabase/supabase-js';
 
-const debug = Debug('5ire:stores:useAuthStore');
+const debug = Debug('OMNI-OS:stores:useAuthStore');
 
 export interface IAuthStore {
   session: Session | null;

@@ -20,7 +20,7 @@ import { debounce } from 'lodash';
 import { useTranslation } from 'react-i18next';
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-const debug = Debug('5ire:components:SearchDialog');
+const debug = Debug('OMNI-OS:components:SearchDialog');
 
 interface ISearchResultItem {
   key: string;
@@ -88,12 +88,15 @@ const extractMatchedSnippet = (msgs: IChatMessage[], keywords: string[]) => {
 export default function SearchDialog(args: {
   open: boolean;
   setOpen: (open: boolean) => void;
+  chatId?: string;
 }) {
   const { t } = useTranslation();
   const [keyword, setKeyword] = useState<string>('');
   const [messages, setMessages] = useState<ISearchResultItem[]>([]);
-  const { open, setOpen } = args;
+  const { open, setOpen, chatId } = args;
   const navigate = useNav();
+
+  const singleChatSearch = !!chatId;
 
   useEffect(() => {
     Mousetrap.bind('esc', () => setOpen(false));
@@ -116,18 +119,27 @@ export default function SearchDialog(args: {
           const keywords = filter.split(' ');
           const whereStats: string[] = [];
           const params: string[] = [];
+          
+          // Add keyword search conditions
           keywords.forEach((word: string) => {
             const param = `%${word.trim()}%`;
             whereStats.push('(prompt like ? OR reply like ?)');
             params.push(param);
             params.push(param);
           });
+          
+          // Add chatId filter if searching in a single chat
+          if (singleChatSearch && chatId) {
+            whereStats.push('chatId = ?');
+            params.push(chatId);
+          }
 
           const sql = `SELECT id, chatId, prompt, reply FROM messages
             WHERE ${whereStats.join(' AND ')}
             ORDER BY messages.createdAt ASC
-            LIMIT 10
+            LIMIT ${singleChatSearch ? 50 : 10}
           `;
+          
           const $messages = (await window.electron.db.all(
             sql,
             params
@@ -141,7 +153,7 @@ export default function SearchDialog(args: {
           maxWait: 2000,
         }
       ),
-    []
+    [singleChatSearch, chatId]
   );
 
   const onKeywordChange = (
@@ -176,7 +188,7 @@ export default function SearchDialog(args: {
             <Input
               contentBefore={<Search24Regular />}
               value={keyword}
-              placeholder={t('Search in all chats.')}
+              placeholder={t(singleChatSearch ? 'Search in current chat.' : 'Search in all chats.')}
               onChange={onKeywordChange}
               className="w-full"
             />

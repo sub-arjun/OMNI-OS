@@ -42,8 +42,8 @@ export type ChatModelGroup =
   | 'Claude-3.7'
   | 'Doubao-Pro'
   | 'Doubao-Lite'
-  | 'Open Source';
-
+  | 'Open Source'
+  | 'OMNI'
 
 export interface IChatModelVision{
   enabled: boolean;

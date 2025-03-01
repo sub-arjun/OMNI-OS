@@ -22,7 +22,7 @@ import {
   ChevronUp16Regular,
 } from '@fluentui/react-icons';
 
-const debug = Debug('5ire:pages:chat:Message');
+const debug = Debug('OMNI-OS:pages:chat:Message');
 
 export default function Message({ message }: { message: IChatMessage }) {
   const { t } = useTranslation();

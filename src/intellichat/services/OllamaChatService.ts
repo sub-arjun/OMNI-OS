@@ -10,7 +10,7 @@ import OllamaReader from 'intellichat/readers/OllamaChatReader';
 import { ITool } from 'intellichat/readers/IChatReader';
 import { urlJoin } from 'utils/util';
 
-const debug = Debug('5ire:intellichat:OllamaChatService');
+const debug = Debug('OMNI-OS:intellichat:OllamaChatService');
 export default class OllamaChatService
   extends OpenAIChatService
   implements INextChatService {

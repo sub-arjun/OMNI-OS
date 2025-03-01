@@ -11,7 +11,7 @@ import useProvider from './useProvider';
 import { IChat, IChatContext, IChatMessage, IPrompt } from 'intellichat/types';
 import { IChatModel } from 'providers/types';
 
-const debug = Debug('5ire:hooks:useChatContext');
+const debug = Debug('OMNI-OS:hooks:useChatContext');
 
 export default function useChatContext(): IChatContext {
   const { getProvider: getChatProvider, getChatModel } = useProvider();

@@ -9,7 +9,7 @@ import { LanguageType } from '../types/settings';
 import { IAPISettings, ISettings } from '../types/settings';
 import { getProvider } from 'providers';
 
-const debug = Debug('5ire:stores:useSettingsStore');
+const debug = Debug('OMNI-OS:stores:useSettingsStore');
 
 const defaultTheme = 'system';
 const defaultLanguage = 'system';

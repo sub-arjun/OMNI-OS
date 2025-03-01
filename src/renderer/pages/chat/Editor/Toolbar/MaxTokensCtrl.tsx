@@ -23,7 +23,7 @@ import useChatStore from 'stores/useChatStore';
 import { str2int } from 'utils/util';
 import { MAX_TOKENS } from 'consts';
 
-const debug = Debug('5ire:pages:chat:Editor:Toolbar:MaxTokensCtrl');
+const debug = Debug('OMNI-OS:pages:chat:Editor:Toolbar:MaxTokensCtrl');
 
 const NumberSymbolSquareIcon = bundleIcon(
   NumberSymbolSquare20Filled,

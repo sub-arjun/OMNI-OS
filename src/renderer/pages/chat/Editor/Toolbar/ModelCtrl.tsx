@@ -8,8 +8,9 @@ import {
   MenuPopover,
   MenuTrigger,
   Text,
+  Tooltip,
 } from '@fluentui/react-components';
-import { ChevronDown16Regular } from '@fluentui/react-icons';
+import { ChevronDown16Regular, Info16Regular } from '@fluentui/react-icons';
 import Mousetrap from 'mousetrap';
 import { IChat, IChatContext } from 'intellichat/types';
 import { useEffect, useMemo, useState } from 'react';
@@ -130,6 +131,18 @@ export default function ModelCtrl({
                 ‣{modelMapping[activeModel.label || '']}
               </span>
             )}
+            {activeModel.description && (
+              <Tooltip
+                content={activeModel.description as string}
+                relationship="label"
+              >
+                <Button
+                  icon={<Info16Regular />}
+                  size="small"
+                  appearance="subtle"
+                />
+              </Tooltip>
+            )}
           </div>
         </Button>
       </MenuTrigger>
@@ -156,6 +169,18 @@ export default function ModelCtrl({
                     <span className="text-gray-300 dark:text-gray-600 -ml-1">
                       ‣{modelMapping[item.label || '']}
                     </span>
+                  )}
+                  {item.description && (
+                    <Tooltip
+                      content={item.description as string}
+                      relationship="label"
+                    >
+                      <Button
+                        icon={<Info16Regular />}
+                        size="small"
+                        appearance="subtle"
+                      />
+                    </Tooltip>
                   )}
                 </div>
               </MenuItemRadio>

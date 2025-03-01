@@ -5,7 +5,7 @@ import { typeid } from 'typeid-js';
 import { date2unix } from 'utils/util';
 import { isUndefined, omitBy } from 'lodash';
 
-const debug = Debug('5ire:stores:useKnowledgeStore');
+const debug = Debug('OMNI-OS:stores:useKnowledgeStore');
 
 export interface IKnowledgeStore {
   collectionChangedAt: number | null;

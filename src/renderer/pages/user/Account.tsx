@@ -10,7 +10,6 @@ import {
 } from '@fluentui/react-components';
 import {
   CheckmarkStarburst16Filled,
-  Premium24Regular,
   ShieldKeyhole24Regular,
 } from '@fluentui/react-icons';
 import { useState, memo } from 'react';
@@ -19,17 +18,15 @@ import Empty from 'renderer/components/Empty';
 import useAppearanceStore from 'stores/useAppearanceStore';
 import useAuthStore from 'stores/useAuthStore';
 import TabPassword from './TabPassword';
-import TabSubscription from './TabSubscription';
 
 const MemorizedTabPassword = memo(TabPassword);
-const MemorizedTabSubscription = memo(TabSubscription);
 
 export default function Account() {
   const { t } = useTranslation();
   const user = useAuthStore((state) => state.user);
   const getPalette = useAppearanceStore((state) => state.getPalette);
 
-  const [tab, setTab] = useState('subscription');
+  const [tab, setTab] = useState('password');
 
   const onTabSelect = (_: SelectTabEvent, tabItem: any) => {
     setTab(tabItem.value);
@@ -86,12 +83,6 @@ export default function Account() {
               <div className="flex-shrink-0 h-full">
                 <TabList selectedValue={tab} vertical onTabSelect={onTabSelect}>
                   <Tab
-                    value="subscription"
-                    icon={<Premium24Regular className="tips" />}
-                  >
-                    {t('Common.Subscription')}
-                  </Tab>
-                  <Tab
                     value="password"
                     icon={<ShieldKeyhole24Regular className="tips" />}
                   >
@@ -101,7 +92,6 @@ export default function Account() {
               </div>
               <div className="border-l border-base w-full px-5">
                 {tab == 'password' && <MemorizedTabPassword />}
-                {tab == 'subscription' && <MemorizedTabSubscription />}
               </div>
             </div>
           </div>

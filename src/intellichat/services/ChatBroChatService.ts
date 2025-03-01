@@ -10,7 +10,7 @@ import OpenAIChatService from './OpenAIChatService';
 import ChatBroReader from 'intellichat/readers/ChatBroReader';
 import { urlJoin } from 'utils/util';
 
-const debug = Debug('5ire:intellichat:ChatBroChatService');
+const debug = Debug('OMNI-OS:intellichat:ChatBroChatService');
 
 export default class ChatBroChatService
   extends OpenAIChatService

@@ -21,24 +21,15 @@ export default function Footer({ collapsed }: { collapsed: boolean }) {
     (state) => state.toggleSidebarCollapsed
   );
   const { t } = useTranslation();
-  const goTwitter = useCallback(() => {
-    window.electron.openExternal('https://x.com/1ronben');
-    window.electron.ingestEvent([{ app: 'go-twitter' }]);
+  
+  const goYouTube = useCallback(() => {
+    window.electron.openExternal('https://www.youtube.com/@OMNI-OS');
+    window.electron.ingestEvent([{ app: 'go-youtube' }]);
   }, []);
 
-  const goHome = useCallback(() => {
-    window.electron.openExternal('https://5ire.app');
+  const goAbout = useCallback(() => {
+    window.electron.openExternal('https://becomeomni.com');
     window.electron.ingestEvent([{ app: 'go-homepage' }]);
-  }, []);
-
-  const goDocs = useCallback(() => {
-    window.electron.openExternal('https://5ire.app/docs');
-    window.electron.ingestEvent([{ app: 'go-docs' }]);
-  }, []);
-
-  const goGitHub = useCallback(() => {
-    window.electron.openExternal('https://github.com/nanbingxyz/5ire');
-    window.electron.ingestEvent([{ app: 'go-github' }]);
   }, []);
 
   useEffect(() => {
@@ -47,7 +38,7 @@ export default function Footer({ collapsed }: { collapsed: boolean }) {
     const canny = window?.Canny;
     if (canny) {
       canny('initChangelog', {
-        appID: '64cd076f9481f00996a16c42',
+        appID: '67ad3367817e8854c1d4665b',
         position: 'top',
         align: 'left',
         theme: 'auto',
@@ -103,55 +94,12 @@ export default function Footer({ collapsed }: { collapsed: boolean }) {
                   height="18"
                   strokeWidth="1.5"
                 >
-                  <path d="M4 4l11.733 16h4.267l-11.733 -16z"></path>
-                  <path d="M4 20l6.768 -6.768m2.46 -2.46l6.772 -6.772"></path>
+                  <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z"></path>
                 </svg>
               }
-              onClick={goTwitter}
+              onClick={goYouTube}
             >
-              {t('Common.Author')}
-            </MenuItem>
-            <MenuItem
-              icon={
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  width="18"
-                  height="18"
-                  strokeWidth="1.5"
-                >
-                  <path d="M9 19c-4.3 1.4 -4.3 -2.5 -6 -3m12 5v-3.5c0 -1 .1 -1.4 -.5 -2c2.8 -.3 5.5 -1.4 5.5 -6a4.6 4.6 0 0 0 -1.3 -3.2a4.2 4.2 0 0 0 -.1 -3.2s-1.1 -.3 -3.5 1.3a12.3 12.3 0 0 0 -6.2 0c-2.4 -1.6 -3.5 -1.3 -3.5 -1.3a4.2 4.2 0 0 0 -.1 3.2a4.6 4.6 0 0 0 -1.3 3.2c0 4.6 2.7 5.7 5.5 6c-.6 .6 -.6 1.2 -.5 2v3.5"></path>
-                </svg>
-              }
-              onClick={goGitHub}
-            >
-              {t('Common.GitHub')}
-            </MenuItem>
-            <MenuItem
-              icon={
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  width="20"
-                  height="20"
-                  stroke-width="1.5"
-                >
-                  <path d="M15 21h-9a3 3 0 0 1 -3 -3v-1h10v2a2 2 0 0 0 4 0v-14a2 2 0 1 1 2 2h-2m2 -4h-11a3 3 0 0 0 -3 3v11"></path>
-                  <path d="M9 7l4 0"></path>
-                  <path d="M9 11l4 0"></path>
-                </svg>
-              }
-              onClick={goDocs}
-            >
-              {t('Common.Docs')}
+              {t('Common.YouTube')}
             </MenuItem>
             <MenuItem
               icon={
@@ -166,10 +114,12 @@ export default function Footer({ collapsed }: { collapsed: boolean }) {
                   height="20"
                   strokeWidth="1.5"
                 >
-                  <path d="M12 12c2 -2.96 0 -7 -1 -8c0 3.038 -1.773 4.741 -3 6c-1.226 1.26 -2 3.24 -2 5a6 6 0 1 0 12 0c0 -1.532 -1.056 -3.94 -2 -5c-1.786 3 -2.791 3 -4 2z"></path>
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="2" y1="12" x2="22" y2="12"></line>
+                  <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
                 </svg>
               }
-              onClick={goHome}
+              onClick={goAbout}
             >
               {t('Common.About')}
             </MenuItem>

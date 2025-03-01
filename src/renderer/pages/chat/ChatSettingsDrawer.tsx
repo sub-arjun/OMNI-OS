@@ -23,7 +23,7 @@ import { useTranslation } from 'react-i18next';
 import useChatContext from 'hooks/useChatContext';
 import { debounce } from 'lodash';
 
-const debug = Debug('5ire:pages:chat:ChatSettingsDrawer');
+const debug = Debug('OMNI-OS:pages:chat:ChatSettingsDrawer');
 
 export default function ChatSettingsDrawer({
   open,

@@ -22,7 +22,7 @@ export default {
   ingest(data: { [key: string]: any }[]) {
     try {
       const axiom = getAxiom();
-      axiom && axiom.ingest('5ire', data);
+      axiom && axiom.ingest('omnios', data);
     } catch (err: any) {
       captureException(err);
     }

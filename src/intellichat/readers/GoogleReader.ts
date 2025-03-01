@@ -4,7 +4,7 @@ import BaseReader from './BaseReader';
 import { extractFirstLevelBrackets } from 'utils/util';
 import { IReadResult, ITool } from './IChatReader';
 
-const debug = Debug('5ire:intellichat:GoogleReader');
+const debug = Debug('OMNI-OS:intellichat:GoogleReader');
 
 export default class GoogleReader extends BaseReader {
   protected parseReply(chunk: string): IChatResponseMessage {

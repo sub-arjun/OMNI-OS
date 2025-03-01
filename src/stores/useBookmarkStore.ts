@@ -6,7 +6,7 @@ import { date2unix } from 'utils/util';
 import { isBlank, isNotBlank } from 'utils/validators';
 import { create } from 'zustand';
 
-const debug = Debug('5ire:stores:useBookmarkStore');
+const debug = Debug('OMNI-OS:stores:useBookmarkStore');
 
 export interface IBookmarkStore {
   activeBookmarkId: null | string;

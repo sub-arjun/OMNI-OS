@@ -12,7 +12,7 @@ import INextChatService from './INextCharService';
 import { urlJoin } from 'utils/util';
 import OpenAIReader from 'intellichat/readers/OpenAIReader';
 
-const debug = Debug('5ire:intellichat:OMNIChatService');
+const debug = Debug('OMNI-OS:intellichat:OMNIChatService');
 
 export default class OMNIChatService
   extends OpenAIChatService
@@ -43,6 +43,7 @@ export default class OMNIChatService
       ...payload,
       // OpenRouter specific parameters can be added here if needed
       http_referer: 'https://omni.agisurge.com',
+      models: ['google/gemini-2.0-flash-001','openai/gpt-4o', 'anthropic/claude-3.7-sonnet'],
       transforms: ["middle-out"], // Improve JSON mode accuracy
     };
     

@@ -29,7 +29,7 @@ import useKnowledgeStore from 'stores/useKnowledgeStore';
 import useChatKnowledgeStore from 'stores/useChatKnowledgeStore';
 import React from 'react';
 
-const debug = Debug('5ire:pages:chat:Editor:Toolbar:KnowledgeCtrl');
+const debug = Debug('OMNI-OS:pages:chat:Editor:Toolbar:KnowledgeCtrl');
 
 const KnowledgeIcon = bundleIcon(Library20Filled, Library20Regular);
 

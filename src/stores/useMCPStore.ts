@@ -2,7 +2,7 @@ import Debug from 'debug';
 import { IMCPConfig, IMCPServer } from 'types/mcp';
 import { create } from 'zustand';
 
-const debug = Debug('5ire:stores:useMCPStore');
+const debug = Debug('OMNI-OS:stores:useMCPStore');
 
 export interface IMCPStore {
   isLoading: boolean;

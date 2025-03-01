@@ -22,7 +22,7 @@ import { IChat, IChatContext } from 'intellichat/types';
 import useSettingsStore from 'stores/useSettingsStore';
 import Mousetrap from 'mousetrap';
 
-const debug = Debug('5ire:pages:chat:Editor:Toolbar:TemperatureCtrl');
+const debug = Debug('OMNI-OS:pages:chat:Editor:Toolbar:TemperatureCtrl');
 
 const TemperatureIcon = bundleIcon(Temperature20Filled, Temperature20Regular);
 

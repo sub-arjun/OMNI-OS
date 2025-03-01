@@ -3,7 +3,7 @@ import Debug from 'debug';
 import { createClient } from '@supabase/supabase-js';
 import { captureException } from '../renderer/logging';
 
-const debug = Debug('5ire:vendors:supa');
+const debug = Debug('OMNI-OS:vendors:supa');
 
 const supabase = createClient(
   `https://${window.envVars.SUPA_PROJECT_ID}.supabase.co`,
@@ -18,7 +18,7 @@ export async function fetchById<Type>(
   let { data, error } = await supabase.from(table).select(columns).eq('id', id).single();
   if (error) {
     debug(error);
-    captureException(error);
+    captureException(error.message || JSON.stringify(error));
     throw error;
   }
   return data as Type;
@@ -38,7 +38,7 @@ export async function fetchMime<Type>(
     .eq('created_by', user.id);
   if (error) {
     debug(error);
-    captureException(error);
+    captureException(error.message || JSON.stringify(error));
     throw error;
   }
   return data as Type[];

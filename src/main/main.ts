@@ -563,7 +563,7 @@ if (app.dock) {
   app.dock.setIcon(dockIcon);
 }
 
-app.setName('5ire');
+app.setName('OMNI OS');
 
 app
   .whenReady()

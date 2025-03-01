@@ -6,7 +6,7 @@ import { date2unix } from 'utils/util';
 import { create } from 'zustand';
 import { getChatModel } from 'providers';
 
-const debug = Debug('5ire:stores:useUsageStore');
+const debug = Debug('OMNI-OS:stores:useUsageStore');
 
 export interface IUsageStore {
   create: (usage: Partial<IUsage>) => Promise<IUsage>;

@@ -24,7 +24,7 @@ import Mousetrap from 'mousetrap';
 import { isNumber } from 'lodash';
 import { MIN_CTX_MESSAGES, MAX_CTX_MESSAGES, NUM_CTX_MESSAGES } from 'consts';
 
-const debug = Debug('5ire:pages:chat:Editor:Toolbar:CtxNumCtrl');
+const debug = Debug('OMNI-OS:pages:chat:Editor:Toolbar:CtxNumCtrl');
 
 const AttacheTextIcon = bundleIcon(AttachText20Filled, AttachText20Regular);
 

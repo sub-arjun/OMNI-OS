@@ -161,6 +161,16 @@ export default function Grid({ collections }: { collections: any[] }) {
               </div>
             </TableCellLayout>
             <TableCellActions>
+              <Tooltip content={t('Knowledge.Action.ManageFiles')} relationship="label">
+                <Button 
+                  icon={<DocumentFolderIcon />} 
+                  appearance="subtle"
+                  onClick={() => {
+                    setActiveCollection(item);
+                    setFileDrawerOpen(true);
+                  }}
+                />
+              </Tooltip>
               <Menu>
                 <MenuTrigger disableButtonEnhancement>
                   <Button icon={<MoreHorizontalIcon />} appearance="subtle" />
@@ -174,15 +184,6 @@ export default function Grid({ collections }: { collections: any[] }) {
                       }
                     >
                       {t('Common.Edit')}
-                    </MenuItem>
-                    <MenuItem
-                      icon={<DocumentFolderIcon />}
-                      onClick={() => {
-                        setActiveCollection(item);
-                        setFileDrawerOpen(true);
-                      }}
-                    >
-                      {t('Knowledge.Action.ManageFiles')}
                     </MenuItem>
                     <MenuItem
                       icon={<DeleteIcon />}
