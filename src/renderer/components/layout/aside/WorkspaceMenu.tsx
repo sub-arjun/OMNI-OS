@@ -97,7 +97,7 @@ export default function WorkspaceMenu({ collapsed }: { collapsed: boolean }) {
               className="w-full justify-start outline-none hover:bg-black/10 dark:hover:bg-white/10"
               onClick={() => setOpen(true)}
             >
-              {collapsed ? null : <span className="text-2xl font-black tracking-wide" style={{ fontSize: '1.9rem', textShadow: '0 0 2px rgba(255,255,255,0.2)' }}>OMNI OS</span>}
+              {collapsed ? null : <span className="text-3xl tracking-wide" style={{ fontSize: '2.2rem', textShadow: '0 0 3px rgba(255,255,255,0.25)' }}><span className="font-black"><strong>OMNI</strong></span><span className="font-normal">OS</span></span>}
             </MenuButton>
           </MenuTrigger>
         </div>

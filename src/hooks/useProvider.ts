@@ -1,10 +1,11 @@
 import { providers } from '../providers';
 import { IChatModel, IServiceProvider, ProviderType } from 'providers/types';
 import useAuthStore from 'stores/useAuthStore';
+import useSettingsStore from 'stores/useSettingsStore';
 
 export default function useProvider() {
-
-  const {session} = useAuthStore.getState()
+  // Don't access store states directly here, as it can cause issues before store initialization
+  // Instead, access them inside the functions where they're actually needed
 
   function getProviders(arg?:{withDisabled:boolean}): { [key: string]: IServiceProvider } {
     // Only show OMNI provider in the frontend

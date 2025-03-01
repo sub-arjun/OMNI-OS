@@ -32,6 +32,7 @@ export interface ISettingStore {
   api: IAPISettings;
   modelMapping: IModelMapping;
   toolStates: IToolStates;
+  autoOMNIEnabled: boolean;
   setTheme: (theme: ThemeType) => void;
   setAPI: (api: Partial<IAPISettings>) => void;
   setModelMapping: (modelMapping: IModelMapping) => void;
@@ -44,6 +45,7 @@ export interface ISettingStore {
     providerName: string,
     modelName: string,
   ) => boolean | undefined;
+  setAutoOMNIEnabled: (enabled: boolean) => void;
   setLanguage: (language: LanguageType) => void;
   setFontSize: (fontSize: FontSize) => void;
 }
@@ -61,6 +63,7 @@ const useSettingsStore = create<ISettingStore>((set, get) => ({
   fontSize: settings?.fontSize || defaultFontSize,
   modelMapping: settings.modelMapping || defaultModelMapping,
   toolStates: settings.toolStates || defaultToolStates,
+  autoOMNIEnabled: settings.autoOMNIEnabled !== false, // Default to true if not set
   api: apiSettings,
   setTheme: async (theme: ThemeType) => {
     set({ theme });
@@ -107,6 +110,10 @@ const useSettingsStore = create<ISettingStore>((set, get) => ({
   },
   getToolState(providerName: string, modelName: string) {
     return get().toolStates[`${providerName}.${modelName}`];
+  },
+  setAutoOMNIEnabled(enabled: boolean) {
+    set({ autoOMNIEnabled: enabled });
+    window.electron.store.set('settings.autoOMNIEnabled', enabled);
   },
   setLanguage: (language: 'en' | 'zh' | 'system') => {
     set({ language });

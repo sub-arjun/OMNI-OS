@@ -59,6 +59,7 @@ export interface IChatModel {
   defaultMaxTokens?: number | null;
   contextWindow: number | null;
   isDefault?: boolean;
+  autoEnabled?: boolean;
   inputPrice: number;
   outputPrice: number;
   jsonModelEnabled?: boolean;

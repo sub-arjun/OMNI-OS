@@ -119,6 +119,11 @@ export default function ChatSettingsDrawer({
                 onChange={onSystemMessageChange}
                 resize="vertical"
               />
+              <div className="text-xs mt-2 text-gray-500 dark:text-gray-400 p-2 bg-gray-100 dark:bg-gray-800 rounded">
+                <p><strong>Tip:</strong> System messages give instructions to the AI about how to behave.</p>
+                <p className="mt-1">For beginners: Use this to set the AI's role (e.g., "You are a helpful math tutor") or give specific instructions.</p>
+                <p className="mt-1">For advanced users: Define constraints, formatting requirements, or custom behaviors to control the model's responses.</p>
+              </div>
             </Field>
           </div>
           <div className="flex-grow" />

@@ -275,6 +275,44 @@ main {
   background-color: rgba(var(--color-bg-surface-3), var(--tw-bg-opacity));
 }
 
+/* Custom styles for the green AutoOMNI toggle */
+.green-switch {
+  &:hover [data-tabster] {
+    background-color: #2ecc71 !important;
+    border-color: #27ae60 !important;
+  }
+  
+  [data-tabster] {
+    background-color: #2ecc71 !important;
+    border-color: #27ae60 !important;
+  }
+  
+  &:hover {
+    --colorCompoundBrandBackground: #2ecc71 !important;
+    --colorBrandBackground: #2ecc71 !important;
+    --colorBrandBackgroundHover: #27ae60 !important;
+    --colorBrandBackgroundPressed: #27ae60 !important;
+  }
+  
+  /* Ensure switch knob itself is colored properly */
+  [data-tabster] span {
+    background-color: white !important;
+  }
+}
+
+/* Position popup consistently */
+.model-menu-popup {
+  margin-bottom: 10px;
+  position: relative;
+  top: -10px !important;
+  
+  /* Ensure the popup is properly sized and doesn't cut off content */
+  .fui-MenuList {
+    max-width: 100%;
+    overflow: visible;
+  }
+}
+
 .justify-start {
   justify-content: flex-start !important;
 }
