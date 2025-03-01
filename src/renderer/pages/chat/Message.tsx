@@ -280,17 +280,12 @@ export default function Message({ message }: { message: IChatMessage }) {
             <div className="mt-4 mb-2">
               <Divider>{t('Common.References')}</Divider>
             </div>
-            <ul>
-              {citedFiles.map((file: ICollectionFile, idx: number) => (
-                <li key={idx}>
-                  <a
-                    href={file.url}
-                    target="_blank"
-                    className="text-sm text-color-tertiary"
-                    rel="noreferrer"
-                  >
-                    {file.name || file.url}
-                  </a>
+            <ul className="pl-0 list-none">
+              {citedFiles.map((fileName: string, idx: number) => (
+                <li key={idx} className="mb-1">
+                  <span className="text-sm text-color-tertiary">
+                    <strong>{idx + 1}.</strong> {fileName || `Document ${idx + 1}`}
+                  </span>
                 </li>
               ))}
             </ul>

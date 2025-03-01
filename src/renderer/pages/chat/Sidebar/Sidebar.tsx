@@ -3,8 +3,9 @@ import {
   AccordionItem,
   AccordionHeader,
   AccordionPanel,
+  Button,
 } from '@fluentui/react-components';
-import { PlayCircleHint16Regular, Info24Regular } from '@fluentui/react-icons';
+import { PlayCircleHint16Regular, Info24Regular, Dismiss24Regular } from '@fluentui/react-icons';
 import useMarkdown from 'hooks/useMarkdown';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -16,8 +17,13 @@ export default function Sidebar({ chatId }: { chatId: string }) {
   const theme = useAppearanceStore((state) => state.theme);
   const { render } = useMarkdown();
   const chatSidebar = useAppearanceStore((state) => state.chatSidebar);
+  const toggleChatSidebarVisibility = useAppearanceStore((state) => state.toggleChatSidebarVisibility);
   const messages = useInspectorStore((state) => state.messages);
   const trace = useMemo(() => messages[chatId] || [], [messages, chatId]);
+
+  const handleClose = () => {
+    toggleChatSidebarVisibility();
+  };
 
   const labelClasses: { [key: string]: string } = useMemo(() => {
     if (theme === 'dark') {
@@ -52,9 +58,19 @@ export default function Sidebar({ chatId }: { chatId: string }) {
       {/* Glass reflection effect */}
       <div className="absolute top-0 left-0 right-0 h-[1px] bg-white opacity-20"></div>
       
-      <div className="flex text-gray-300 dark:text-gray-600 font-bold text-lg mb-2 items-center">
-        <Info24Regular className="mr-2 text-color-tertiary" />
-        {t('Common.Inspector')}
+      <div className="flex justify-between items-center text-gray-300 dark:text-gray-600 font-bold text-lg mb-2 pr-2">
+        <div className="flex items-center">
+          <Info24Regular className="mr-2 text-color-tertiary" />
+          {t('Common.Inspector')}
+        </div>
+        <Button
+          appearance="subtle"
+          icon={<Dismiss24Regular />}
+          size="small"
+          onClick={handleClose}
+          aria-label="Close inspector"
+          title="Close inspector"
+        />
       </div>
       
       <div className="h-full overflow-x-hidden overflow-y-auto break-all -ml-2.5 relative z-10">

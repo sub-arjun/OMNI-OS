@@ -200,7 +200,7 @@
   "Common.Tools": "Tools",
   "Tools.Description": "This is a series of tools that can extend the functionality of AI models. The purpose is to enable AI models to perform specific tasks or access external resources, thereby enhancing their capabilities and application scope, such as accessing databases, local or network files, etc. Large models that support tool features will decide for themselves whether to use the tools enabled here.",
   "Common.MCPDescription": "The Model Context Protocol (MCP) is an open protocol, open-sourced by Anthropic, enabling seamless integration between large language model (LLM) applications and external data sources and tools.",
-  "Tool.Info.Empty": "Discovery exceptional tools at mcpsvr.com",
+  "Tool.Info.Empty": "We can builld you a custom tool, please contact us at arjun@latent-labs.ai",
   "Tool.Supported": "Supported tools",
   "Tool.NotSupported": "Tools Not Supported",
   "Common.State": "State",
@@ -219,7 +219,7 @@
   "Common.Image": "Image",
   "Tool.HowToAddTools": "How to add tools？",
   "Tool.ConfigFile": "Configuration file",
-  "Tool.HowToAddToolsDescription": "You can add tools by modifying the configuration file. If changes cause errors and cannot be fixed, simply delete the configuration file. 5ire will reset it upon the next launch. Feel free to explore!",
+  "Tool.HowToAddToolsDescription": "You can add tools by modifying the configuration file. If changes cause errors and cannot be fixed, simply delete the configuration file. OMNI OS will reset it upon the next launch. Feel free to explore!",
   "Common.Add": "Add",
   "Common.NoMoreThan": "No more than",
   "Common.Normal": "Normal",
@@ -276,5 +276,6 @@
   "Common.Paste": "Paste JSON",
   "Common.Upload": "Upload File",
   "Common.PasteJsonHere": "Paste your JSON prompt here (multiple prompts supported)...",
-  "Common.DropFileHere": "Drop JSON file here (single or multiple prompts) or click to browse"
+  "Common.DropFileHere": "Drop JSON file here (single or multiple prompts) or click to browse",
+  "Common.NoInspectorData": "The model hasn't called any tools yet."
 }

@@ -29,7 +29,7 @@ export default function Empty({
         />
       </picture>
       <div className="text-center mx-auto mt-2">
-        <Text size={300} className="text-color-secondary">
+        <Text size={300} className="text-gray-700 dark:text-gray-300 font-medium">
           {text}
         </Text>
       </div>

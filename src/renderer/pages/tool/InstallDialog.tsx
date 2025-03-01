@@ -139,11 +139,11 @@ export default function ToolInstallDialog(options: {
   const Form = (type: 'args' | 'env', params: IMCPServerParameter[]) => {
     if (params.length === 0) return null;
     return (
-      <div className="mb-4">
-        <div className="text-base font-bold mb-1">
-          {type === 'args' ? 'Args' : 'Env'}
+      <div className="mb-5">
+        <div className="text-base font-bold mb-2 text-gray-800 dark:text-gray-200">
+          {type === 'args' ? t('Common.Arguments') : t('Common.Environment')}
         </div>
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-3">
           {params.map((param: IMCPServerParameter) => {
             return (
               <div key={param.name}>
@@ -190,7 +190,10 @@ export default function ToolInstallDialog(options: {
 
   return (
     <Dialog open={open}>
-      <DialogSurface mountNode={document.body.querySelector('#portal')}>
+      <DialogSurface
+        mountNode={document.body.querySelector('#portal')}
+        className="shadow-lg"
+      >
         <DialogBody>
           <DialogTitle
             action={
@@ -204,7 +207,7 @@ export default function ToolInstallDialog(options: {
               </DialogTrigger>
             }
           >
-            {server.name || server.key}
+            <span className="text-gray-900 dark:text-white font-semibold">{server.name || server.key}</span>
           </DialogTitle>
           <DialogContent>
             {hasParams ? (
@@ -213,8 +216,8 @@ export default function ToolInstallDialog(options: {
                 {Form('env', env)}
               </>
             ) : (
-              <div className="flex flex-col gap-2">
-                <span>
+              <div className="flex flex-col gap-2 py-3">
+                <span className="text-gray-800 dark:text-gray-200">
                   {server.description || t('Tools.InstallConfirmation')}
                 </span>
               </div>

@@ -21,7 +21,7 @@ export default {
       streamCustomizable: false,
     },
     models: {
-        'AutoOMNI 🪄AI chooses the best model🪄 (Experimental)': {
+        'AutoOMNI 🪄 AI Selects Best Model 🪄 (Experimental)': {
         name: 'openrouter/auto',
         label: 'OmniRouter',
         contextWindow: 200000,
@@ -36,7 +36,7 @@ export default {
         },
         toolEnabled: true,
         isDefault: true,
-        description: `OMNI automatically selects the optimal AI model for each request to balance performance and cost`,
+        description: `AutoOMNI automatically selects the optimal AI model for each request to balance performance and cost`,
         group: 'OMNI',
       },
       'anthropic/claude-3.7-sonnet': {

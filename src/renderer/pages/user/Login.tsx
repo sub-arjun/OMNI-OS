@@ -20,7 +20,7 @@ import useNav from 'hooks/useNav';
 import useToast from 'hooks/useToast';
 import { useState, ChangeEvent, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import MaskableInput from 'renderer/components/MaskableInput';
 import StateButton from 'renderer/components/StateButton';
 import StateInput from 'renderer/components/StateInput';
@@ -28,10 +28,11 @@ import useAppearanceStore from 'stores/useAppearanceStore';
 import useAuthStore from 'stores/useAuthStore';
 import { isValidEmail } from 'utils/validators';
 import supabase from 'vendors/supa';
+import { tempChatId } from 'consts';
 
 export default function Login() {
   const { t } = useTranslation();
-  const navigate = useNav();
+  const navigate = useNavigate();
   const { notifyError } = useToast();
   const [tab, setTab] = useState<TabValue>('emailAndPassword');
   const [loading, setLoading] = useState<boolean>(false);
@@ -46,7 +47,7 @@ export default function Login() {
   // Redirect if user is already logged in
   useEffect(() => {
     if (session) {
-      navigate('/user/account');
+      navigate(`/chats/${tempChatId}`);
     }
   }, [session]);
 

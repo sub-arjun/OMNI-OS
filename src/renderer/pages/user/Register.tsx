@@ -26,6 +26,7 @@ import useAuthStore from 'stores/useAuthStore';
 import StateButton from 'renderer/components/StateButton';
 import StateInput from 'renderer/components/StateInput';
 import MaskableStateInput from 'renderer/components/MaskableStateInput';
+import { tempChatId } from 'consts';
 
 const debug = Debug('5ire:pages:user:Register');
 
@@ -259,7 +260,7 @@ export default function Register() {
         setOpen={setSuccess}
         title={t('Account.Notification.Created')}
         message={t('Account.Notification.EmailConfirmation')}
-        onConfirm={() => navigate('/user/account')}
+        onConfirm={() => navigate(`/chats/${tempChatId}`)}
       ></AlertDialog>
     </div>
   );

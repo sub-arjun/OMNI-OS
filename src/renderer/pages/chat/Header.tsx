@@ -138,7 +138,7 @@ const Header = () => {
         {/* Show delete button for all chats except tempChatId (new chat) */}
         {activeChatId !== tempChatId && (
           <Button
-            icon={<DeleteIcon className="text-color-tertiary" />}
+            icon={<DeleteIcon className="text-color-secondary" />}
             appearance="transparent"
             title="Mod+d"
             onClick={() => handleDeleteConfirm(true)}
@@ -156,21 +156,21 @@ const Header = () => {
         ) : null}
         <Tooltip content={t('Common.Search')} relationship="label">
           <Button
-            icon={<Search24Regular className="text-color-tertiary" />}
+            icon={<Search24Regular className="text-color-secondary" />}
             appearance="transparent"
             title="Mod+f"
             onClick={handleOpenSearch}
           />
         </Tooltip>
         <Button
-          icon={<MoreHorizontalIcon className="text-color-tertiary"/>}
+          icon={<MoreHorizontalIcon className="text-color-secondary"/>}
           appearance="subtle"
           onClick={handleOpenDrawer}
         />
         <div className="hidden sm:block">
           <Tooltip content={t('Common.Inspector')} relationship="label">
             <Button
-              icon={<InfoIcon className="text-color-tertiary" />}
+              icon={<InfoIcon className="text-color-secondary" />}
               appearance="transparent"
               title="Mod+shift+r"
               onClick={toggleChatSidebarVisibility}
