@@ -37,18 +37,16 @@ export default function Prompts() {
           <h1 className="text-2xl flex-shrink-0 mr-6">{t('Common.Prompts')}</h1>
           <div className="flex justify-end w-full items-center gap-2">
             <Button
+              appearance="secondary"
+              onClick={() => setImportDialogOpen(true)}
+            >
+              {t('Common.Import')}
+            </Button>
+            <Button
               appearance="primary"
               onClick={() => navigate('/prompts/form')}
             >
               {t('Common.New')}
-            </Button>
-            <Button
-              appearance="secondary"
-              iconPosition="before"
-              icon={<ArrowUpload24Regular />}
-              onClick={() => setImportDialogOpen(true)}
-            >
-              {t('Common.Import')}
             </Button>
             <Input
               contentBefore={<Search24Regular />}

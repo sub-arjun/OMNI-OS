@@ -186,7 +186,7 @@
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.09), 0 0 16px rgba(var(--color-bg-surface-2), 0.4);
     position: relative;
     transform: translateY(-1px);
-    border-radius: 12px 2px 12px 12px;
+    border-radius: 12px 12px 12px 2px;
     animation: subtle-glow 3s ease-in-out infinite alternate;
     
     &:hover {
@@ -460,5 +460,51 @@ div.think-body{
 .message-cited-files {
   margin: 0 auto;
   max-width: 80%;
+}
+
+/* Mermaid diagram styling */
+.mermaid-container {
+  margin: 1rem 0;
+  padding: 1rem;
+  background-color: rgba(var(--color-bg-surface-1), 0.5);
+  border-radius: 8px;
+  border: 1px solid rgba(var(--color-border), 0.3);
+  overflow: auto;
+  
+  .mermaid {
+    display: flex;
+    justify-content: center;
+    font-family: 'Barlow', sans-serif;
+    
+    svg {
+      max-width: 100%;
+      height: auto;
+    }
+  }
+  
+  .mermaid-error {
+    color: #e74c3c;
+    font-size: 14px;
+    padding: 8px;
+    border-left: 3px solid #e74c3c;
+    background-color: rgba(231, 76, 60, 0.1);
+    border-radius: 4px;
+  }
+}
+
+[data-theme='dark'] .mermaid-container {
+  .mermaid {
+    filter: brightness(0.9);
+    
+    /* Improve text contrast in dark mode */
+    text {
+      fill: #e0e0e0 !important;
+    }
+    
+    /* Improve diagram line contrast in dark mode */
+    .messageText, .actor, .labelText {
+      fill: #f0f0f0 !important;
+    }
+  }
 }
 

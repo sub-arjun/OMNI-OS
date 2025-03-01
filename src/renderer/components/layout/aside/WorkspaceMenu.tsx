@@ -25,8 +25,6 @@ import {
   ReceiptSparkles24Regular,
   Settings24Regular,
   SignOut24Regular,
-  Record24Filled,
-  Record24Regular,
 } from '@fluentui/react-icons';
 import { useTranslation } from 'react-i18next';
 import useAppearanceStore from 'stores/useAppearanceStore';
@@ -94,37 +92,14 @@ export default function WorkspaceMenu({ collapsed }: { collapsed: boolean }) {
         >
           <MenuTrigger disableButtonEnhancement>
             <MenuButton
-              icon={
-                <span 
-                  onMouseEnter={() => setHovered(true)} 
-                  onMouseLeave={() => setHovered(false)}
-                >
-                  {hovered ? <Record24Regular /> : <Record24Filled />}
-                </span>
-              }
               appearance="subtle"
               style={{borderColor: 'transparent', boxShadow: 'none'}}
               className="w-full justify-start outline-none hover:bg-black/10 dark:hover:bg-white/10"
               onClick={() => setOpen(true)}
             >
-              {collapsed ? null : <span className="text-2xl font-black tracking-wide" style={{ fontSize: '1.6rem', textShadow: '0 0 2px rgba(255,255,255,0.2)' }}>OMNI OS</span>}
+              {collapsed ? null : <span className="text-2xl font-black tracking-wide" style={{ fontSize: '1.9rem', textShadow: '0 0 2px rgba(255,255,255,0.2)' }}>OMNI OS</span>}
             </MenuButton>
           </MenuTrigger>
-          {collapsed ? null : user ? (
-            <Button
-              className="ml-5 hover:bg-black/10 dark:hover:bg-white/10"
-              onClick={() => navigate('/user/account')}
-              appearance="subtle"
-              icon={
-                <Avatar
-                  aria-label={t('Common.User')}
-                  name={user.user_metadata.name}
-                  color="colorful"
-                  size={24}
-                />
-              }
-            ></Button>
-          ) : null}
         </div>
         <MenuPopover
           className="w-full"
