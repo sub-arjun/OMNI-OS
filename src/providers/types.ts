@@ -64,6 +64,12 @@ export interface IChatModel {
   outputPrice: number;
   jsonModelEnabled?: boolean;
   toolEnabled?: boolean;
+  onlineEnabled?: boolean;
+  reasoningEnabled?: boolean;
+  fastResponseEnabled?: boolean;
+  uncensoredEnabled?: boolean;
+  muricaEnabled?: boolean;
+  arjunsFavoriteEnabled?: boolean;
   vision?: IChatModelVision;
   endpoint?: string;
   group: ChatModelGroup;

@@ -25,7 +25,7 @@ export interface ISettings {
   };
   modelMapping: IModelMapping;
   toolStates: IToolStates;
-  autoOMNIEnabled?: boolean;
+  autoEnabled?: boolean;
 }
 
 export interface IModelMapping {

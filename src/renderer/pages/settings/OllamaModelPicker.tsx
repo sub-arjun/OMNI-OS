@@ -10,6 +10,12 @@ import {
   MenuItem,
 } from '@fluentui/react-components';
 import ToolStatusIndicator from 'renderer/components/ToolStatusIndicator';
+import OnlineStatusIndicator from 'renderer/components/OnlineStatusIndicator';
+import ReasoningStatusIndicator from 'renderer/components/ReasoningStatusIndicator';
+import FastResponseStatusIndicator from 'renderer/components/FastResponseStatusIndicator';
+import UncensoredStatusIndicator from 'renderer/components/UncensoredStatusIndicator';
+import MuricaStatusIndicator from 'renderer/components/MuricaStatusIndicator';
+import ArjunsFavoriteStatusIndicator from 'renderer/components/ArjunsFavoriteStatusIndicator';
 
 type Item = {
   name: string;
@@ -102,8 +108,16 @@ export default function OllamaModelPicker({
               onClick={() => onConfirm(item.name)}
             >
               <div className="flex justify-start items-center gap-1">
-                <ToolStatusIndicator model={item.name} provider="Ollama" />{' '}
-                <span> {item.name}</span>
+                <div style={{ display: 'flex', width: '68px', justifyContent: 'flex-start' }}>
+                  <OnlineStatusIndicator model={item.name} provider="Ollama" withTooltip={true} />
+                  <ReasoningStatusIndicator model={item.name} provider="Ollama" withTooltip={true} />
+                  <FastResponseStatusIndicator model={item.name} provider="Ollama" withTooltip={true} />
+                  <ToolStatusIndicator model={item.name} provider="Ollama" withTooltip={true} />
+                  <UncensoredStatusIndicator model={item.name} provider="Ollama" withTooltip={true} />
+                  <MuricaStatusIndicator model={item.name} provider="Ollama" withTooltip={true} />
+                  <ArjunsFavoriteStatusIndicator model={item.name} provider="Ollama" withTooltip={true} />
+                </div>
+                <span>{item.name}</span>
               </div>
             </MenuItem>
           ))}

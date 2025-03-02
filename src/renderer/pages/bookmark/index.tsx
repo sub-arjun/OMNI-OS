@@ -100,7 +100,7 @@ export default function Bookmarks() {
             {bookmarks.map((bookmark) => bookmarkItem(bookmark))}
           </div>
         ) : (
-          <Empty image="reading" text={t('No bookmarks yet')} />
+          <Empty image="reading" text={t('AI learning alphabet...16/26...')} />
         )}
       </div>
     </div>

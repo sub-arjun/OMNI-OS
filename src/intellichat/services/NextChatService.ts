@@ -201,7 +201,13 @@ export default abstract class NextCharService {
         onError: (err: any) => this.onErrorCallback(err, !!signal?.aborted),
         onProgress: (replyChunk: string, reasoningChunk?: string) => {
           reply += replyChunk;
-          reasoning += reasoningChunk || '';
+          
+          // Make sure we properly handle reasoning chunks
+          if (reasoningChunk) {
+            reasoning += reasoningChunk;
+          }
+          
+          // Pass both chunks to the callback
           this.onReadingCallback(replyChunk, reasoningChunk);
         },
         onToolCalls: this.onToolCallsCallback,

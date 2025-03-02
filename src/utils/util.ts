@@ -393,31 +393,99 @@ export function extractFirstLevelBrackets(text: string): string[] {
 }
 
 export function getReasoningContent(reply: string, reasoning?: string) {
+  // If a reasoning field is explicitly provided (from Anthropic or other providers), use that
   if (reasoning) {
     return reasoning;
   }
-  const parts = reply.split('<think>');
+  
+  // Check for embedded reasoning in JSON response format (Anthropic streaming format)
+  try {
+    // Try to parse potential JSON strings in the reply that might contain reasoning
+    const reasoningMatches = reply.match(/"reasoning":"(.*?)"/g);
+    if (reasoningMatches && reasoningMatches.length > 0) {
+      // Extract and combine all reasoning chunks
+      const extractedReasoning = reasoningMatches
+        .map(match => {
+          // Extract the reasoning content from the match
+          const content = match.replace(/"reasoning":"/, '').slice(0, -1);
+          // Unescape any escaped quotes in the content
+          return content.replace(/\\"/g, '"');
+        })
+        .join(' ');
+      return extractedReasoning;
+    }
+  } catch (error) {
+    // If parsing fails, continue with the existing approach
+    console.debug('Failed to parse reasoning from JSON', error);
+  }
+  
+  // Check for reasoning in other JSON formats
+  try {
+    // Look for "thinking" field which might be used by some models
+    const thinkingMatches = reply.match(/"thinking":"(.*?)"/g);
+    if (thinkingMatches && thinkingMatches.length > 0) {
+      const extractedThinking = thinkingMatches
+        .map(match => {
+          const content = match.replace(/"thinking":"/, '').slice(0, -1);
+          return content.replace(/\\"/g, '"');
+        })
+        .join(' ');
+      return extractedThinking;
+    }
+  } catch (error) {
+    console.debug('Failed to parse thinking from JSON', error);
+  }
+  
+  // Check for reasoning enclosed in <think> tags (original implementation)
+  try {
+    const parts = reply.split('<think>');
 
-  if (parts.length <= 1) {
-    return '';
+    if (parts.length > 1) {
+      const thinkParts = parts
+        .slice(1)
+        .map((part) => {
+          const [content] = part.split('</think>');
+          return content;
+        })
+        .filter(Boolean);
+
+      const joinedParts = thinkParts.join('');
+      return joinedParts;
+    }
+  } catch (error) {
+    console.debug('Failed to parse reasoning from think tags', error);
+  }
+  
+  // Check for OpenRouter specific reasoning format
+  try {
+    // Sometimes OpenRouter might include reasoning in a specific format within the content
+    const openRouterReasoningMatch = reply.match(/\[reasoning\](.*?)\[\/reasoning\]/s);
+    if (openRouterReasoningMatch && openRouterReasoningMatch[1]) {
+      return openRouterReasoningMatch[1].trim();
+    }
+  } catch (error) {
+    console.debug('Failed to parse OpenRouter reasoning format', error);
   }
 
-  const thinkParts = parts
-    .slice(1)
-    .map((part) => {
-      const [content] = part.split('</think>');
-      return content;
-    })
-    .filter(Boolean);
-
-  return thinkParts.join('');
+  return '';
 }
 
 export function getNormalContent(reply: string) {
-  const parts = reply.split('<think>');
+  // First, remove any JSON reasoning data that might be in the response
+  let cleanedReply = reply;
+  try {
+    // Remove reasoning JSON chunks from the reply
+    cleanedReply = reply.replace(/"reasoning":".*?"/g, '');
+  } catch (error) {
+    // If replacement fails, continue with the original reply
+    console.debug('Failed to clean reasoning JSON from reply', error);
+  }
+  
+  // Then process <think> tags as before
+  const parts = cleanedReply.split('<think>');
 
   if (parts.length === 1) {
-    return reply;
+    return cleanedReply;
   }
 
   const replyParts = parts
@@ -426,8 +494,6 @@ export function getNormalContent(reply: string) {
 
   return replyParts.join('');
 }
-
-
 
 export function urlJoin(part: string, base: string): URL {
   // Trim trailing slash from base

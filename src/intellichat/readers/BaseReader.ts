@@ -303,7 +303,7 @@ export default abstract class BaseReader implements IChatReader {
       messageIndex: number;
     },
     callbacks: {
-      onProgress: (chunk: string) => void;
+      onProgress: (chunk: string, reasoning?: string) => void;
       onToolCalls: (toolCalls: any) => void;
     },
   ): Promise<void> {
@@ -355,9 +355,16 @@ export default abstract class BaseReader implements IChatReader {
     state: { content: string; reasoning: string },
     callbacks: { onProgress: (chunk: string, reasoning?: string) => void },
   ): void {
-    state.content += response.content;
-    state.reasoning += response.reasoning || '';
-    callbacks.onProgress(response.content || '', response.reasoning || '');
+    state.content += response.content || '';
+    
+    // Add any reasoning content from this chunk
+    if (response.reasoning) {
+      state.reasoning += response.reasoning;
+      // Pass the reasoning chunk to the callback
+      callbacks.onProgress(response.content || '', response.reasoning);
+    } else {
+      callbacks.onProgress(response.content || '');
+    }
   }
 
   private updateTokenCounts(

@@ -1,17 +1,25 @@
 import {
   Button,
+  Field,
   Menu,
-  MenuCheckedValueChangeData,
-  MenuCheckedValueChangeEvent,
+  MenuDivider,
+  MenuGroupHeader,
+  MenuItemCheckbox,
   MenuItemRadio,
   MenuList,
   MenuPopover,
   MenuTrigger,
+  Popover,
+  PopoverSurface,
+  PopoverTrigger,
+  Switch,
+  SwitchOnChangeData,
   Text,
   Tooltip,
-  Switch,
+  MenuCheckedValueChangeData,
   SwitchProps,
 } from '@fluentui/react-components';
+import type { MenuCheckedValueChangeEvent } from '@fluentui/react-components';
 import { ChevronDown16Regular, Info16Regular } from '@fluentui/react-icons';
 import Mousetrap from 'mousetrap';
 import { IChat, IChatContext } from 'intellichat/types';
@@ -23,6 +31,12 @@ import { IChatModel, ProviderType } from 'providers/types';
 import useProvider from 'hooks/useProvider';
 import useAuthStore from 'stores/useAuthStore';
 import ToolStatusIndicator from 'renderer/components/ToolStatusIndicator';
+import OnlineStatusIndicator from 'renderer/components/OnlineStatusIndicator';
+import ReasoningStatusIndicator from 'renderer/components/ReasoningStatusIndicator';
+import FastResponseStatusIndicator from 'renderer/components/FastResponseStatusIndicator';
+import UncensoredStatusIndicator from 'renderer/components/UncensoredStatusIndicator';
+import MuricaStatusIndicator from 'renderer/components/MuricaStatusIndicator';
+import ArjunsFavoriteStatusIndicator from 'renderer/components/ArjunsFavoriteStatusIndicator';
 import { isUndefined } from 'lodash';
 
 // Custom styled Switch component with green color when checked
@@ -61,8 +75,8 @@ export default function ModelCtrl({
   const api = useSettingsStore((state) => state.api);
   const modelMapping = useSettingsStore((state) => state.modelMapping);
   const { getToolState, setToolState } = useSettingsStore();
-  const autoOMNIEnabled = useSettingsStore((state) => state.autoOMNIEnabled);
-  const setAutoOMNIEnabled = useSettingsStore((state) => state.setAutoOMNIEnabled);
+  const autoEnabled = useSettingsStore((state) => state.autoEnabled);
+  const setAutoEnabled = useSettingsStore((state) => state.setAutoEnabled);
   const session = useAuthStore((state) => state.session);
   const { getProvider, getChatModels } = useProvider();
   const [providerName, setProviderName] = useState<ProviderType>(api.provider);
@@ -83,13 +97,13 @@ export default function ModelCtrl({
   }, [allModels]);
 
   const models = useMemo<IChatModel[]>(() => {
-    // If AutoOMNI is enabled and exists, only show the auto model
-    if (autoOMNIEnabled && autoModel) {
+    // If AUTO is enabled and exists, only show the auto model
+    if (autoEnabled && autoModel) {
       return [autoModel];
     }
-    // Otherwise show all models except the auto model
+    // Otherwise show all available models except the auto model
     return allModels.filter(model => !model.autoEnabled);
-  }, [allModels, autoOMNIEnabled, autoModel]);
+  }, [allModels, autoEnabled, autoModel]);
 
   const activeModel = useMemo(() => ctx.getModel(), [chat.model]);
 
@@ -100,8 +114,8 @@ export default function ModelCtrl({
     const $model = data.checkedItems[0];
     editStage(chat.id, { model: $model });
     window.electron.ingestEvent([{ app: 'switch-model' }, { model: $model }]);
-    // Don't close dialog when changing model selection
-    // closeDialog();
+    // Close dialog when changing model selection
+    closeDialog();
   };
 
   const toggleDialog = () => {
@@ -122,22 +136,22 @@ export default function ModelCtrl({
     Mousetrap.unbind('esc');
   };
 
-  const toggleAutoOMNI = () => {
-    const newState = !autoOMNIEnabled;
-    setAutoOMNIEnabled(newState);
+  const toggleAuto = () => {
+    const newState = !autoEnabled;
+    setAutoEnabled(newState);
     
-    // If turning AutoOMNI on, switch to the auto model
+    // If turning AUTO on, switch to the auto model
     if (newState && autoModel) {
       editStage(chat.id, { model: autoModel.label });
+      // Close dialog when enabling AUTO
+      closeDialog();
     } 
-    // If turning AutoOMNI off and currently using the auto model,
+    // If turning AUTO off and currently using the auto model,
     // switch to the first non-auto model
     else if (!newState && activeModel.autoEnabled && models.length > 0) {
       editStage(chat.id, { model: models[0].label });
+      // Keep dialog open when disabling AUTO so user can select a model
     }
-    
-    // Don't close the dialog when toggling AutoOMNI
-    // closeDialog();
   };
 
   useEffect(() => {
@@ -169,16 +183,58 @@ export default function ModelCtrl({
           className="text-color-secondary flex justify-start items-center"
         >
           <div className="flex flex-row justify-start items-center mr-1">
-            <ToolStatusIndicator
-              provider={providerName}
-              model={activeModel.name}
-              withTooltip={true}
-            />
+            <div style={{ display: 'flex', width: '68px', justifyContent: 'flex-start' }}>
+              <OnlineStatusIndicator
+                provider={providerName}
+                model={activeModel.name}
+                withTooltip={true}
+              />
+              <ReasoningStatusIndicator
+                provider={providerName}
+                model={activeModel.name}
+                withTooltip={true}
+              />
+              <FastResponseStatusIndicator
+                provider={providerName}
+                model={activeModel.name}
+                withTooltip={true}
+              />
+              <ToolStatusIndicator
+                provider={providerName}
+                model={activeModel.name}
+                withTooltip={true}
+              />
+              <UncensoredStatusIndicator
+                provider={providerName}
+                model={activeModel.name}
+                withTooltip={true}
+              />
+              <MuricaStatusIndicator
+                provider={providerName}
+                model={activeModel.name}
+                withTooltip={true}
+              />
+              <ArjunsFavoriteStatusIndicator
+                provider={providerName}
+                model={activeModel.name}
+                withTooltip={true}
+              />
+            </div>
           </div>
           <div className="flex-shrink overflow-hidden whitespace-nowrap text-ellipsis min-w-12">
-            <span className="text-color-secondary">{providerName} /</span>
-            <span className="font-medium">{activeModel.label}</span>
-            {modelMapping[activeModel.label || ''] && (
+            {autoEnabled && autoModel && activeModel.autoEnabled ? (
+              <>
+                <span className="text-color-secondary">OMNI /</span>
+                <span className="font-medium">AUTO</span>
+                <span className="text-color-secondary"> 🪄 AI Selects Best Model 🪄 (Experimental)</span>
+              </>
+            ) : (
+              <>
+                <span className="text-color-secondary">{providerName} /</span>
+                <span className="font-medium">{activeModel.label}</span>
+              </>
+            )}
+            {!autoEnabled && modelMapping[activeModel.label || ''] && (
               <span className="text-gray-300 dark:text-gray-600">
                 ‣{modelMapping[activeModel.label || '']}
               </span>
@@ -204,9 +260,9 @@ export default function ModelCtrl({
             <div className="px-2 py-2 mb-2 border-b border-gray-200 dark:border-gray-700">
               <div style={{ display: 'flex', flexDirection: 'column', width: '100%', marginBottom: '8px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', marginBottom: '8px' }}>
-                  <span style={{ fontSize: '1rem', fontWeight: 500, textAlign: 'center' }}>&nbsp;&nbsp;✨ AutoOMNI ✨</span>
+                  <span style={{ fontSize: '1rem', fontWeight: 500, textAlign: 'center' }}>&nbsp;&nbsp;✨ AUTO ✨</span>
                   <div style={{ flexShrink: 0 }}>
-                    <GreenSwitch checked={autoOMNIEnabled} onChange={toggleAutoOMNI} />
+                    <GreenSwitch checked={autoEnabled} onChange={toggleAuto} />
                   </div>
                 </div>
                 <div style={{ paddingLeft: '4px' }}>
@@ -220,61 +276,129 @@ export default function ModelCtrl({
           )}
           
           {/* Manual model selection title */}
-          {!autoOMNIEnabled && (
+          {!autoEnabled && (
             <div className="px-3 py-2 mb-2">
               <span style={{ fontSize: '0.9rem', fontWeight: 500 }}>Manual Model Selection</span>
             </div>
           )}
           
           {/* Only show non-auto models */}
-          {!autoOMNIEnabled && allModels.filter(model => !model.autoEnabled).map((item) => {
-            let toolEnabled = getToolState(providerName, item.name);
-            if (isUndefined(toolEnabled)) {
-              toolEnabled = item.toolEnabled;
-            }
-            return (
-              <MenuItemRadio
-                name="model"
-                value={item.label as string}
-                key={item.label}
-              >
-                <div className="flex justify-start items-baseline gap-1">
-                  <ToolStatusIndicator
-                    provider={providerName}
-                    model={item.name}
-                  />
-                  <span className="latin">{item.label}</span>
-                  {modelMapping[item.label || ''] && (
-                    <span className="text-gray-300 dark:text-gray-600 -ml-1">
-                      ‣{modelMapping[item.label || '']}
-                    </span>
-                  )}
-                  {item.description && (
-                    <Tooltip
-                      content={item.description as string}
-                      relationship="label"
-                    >
-                      <Button
-                        icon={<Info16Regular />}
-                        size="small"
-                        appearance="subtle"
-                      />
-                    </Tooltip>
-                  )}
-                </div>
-              </MenuItemRadio>
-            );
-          })}
+          {!autoEnabled && (
+            <>
+              {allModels.filter(model => !model.autoEnabled).map((item) => {
+                let toolEnabled = getToolState(providerName, item.name);
+                if (isUndefined(toolEnabled)) {
+                  toolEnabled = item.toolEnabled;
+                }
+                return (
+                  <MenuItemRadio
+                    name="model"
+                    value={item.label as string}
+                    key={item.label}
+                  >
+                    <div className="flex justify-start items-center gap-1">
+                      <div style={{ display: 'flex', width: '68px', justifyContent: 'flex-start' }}>
+                        <OnlineStatusIndicator
+                          provider={providerName}
+                          model={item.name}
+                          withTooltip={true}
+                        />
+                        <ReasoningStatusIndicator
+                          provider={providerName}
+                          model={item.name}
+                          withTooltip={true}
+                        />
+                        <FastResponseStatusIndicator
+                          provider={providerName}
+                          model={item.name}
+                          withTooltip={true}
+                        />
+                        <ToolStatusIndicator
+                          provider={providerName}
+                          model={item.name}
+                          withTooltip={true}
+                        />
+                        <UncensoredStatusIndicator
+                          provider={providerName}
+                          model={item.name}
+                          withTooltip={true}
+                        />
+                        <MuricaStatusIndicator
+                          provider={providerName}
+                          model={item.name}
+                          withTooltip={true}
+                        />
+                        <ArjunsFavoriteStatusIndicator
+                          provider={providerName}
+                          model={item.name}
+                          withTooltip={true}
+                        />
+                      </div>
+                      <span className="latin">{item.label}</span>
+                      {modelMapping[item.label || ''] && (
+                        <span className="text-gray-300 dark:text-gray-600 -ml-1">
+                          ‣{modelMapping[item.label || '']}
+                        </span>
+                      )}
+                      {item.description && (
+                        <Tooltip
+                          content={item.description as string}
+                          relationship="label"
+                        >
+                          <Button
+                            icon={<Info16Regular />}
+                            size="small"
+                            appearance="subtle"
+                          />
+                        </Tooltip>
+                      )}
+                    </div>
+                  </MenuItemRadio>
+                );
+              })}
+            </>
+          )}
         </MenuList>
       </MenuPopover>
     </Menu>
   ) : (
     <Text size={200}>
       <span className="flex justify-start items-center gap-1">
-        <div>
+        <div style={{ display: 'flex', width: '68px', justifyContent: 'flex-start' }}>
+          <OnlineStatusIndicator
+            provider={providerName}
+            model={activeModel.name}
+            withTooltip={true}
+          />
+          <ReasoningStatusIndicator
+            provider={providerName}
+            model={activeModel.name}
+            withTooltip={true}
+          />
+          <FastResponseStatusIndicator
+            provider={providerName}
+            model={activeModel.name}
+            withTooltip={true}
+          />
           <ToolStatusIndicator
             provider={providerName}
             model={activeModel.name}
+            withTooltip={true}
+          />
+          <UncensoredStatusIndicator
+            provider={providerName}
+            model={activeModel.name}
+            withTooltip={true}
+          />
+          <MuricaStatusIndicator
+            provider={providerName}
+            model={activeModel.name}
+            withTooltip={true}
+          />
+          <ArjunsFavoriteStatusIndicator
+            provider={providerName}
+            model={activeModel.name}
+            withTooltip={true}
           />
         </div>
         <span className="latin">
@@ -290,5 +414,7 @@ export default function ModelCtrl({
     </Text>
   );
 }
+
+
 
 

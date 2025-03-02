@@ -12,6 +12,8 @@ import {
   InputOnChangeData,
   Radio,
   RadioGroup,
+  makeStyles,
+  Text
 } from '@fluentui/react-components';
 import Mousetrap from 'mousetrap';
 import {
@@ -20,6 +22,7 @@ import {
   ImageAdd20Filled,
   Dismiss24Regular,
   LinkSquare20Regular,
+  ArrowUpload24Regular,
 } from '@fluentui/react-icons';
 
 import { IChat, IChatContext } from 'intellichat/types';
@@ -33,6 +36,26 @@ import useChatStore from 'stores/useChatStore';
 
 const ImageAddIcon = bundleIcon(ImageAdd20Filled, ImageAdd20Regular);
 
+const useStyles = makeStyles({
+  uploadArea: {
+    border: '2px dashed #ccc',
+    borderRadius: '4px',
+    padding: '20px',
+    textAlign: 'center',
+    cursor: 'pointer',
+    marginBottom: '10px',
+    minHeight: '150px',
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  errorMessage: {
+    color: 'var(--colorStatusDangerForeground1)',
+    marginTop: '8px'
+  },
+});
+
 export default function ImgCtrl({
   ctx,
   chat,
@@ -42,8 +65,9 @@ export default function ImgCtrl({
 }) {
   const editStage = useChatStore((state) => state.editStage);
   const { t } = useTranslation();
+  const styles = useStyles();
 
-  const [imgType, setImgType] = useState<'url' | 'file'>('url');
+  const [imgType, setImgType] = useState<'url' | 'file'>('file');
   const [imgURL, setImgURL] = useState<string>('');
   const [imgName, setImgName] = useState<string>('');
   const [imgBase64, setImgBase64] = useState<string>('');
@@ -57,7 +81,7 @@ export default function ImgCtrl({
       () =>
         document
           .querySelector<HTMLInputElement>(
-            imgType === 'url' ? '#image-url-input' : '#select-file-button'
+            imgType === 'url' ? '#image-url-input' : '#upload-area'
           )
           ?.focus(),
       500
@@ -77,7 +101,7 @@ export default function ImgCtrl({
   useEffect(() => {
     Mousetrap.bind('mod+shift+7', openDialog);
     if (vision.enabled) {
-      setImgType(vision.allowUrl ? 'url' : 'file');
+      setImgType(vision.allowUrl && !vision.allowBase64 ? 'url' : 'file');
     }
     return () => {
       Mousetrap.unbind('mod+shift+7');
@@ -93,6 +117,30 @@ export default function ImgCtrl({
     data: InputOnChangeData
   ) => {
     setImgURL(data.value);
+  };
+
+  const handleSelectImage = async () => {
+    try {
+      const dataString = await window.electron.selectImageWithBase64();
+      if (dataString) {
+        const file = JSON.parse(dataString);
+        if (file.name && file.base64) {
+          setImgName(file.name);
+          setImgBase64(file.base64);
+          setErrMsg('');
+        }
+      }
+    } catch (error) {
+      console.error('Error selecting image:', error);
+      setErrMsg(t('Please input a valid image.'));
+    }
+  };
+
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    // Note: For security reasons, Electron doesn't allow direct file access from dropped files
+    // We'll prompt the user to use the file selector instead
+    setErrMsg(t('Please click to select an image file.'));
   };
 
   const Add = () => {
@@ -136,22 +184,23 @@ export default function ImgCtrl({
 
   const renderImgFileInput = () => {
     return (
-      <div className="flex justify-start items-start gap-2">
-        <Button
-          className="file-button"
-          id="select-file-button"
-          onClick={async () => {
-            const dataString = await window.electron.selectImageWithBase64();
-            const file = JSON.parse(dataString);
-            if (file.name && file.base64) {
-              setImgName(file.name);
-              setImgBase64(file.base64);
-            }
-          }}
+      <div>
+        <div 
+          id="upload-area"
+          className={styles.uploadArea} 
+          onClick={handleSelectImage}
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={handleDrop}
+          tabIndex={0}
         >
-          {t('Common.SelectImage')}
-        </Button>
-        <div className="mt-1 text-base">{imgName}</div>
+          <ArrowUpload24Regular />
+          <Text>
+            {imgName 
+              ? imgName 
+              : t('Common.SelectImage') + " - " + t('Common.Image') + " (jpg, png, jpeg)"}
+          </Text>
+        </div>
+        {errMsg && <Text className={styles.errorMessage}>{errMsg}</Text>}
       </div>
     );
   };
@@ -193,21 +242,21 @@ export default function ImgCtrl({
                 <RadioGroup
                   layout="horizontal"
                   value={imgType}
-                  onChange={(_, data: any) => setImgType(data.value)}
+                  onChange={(_, data: any) => {
+                    setImgType(data.value);
+                    setErrMsg('');
+                  }}
                 >
-                  <Radio value="url" label="URL" />
                   <Radio value="file" label="File" />
+                  <Radio value="url" label="URL" />
                 </RadioGroup>
               </Field>
 
-              <div style={{ height: '50px' }}>
-                <Field className="mt-2">
+              <div className="mt-2">
+                <Field>
                   {imgType === 'url'
                     ? renderImgUrlInput()
                     : renderImgFileInput()}
-                  {errMsg ? (
-                    <div className="mt-2 text-sm pl-1">{errMsg}</div>
-                  ) : null}
                 </Field>
               </div>
             </div>

@@ -48,7 +48,7 @@ export default function Knowledge() {
             <Grid collections={collections} />
           </div>
         ) : (
-          <Empty image="knowledge" text={t('No knowledge base yet.')} />
+          <Empty image="knowledge" text={t('\"You know nothing Jon Snow!\" ~ Redhead lady from spiky chair gameshow.')} />
         )}
       </div>
     </div>

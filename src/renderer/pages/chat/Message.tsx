@@ -117,8 +117,15 @@ export default function Message({ message }: { message: IChatMessage }) {
     const _reasoning = getReasoningContent(message.reply, message.reasoning);
     setReply(_reply);
     setReasoning(_reasoning);
-    replyRef.current = reply;
-    reasoningRef.current = reasoning;
+    
+    // Ensure these refs are updated immediately
+    replyRef.current = _reply;
+    reasoningRef.current = _reasoning;
+    
+    // Automatically show reasoning section if it exists
+    if (_reasoning && _reasoning.trim() !== '') {
+      setIsReasoningShow(true);
+    }
   }, [message.reply, message.reasoning]);
 
   function monitorThinkStatus() {

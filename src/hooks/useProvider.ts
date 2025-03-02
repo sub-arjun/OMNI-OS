@@ -49,13 +49,30 @@ export default function useProvider() {
     modelLabel: string
   ): IChatModel {
     // Always use OMNI provider regardless of requested provider
-    const omniProvider = getProvider('OMNI');
+    const omniProvider = getProvider('OMNI')    
+    // First try direct lookup by key
     let model = omniProvider.chat.models[modelLabel];
+    
+    // If not found, try to find by name
     if (!model) {
-      model = getDefaultChatModel('OMNI');
-    } else {
-      model.label = modelLabel;
+      // Look through all models to find one with matching name
+      for (const key in omniProvider.chat.models) {
+        const currentModel = omniProvider.chat.models[key];
+        if (currentModel.name === modelLabel || currentModel.label === modelLabel) {
+          model = currentModel;
+          break;
+        }
+      }
+      
+      // If still not found, return default model
+      if (!model) {
+        model = getDefaultChatModel('OMNI');
+      }
     }
+    
+    // Always ensure the model has a label
+    model.label = model.label || modelLabel;
+    
     return model;
   }
 
