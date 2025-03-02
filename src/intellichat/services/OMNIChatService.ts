@@ -44,7 +44,7 @@ export default class OMNIChatService
       // OpenRouter specific parameters can be added here if needed
       http_referer: 'https://omni.agisurge.com',
       models: ['google/gemini-2.0-flash-001','openai/gpt-4o', 'anthropic/claude-3.7-sonnet'],
-      include_reasoning: true,
+      //include_reasoning: true,
       transforms: ["middle-out"], // Improve JSON mode accuracy
     };
     
