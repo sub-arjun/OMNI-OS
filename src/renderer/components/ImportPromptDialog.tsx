@@ -15,7 +15,7 @@ import {
 } from '@fluentui/react-components';
 import { 
   ArrowDownload24Regular,
-  ArrowUpload24Regular,
+  ArrowUpload24Regular
 } from '@fluentui/react-icons';
 import { useTranslation } from 'react-i18next';
 

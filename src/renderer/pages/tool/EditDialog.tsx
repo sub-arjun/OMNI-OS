@@ -54,26 +54,32 @@ export default function ToolEditDialog(options: {
   const cmd = useMemo(() => {
     const arr = command.split(/\s+/).filter((i: string) => i.trim() !== '');
     if (arr.length > 0) {
+      console.log('cmd derived from command:', arr[0]);
       return arr[0];
     }
+    console.log('cmd is empty');
     return '';
   }, [command]);
 
   const args = useMemo(() => {
     const arr = command.split(/\s+/).filter((i: string) => i.trim() !== '');
     if (arr.length > 1) {
+      console.log('args derived from command:', arr.slice(1));
       return arr.slice(1);
     }
+    console.log('args is empty');
     return [];
   }, [command]);
 
   const config: IMCPServer = useMemo(() => {
     const payload: any = {};
+    if (server) {
+      payload.key = server.key;
+    } else if (key.trim() !== '') {
+      payload.key = key;
+    }
     if (name.trim() !== '') {
       payload.name = name;
-    }
-    if (key.trim() !== '') {
-      payload.key = key;
     }
     if (description.trim() !== '') {
       payload.description = description;
@@ -90,8 +96,9 @@ export default function ToolEditDialog(options: {
     if (envName.trim() !== '' && envValue.trim() !== '') {
       payload.env = { ...env, [envName.trim()]: envValue.trim() };
     }
+    console.log('Created config payload for', server ? 'existing' : 'new', 'server:', payload);
     return payload;
-  }, [name, key, description, cmd, args, env, envName, envValue]);
+  }, [server, name, key, description, cmd, args, env, envName, envValue]);
 
   const addEnv = useCallback(() => {
     if (envName.trim() === '' || envValue.trim() === '') {
@@ -104,21 +111,32 @@ export default function ToolEditDialog(options: {
 
   const submit = useCallback(async () => {
     let isValid = true;
-    if (!isValidMCPServerKey(key)) {
+    
+    // Only validate the key for new servers, not for existing ones
+    if (!server && !isValidMCPServerKey(key)) {
       setKeyValidationState('error');
       isValid = false;
     } else {
       setKeyValidationState('none');
     }
+    
     if (!cmd || args.length === 0) {
       setCommandValidationState('error');
       isValid = false;
     } else {
       setCommandValidationState('none');
     }
+    
     if (!isValid) {
       return;
     }
+    
+    console.log('Submitting config for', server ? `existing server "${server.key}"` : 'new server:');
+    console.log('Config:', config);
+    console.log('Command:', command);
+    console.log('cmd:', cmd);
+    console.log('args:', args);
+    
     const upset = server ? updateServer : addServer;
     const ok = await upset(config);
     if (ok) {
@@ -127,26 +145,30 @@ export default function ToolEditDialog(options: {
     } else {
       notifyError(server ? 'Cannot update server' : 'Server already exists');
     }
-  }, [name, key, description, cmd, args, env, envName, envValue, server]);
+  }, [server, key, cmd, args, config, command, updateServer, addServer, setOpen]);
 
   useEffect(() => {
     if (open && server) {
+      // Set server details for editing
+      console.log('Setting server details for editing:', server);
       setName(server.name || '');
       setKey(server.key);
       setDescription(server.description || '');
       setCommand([server.command, ...server.args].join(' '));
       setEnv(server.env || {});
-    }
-
-    return () => {
+    } else if (open) {
+      // Reset form for new server
+      console.log('Resetting form for new server');
       setName('');
       setKey('');
       setDescription('');
       setCommand('');
+      setEnv({});
       setEnvName('');
       setEnvValue('');
-      setEnv({});
-    };
+      setKeyValidationState('none');
+      setCommandValidationState('none');
+    }
   }, [open, server]);
 
   return (
@@ -175,7 +197,11 @@ export default function ToolEditDialog(options: {
                     label={t('Tools.Key')}
                     validationState={keyValidationState}
                     validationMessage={
-                      server ? t('Tools.KeyCannotUpdate') : t('Tools.KeyHint')
+                      server ? 
+                        (key.includes('-') && !isNaN(Number(key.split('-').pop()))) ?
+                          t('Tools.KeyCannotUpdate') + ' ' + t('MCP.EditParamsTip') :
+                          t('Tools.KeyCannotUpdate')
+                      : t('Tools.KeyHint')
                     }
                   >
                     <Input
@@ -234,17 +260,19 @@ export default function ToolEditDialog(options: {
                   validationMessage={`${t('Tools.Hint.CommandIsRequired')}, like: npx -y @mcp-server"`}
                   validationState={commandValidationState}
                 >
-                  <Input
-                    className="w-full min-w-fit"
+                  <input
+                    type="text"
+                    className="w-full min-w-fit p-2 border rounded border-base"
                     placeholder={t('Common.Required')}
                     value={command}
-                    onChange={(
-                      _: ChangeEvent<HTMLInputElement>,
-                      data: InputOnChangeData,
-                    ) => {
-                      setCommand(data.value);
+                    autoFocus={!!server}
+                    onClick={(e) => e.stopPropagation()}
+                    onFocus={(e) => e.currentTarget.select()}
+                    onChange={(e) => {
+                      console.log('Command changed via HTML input:', e.target.value);
+                      setCommand(e.target.value);
                       if (
-                        data.value.trim() !== '' &&
+                        e.target.value.trim() !== '' &&
                         (!cmd || args.length === 0)
                       ) {
                         setCommandValidationState('error');

@@ -202,6 +202,7 @@ export interface IChatMessage {
 export interface IPromptDef {
   id: string;
   name: string;
+  description?: string;
   systemMessage: string;
   userMessage: string;
   maxTokens?: number;

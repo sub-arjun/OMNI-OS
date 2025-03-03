@@ -1,13 +1,16 @@
 import { Input, Button, InputOnChangeData } from '@fluentui/react-components';
-import { Search24Regular, ArrowUpload24Regular } from '@fluentui/react-icons';
+import { Search24Regular, ArrowUpload24Regular, BuildingShopFilled, BuildingShopRegular, bundleIcon } from '@fluentui/react-icons';
 import useNav from 'hooks/useNav';
 import { ChangeEvent, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Empty from 'renderer/components/Empty';
 import ImportPromptDialog from 'renderer/components/ImportPromptDialog';
+import PromptMarketDrawer from 'renderer/components/PromptMarketDrawer';
 import usePromptStore from 'stores/usePromptStore';
 import Grid from './Grid';
 import useToast from 'hooks/useToast';
+
+const BuildingShopIcon = bundleIcon(BuildingShopFilled, BuildingShopRegular);
 
 export default function Prompts() {
   const { t } = useTranslation();
@@ -18,6 +21,7 @@ export default function Prompts() {
   const { notifySuccess, notifyError } = useToast();
   const [keyword, setKeyword] = useState<string>('');
   const [importDialogOpen, setImportDialogOpen] = useState<boolean>(false);
+  const [marketOpen, setMarketOpen] = useState<boolean>(false);
 
   useEffect(() => {
     fetchPrompts({ keyword });
@@ -29,6 +33,32 @@ export default function Prompts() {
   ) => {
     setKeyword(data.value || '');
   };
+
+  const handleInstallPrompt = async (promptData: any) => {
+    try {
+      // Remove properties that should not be imported
+      const { id, createdAt, updatedAt, pinedAt, ...cleanPromptData } = promptData;
+      
+      // Create a properly structured prompt
+      const newPrompt = {
+        name: cleanPromptData.name,
+        systemMessage: cleanPromptData.systemMessage,
+        userMessage: cleanPromptData.userMessage,
+        ...(typeof cleanPromptData.maxTokens === 'number' && { maxTokens: cleanPromptData.maxTokens }),
+        ...(typeof cleanPromptData.temperature === 'number' && { temperature: cleanPromptData.temperature }),
+        systemVariables: Array.isArray(cleanPromptData.systemVariables) ? [...cleanPromptData.systemVariables] : [],
+        userVariables: Array.isArray(cleanPromptData.userVariables) ? [...cleanPromptData.userVariables] : [],
+        models: Array.isArray(cleanPromptData.models) ? [...cleanPromptData.models] : []
+      };
+      
+      await createPrompt(newPrompt);
+      notifySuccess(t('Prompt.Market.InstallSuccess'));
+    } catch (error) {
+      console.error('Error installing prompt:', error);
+      notifyError(t('Prompt.Market.InstallError'));
+    }
+  };
+
   return (
     <div className="page h-full">
       <div className="page-top-bar"></div>
@@ -36,6 +66,13 @@ export default function Prompts() {
         <div className="flex items-center justify-between w-full">
           <h1 className="text-2xl flex-shrink-0 mr-6">{t('Common.Prompts')}</h1>
           <div className="flex justify-end w-full items-center gap-2">
+            <Button
+              appearance="outline"
+              icon={<BuildingShopIcon />}
+              onClick={() => setMarketOpen(true)}
+            >
+              {t('Prompt.Market')}
+            </Button>
             <Button
               appearance="secondary"
               onClick={() => setImportDialogOpen(true)}
@@ -99,25 +136,13 @@ export default function Prompts() {
                   ...(typeof cleanPromptData.maxTokens === 'number' && { maxTokens: cleanPromptData.maxTokens }),
                   ...(typeof cleanPromptData.temperature === 'number' && { temperature: cleanPromptData.temperature }),
                   
-                  // Array fields
-                  systemVariables: cleanPromptData.systemVariables,
-                  userVariables: cleanPromptData.userVariables,
-                  models: cleanPromptData.models
+                  // Array fields with proper type handling
+                  systemVariables: Array.isArray(cleanPromptData.systemVariables) ? [...cleanPromptData.systemVariables] : [],
+                  userVariables: Array.isArray(cleanPromptData.userVariables) ? [...cleanPromptData.userVariables] : [],
+                  models: Array.isArray(cleanPromptData.models) ? [...cleanPromptData.models] : []
                 };
                 
-                // Verify the prompt has at least one message type
-                if (!newPrompt.systemMessage && !newPrompt.userMessage) {
-                  console.warn(`Skipping prompt "${newPrompt.name}": ${t('Prompt.Notifications.MessageRequired')}`);
-                  failedCount++;
-                  continue;
-                }
-                
-                // Log the structure being created
-                console.log(`Creating prompt "${newPrompt.name}"`);
-                
-                // Create the prompt in the database
-                const createdPrompt = await createPrompt(newPrompt);
-                console.log(`Prompt "${newPrompt.name}" created successfully with ID: ${createdPrompt.id}`);
+                await createPrompt(newPrompt);
                 importedCount++;
               } catch (promptError) {
                 console.error(`Error importing prompt "${promptData.name}":`, promptError);
@@ -125,28 +150,30 @@ export default function Prompts() {
               }
             }
             
-            // Refresh the prompts list
-            await fetchPrompts({ keyword });
-            
-            // Show appropriate success message
+            // Notification logic
             if (importedCount > 0 && failedCount > 0) {
-              notifySuccess(t('Common.ImportPartialSuccess', { 
-                imported: importedCount, 
-                failed: failedCount 
+              notifySuccess(t('Common.ImportPartialSuccess', {
+                imported: importedCount,
+                failed: failedCount
               }));
             } else if (importedCount > 0) {
-              notifySuccess(importedCount === 1 
-                ? t('Common.ImportSuccess') 
+              notifySuccess(importedCount === 1
+                ? t('Common.ImportSuccess')
                 : t('Common.ImportMultipleSuccess', { count: importedCount }));
             } else {
               notifyError(t('Common.ImportAllFailed'));
             }
           } catch (error) {
             console.error('Import error:', error);
-            notifyError(t('Common.ImportError') + 
+            notifyError(t('Common.ImportError') +
               (error instanceof Error ? ': ' + error.message : ''));
           }
         }}
+      />
+      <PromptMarketDrawer
+        open={marketOpen}
+        setOpen={setMarketOpen}
+        onInstall={handleInstallPrompt}
       />
     </div>
   );

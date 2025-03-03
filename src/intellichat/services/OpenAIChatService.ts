@@ -180,7 +180,12 @@ export default class OpenAIChatService
         const _tools = tools
           .filter((tool: any) => !this.usedToolNames.includes(tool.name))
           .map((tool: any) => {
-            return this.makeTool(tool);
+            const toolObj = this.makeTool(tool);
+            // Add server name to the tool description if available
+            if (tool._serverName && 'function' in toolObj) {
+              toolObj.function.description = `[From server: ${tool._serverName}] ${toolObj.function.description}`;
+            }
+            return toolObj;
           });
         if (_tools.length > 0) {
           payload.tools = _tools;

@@ -1,74 +1,128 @@
-import { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Empty from 'renderer/components/Empty';
 import TooltipIcon from 'renderer/components/TooltipIcon';
 import useMCPStore from 'stores/useMCPStore';
 import Grid from './Grid';
-import { Button } from '@fluentui/react-components';
+import {
+  Button,
+  makeStyles,
+  Text,
+} from '@fluentui/react-components';
 import {
   ArrowSyncCircleRegular,
   BuildingShopFilled,
   BuildingShopRegular,
   bundleIcon,
+  ArrowClockwise16Filled,
+  Add16Regular,
+  ReOrderDotsVertical24Regular,
+  Add24Regular,
+  ArrowClockwise24Regular,
+  Cart24Regular,
+  ArrowUpload24Regular,
+  MoreHorizontalFilled,
+  MoreHorizontalRegular,
+  Info16Regular,
+  ArrowSync16Regular
 } from '@fluentui/react-icons';
 import ToolEditDialog from './EditDialog';
-import { IMCPServer } from 'types/mcp';
-import useToast from 'hooks/useToast';
+import { IMCPServer, IMCPConfig } from 'types/mcp';
+import useToast from '../../../hooks/useToast';
 import ConfirmDialog from 'renderer/components/ConfirmDialog';
 import DetailDialog from './DetailDialog';
-import ToolInstallDialog from './InstallDialog';
-import ToolMarketDrawer from './MarketDrawer';
+import InstallDialog from './InstallDialog';
+import MarketDrawer from './MarketDrawer';
+import ImportMCPConfigDialog from 'renderer/components/ImportMCPConfigDialog';
 
 const BuildingShopIcon = bundleIcon(BuildingShopFilled, BuildingShopRegular);
 
+const useStyles = makeStyles({
+  pageContainer: {
+    padding: '20px',
+    height: '100%',
+    display: 'flex',
+    flexDirection: 'column',
+  },
+  pageHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: '20px',
+  },
+  pageTitleSection: {
+    display: 'flex',
+    flexDirection: 'column',
+  },
+  pageTitle: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+    marginBottom: '4px',
+  },
+  toolsHeading: {
+    margin: 0,
+    fontSize: '38px',
+    fontWeight: '400',
+    color: '#5f4325',  // Brown color to match the theme
+    lineHeight: '1.2',
+  },
+  subtitle: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '4px',
+    marginTop: '4px',
+    color: 'var(--colorNeutralForeground2)',
+    fontSize: '14px'
+  },
+  pageActions: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+  },
+  pageContent: {
+    flex: '1 1 auto',
+    overflowY: 'auto',
+    marginTop: '12px',
+  },
+  actionButton: {
+    minWidth: '120px'
+  },
+  rightSection: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+  },
+  refreshButton: {
+    minWidth: '32px',
+    height: '32px',
+    padding: '0',
+    borderRadius: '50%',
+  },
+  rotateIcon: {
+    animation: 'spin 1s linear infinite',
+  },
+  '@keyframes spin': {
+    '0%': { transform: 'rotate(0deg)' },
+    '100%': { transform: 'rotate(360deg)' },
+  }
+});
+
 export default function Tools() {
+  const styles = useStyles();
   const { t } = useTranslation();
+  const { loadConfig, config, isLoading, addServer, updateServer, deleteServer, activateServer, deactivateServer } = useMCPStore();
   const { notifySuccess, notifyError } = useToast();
   const [loading, setLoading] = useState(false);
-  const [mktServer, setMktServer] = useState<IMCPServer | null>(null);
-  const [server, setServer] = useState<IMCPServer | null>(null);
-  const [marketOpen, setMarketOpen] = useState(false);
-  const [installDialogOpen, setInstallDialogOpen] = useState(false);
-  const [detailDialogOpen, setDetailDialogOpen] = useState(false);
-  const [delConfirmDialogOpen, setDelConfirmDialogOpen] = useState(false);
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const { config, loadConfig, deleteServer } = useMCPStore();
-
-  const editServer = useCallback((server: IMCPServer) => {
-    setServer(server);
-    setEditDialogOpen(true);
-  }, []);
-
-  const newServer = useCallback(() => {
-    setServer(null);
-    setEditDialogOpen(true);
-  }, []);
-
-  const installServer = useCallback((server: IMCPServer) => {
-    setMktServer(server);
-    setInstallDialogOpen(true);
-  }, []);
-
-  const inspectServer = useCallback((server: IMCPServer) => {
-    setServer(server);
-    setDetailDialogOpen(true);
-  }, []);
-
-  const toDeleteServer = useCallback((server: IMCPServer) => {
-    setServer(server);
-    setDelConfirmDialogOpen(true);
-  }, []);
-
-  const onDeleteServer = useCallback(async () => {
-    if (server) {
-      const ok = await deleteServer(server.key);
-      if (ok) {
-        notifySuccess('Server deleted successfully');
-      } else {
-        notifyError('Failed to delete server');
-      }
-    }
-  }, [server]);
+  const [editing, setEditing] = useState(false);
+  const [editingServer, setEditingServer] = useState<IMCPServer | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deletingServer, setDeletingServer] = useState<IMCPServer | null>(null);
+  const [detailServer, setDetailServer] = useState<IMCPServer | null>(null);
+  const [showDetail, setShowDetail] = useState(false);
+  const [installing, setInstalling] = useState(false);
+  const [showMarket, setShowMarket] = useState(false);
+  const [importing, setImporting] = useState(false);
 
   const loadMCPConfig = async (force: boolean, animate: boolean) => {
     try {
@@ -81,52 +135,123 @@ export default function Tools() {
     }
   };
 
+  const handleRefresh = () => {
+    setLoading(true);
+    loadMCPConfig(true, true);
+    // Ensure the loading animation runs for at least a moment
+    setTimeout(() => setLoading(false), 1000);
+  };
+
+  const editServer = useCallback((server: IMCPServer) => {
+    setEditingServer(server);
+    setEditing(true);
+  }, []);
+
+  const newServer = useCallback(() => {
+    setEditingServer(null);
+    setEditing(true);
+  }, []);
+
+  const installServer = useCallback((server: IMCPServer) => {
+    setEditingServer(server);
+    setInstalling(true);
+  }, []);
+
+  const inspectServer = useCallback((server: IMCPServer) => {
+    setDetailServer(server);
+    setShowDetail(true);
+  }, []);
+
+  const toDeleteServer = useCallback((server: IMCPServer) => {
+    setDeletingServer(server);
+    setConfirmDelete(true);
+  }, []);
+
+  const onDeleteServer = useCallback(async () => {
+    if (deletingServer) {
+      const ok = await deleteServer(deletingServer.key);
+      if (ok) {
+        notifySuccess('Server deleted successfully');
+      } else {
+        notifyError('Failed to delete server');
+      }
+    }
+  }, [deletingServer, deleteServer, notifySuccess, notifyError]);
+
+  const handleImportConfig = useCallback(async (configData: IMCPConfig) => {
+    try {
+      const success = await window.electron.mcp.putConfig(configData);
+      if (success) {
+        await loadMCPConfig(true, true);
+        notifySuccess(t('Common.ImportSuccess'));
+      } else {
+        notifyError(t('Common.ImportError'));
+      }
+    } catch (error) {
+      console.error('Error importing config:', error);
+      notifyError(t('Common.ImportError'));
+    }
+  }, [t, notifySuccess, notifyError, loadConfig]);
+
   useEffect(() => {
     loadMCPConfig(false, true);
   }, []);
 
   return (
-    <div className="page h-full">
-      <div className="page-top-bar"></div>
-      <div className="page-header w-full">
-        <div className="flex flex-col items-start w-full">
-          <div className="flex justify-between items-baseline w-full">
-            <h1 className="text-2xl flex-shrink-0 mr-6">{t('Common.Tools')}</h1>
-            <div className="flex justify-end w-full items-center gap-2">
-              <Button
-                icon={
-                  <ArrowSyncCircleRegular
-                    className={loading ? 'animate-spin' : ''}
-                  />
-                }
-                onClick={() => {
-                  setLoading(true);
-                  loadMCPConfig(true, false);
-                  setTimeout(() => setLoading(false), 1000);
-                }}
-                appearance="subtle"
-                title={t('Common.Action.Reload')}
-              />
-              <Button appearance="primary" onClick={() => newServer()}>
-                {t('Common.New')}
-              </Button>
-              <Button
-                appearance="outline"
-                icon={<BuildingShopIcon />}
-                onClick={() => setMarketOpen(true)}
-              >
-                {t('Tools.Market')}
-              </Button>
-            </div>
+    <div className={styles.pageContainer}>
+      <div className={styles.pageHeader}>
+        <div className={styles.pageTitleSection}>
+          <div className={styles.pageTitle}>
+            <h1 className={styles.toolsHeading}>{t('Common.Tools')}</h1>
           </div>
-          <div className="tips flex justify-start items-center">
-            {t('Common.MCPServers')}
+          <div className={styles.subtitle}>
+            <Text>{t('Common.MCPServers')}</Text>
             <TooltipIcon tip={t('Tools.PrerequisiteDescription')} />
           </div>
         </div>
+        
+        <div className={styles.rightSection}>
+          <Button
+            appearance="subtle"
+            icon={<ArrowSyncCircleRegular className={loading ? styles.rotateIcon : undefined} />}
+            onClick={handleRefresh}
+            disabled={loading}
+            title={t('Common.Action.Reload')}
+            className={styles.refreshButton}
+          />
+          
+          <div className={styles.pageActions}>
+            <Button
+              appearance="outline"
+              icon={<BuildingShopIcon />}
+              onClick={() => setShowMarket(true)}
+              className={styles.actionButton}
+            >
+              {t('Common.Market')}
+            </Button>
+            <Button
+              appearance="outline"
+              onClick={() => setImporting(true)}
+              className={styles.actionButton}
+            >
+              {t('Common.Import')}
+            </Button>
+            <Button
+              appearance="primary"
+              onClick={() => {
+                setEditingServer(null);
+                setEditing(true);
+              }}
+              className={styles.actionButton}
+            >
+              {t('Common.New')}
+            </Button>
+          </div>
+        </div>
       </div>
-      <div className="mt-2.5 pb-12 h-full -mr-5 overflow-y-auto">
-        {config.servers.length == 0 ? (
+
+      <div className={styles.pageContent}>
+        {config.servers.length === 0 ? (
           <Empty image="tools" text={t('Tool.Info.Empty')} />
         ) : (
           <Grid
@@ -137,36 +262,47 @@ export default function Tools() {
           />
         )}
       </div>
+
       <ToolEditDialog
-        open={editDialogOpen}
-        setOpen={setEditDialogOpen}
-        server={server}
+        open={editing}
+        setOpen={setEditing}
+        server={editingServer}
       />
+      
       <ConfirmDialog
-        open={delConfirmDialogOpen}
-        setOpen={setDelConfirmDialogOpen}
+        open={confirmDelete}
+        setOpen={setConfirmDelete}
         title={t('Tools.DeleteConfirmation')}
         message={t('Tools.DeleteConfirmationInfo')}
         onConfirm={onDeleteServer}
       />
-      {server && (
+      
+      {detailServer && (
         <DetailDialog
-          open={detailDialogOpen}
-          setOpen={setDetailDialogOpen}
-          server={server}
+          open={showDetail}
+          setOpen={setShowDetail}
+          server={detailServer}
         />
       )}
-      {mktServer && (
-        <ToolInstallDialog
-          server={mktServer}
-          open={installDialogOpen}
-          setOpen={setInstallDialogOpen}
+      
+      {editingServer && (
+        <InstallDialog
+          server={editingServer}
+          open={installing}
+          setOpen={setInstalling}
         />
       )}
-      <ToolMarketDrawer
-        open={marketOpen}
-        setOpen={setMarketOpen}
+      
+      <MarketDrawer
+        open={showMarket}
+        setOpen={setShowMarket}
         onInstall={installServer}
+      />
+      
+      <ImportMCPConfigDialog
+        open={importing}
+        setOpen={setImporting}
+        onImport={handleImportConfig}
       />
     </div>
   );

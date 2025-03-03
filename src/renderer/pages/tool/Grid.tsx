@@ -106,7 +106,18 @@ export default function Grid({
                 ) : (
                   <CircleOff16Regular className="text-gray-400 dark:text-gray-600 -mb-0.5" />
                 )}
-                <div className="ml-1.5">{item.name||item.key}</div>
+                <div className="ml-1.5">
+                  {item.key.includes('-') && 
+                   item.key.split('-').length > 1 && 
+                   !isNaN(Number(item.key.split('-').pop())) && 
+                   !(item.name && item.name.match(/\(\d+\)$/)) ? (
+                    <>
+                      {item.name || item.key.split('-')[0]} <span className="text-xs text-gray-500">({Number(item.key.split('-').pop()) + 1})</span>
+                    </>
+                  ) : (
+                    item.name || item.key
+                  )}
+                </div>
                 {item.description && (
                   <div className="-mb-0.5">
                     <Tooltip

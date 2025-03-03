@@ -14,27 +14,27 @@ import Mousetrap from 'mousetrap';
 import { useTranslation } from 'react-i18next';
 import { Dismiss24Regular } from '@fluentui/react-icons';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import useMCPServerMarketStore from 'stores/useMCPServerMarketStore';
+import usePromptMarketStore from 'stores/usePromptMarketStore';
 import Spinner from 'renderer/components/Spinner';
-import { IMCPServer } from 'types/mcp';
-import useMCPStore from 'stores/useMCPStore';
+import { IPromptDef } from 'intellichat/types';
+import usePromptStore from 'stores/usePromptStore';
 import { debounce } from 'lodash';
 import { highlight } from 'utils/util';
 import Empty from 'renderer/components/Empty';
 
-export default function ToolMarketDrawer({
+export default function PromptMarketDrawer({
   open,
   setOpen,
   onInstall,
 }: {
   open: boolean;
   setOpen: (open: boolean) => void;
-  onInstall: (server: IMCPServer) => void;
+  onInstall: (prompt: IPromptDef) => void;
 }) {
   const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
-  const { fetchServers, servers: allServers } = useMCPServerMarketStore();
-  const { config } = useMCPStore();
+  const { fetchPrompts, prompts: allPrompts } = usePromptMarketStore();
+  const { prompts: installedPrompts } = usePromptStore();
   const [filter, setFilter] = useState<string[]>([]);
 
   const debouncedSearch = useRef(
@@ -45,48 +45,46 @@ export default function ToolMarketDrawer({
     }, 500),
   ).current;
 
-  const servers = useMemo(() => {
-    let filteredServers = allServers;
+  const prompts = useMemo(() => {
+    let filteredPrompts = allPrompts;
     if (filter.length > 0) {
-      filteredServers = allServers.filter((s: any) => {
+      filteredPrompts = allPrompts.filter((p: IPromptDef) => {
         return filter.every((f) => {
           return (
-            (s.name || s.key).toLowerCase().includes(f.toLowerCase()) ||
-            (s.description || '').toLowerCase().includes(f.toLowerCase())
+            p.name.toLowerCase().includes(f.toLowerCase()) ||
+            (p.description || '').toLowerCase().includes(f.toLowerCase()) ||
+            (p.systemMessage || '').toLowerCase().includes(f.toLowerCase()) ||
+            (p.userMessage || '').toLowerCase().includes(f.toLowerCase())
           );
         });
       });
     }
-    return filteredServers.sort((a, b) => {
-      const nameA = a.name || a.key;
-      const nameB = b.name || b.key;
-      return nameA.localeCompare(nameB);
-    });
-  }, [filter, allServers]);
+    return filteredPrompts.sort((a, b) => a.name.localeCompare(b.name));
+  }, [filter, allPrompts]);
 
-  const installedServer = useMemo(
-    () => new Set(config.servers.map((svr: IMCPServer) => svr.key)),
-    [config.servers],
+  const installedPromptNames = useMemo(
+    () => new Set(installedPrompts.map((p: IPromptDef) => p.name)),
+    [installedPrompts],
   );
 
-  const loadServers = useCallback(async () => {
+  const loadPrompts = useCallback(async () => {
     setLoading(true);
     try {
-      await fetchServers();
+      await fetchPrompts();
     } finally {
       setLoading(false);
     }
-  }, [fetchServers]);
+  }, [fetchPrompts]);
 
   useEffect(() => {
     if (open) {
       Mousetrap.bind('esc', () => setOpen(false));
-      loadServers();
+      loadPrompts();
     }
     return () => {
       Mousetrap.unbind('esc');
     };
-  }, [open, loadServers]);
+  }, [open, loadPrompts]);
 
   return (
     <Drawer open={open} position="end" separator size="medium">
@@ -102,7 +100,10 @@ export default function ToolMarketDrawer({
           }
         >
           <div className="flex justify-start gap-2">
-            <SearchBox onChange={debouncedSearch} />
+            <SearchBox 
+              placeholder={t('Prompt.Market.SearchPlaceholder')}
+              onChange={debouncedSearch} 
+            />
           </div>
         </DrawerHeaderTitle>
       </DrawerHeader>
@@ -114,46 +115,43 @@ export default function ToolMarketDrawer({
               {t('Common.Loading')}
             </p>
           </div>
-        ) : servers.length > 0 ? (
+        ) : prompts.length > 0 ? (
           <div className="overflow-y-auto -mr-5 pr-5 pb-5">
             <List navigationMode="items">
-              {servers.map((server) => (
-                <ListItem key={server.key}>
+              {prompts.map((prompt) => (
+                <ListItem key={prompt.name}>
                   <div className="p-3 my-2 w-full rounded-md bg-gray-50 hover:bg-gray-100 dark:bg-neutral-800 dark:hover:bg-neutral-700 shadow-sm">
                     <div className="flex justify-between items-center">
                       <div className="flex flex-start items-center flex-grow">
                         <div
                           className="text-base font-bold"
                           dangerouslySetInnerHTML={{
-                            __html: highlight(
-                              server.name || server.key,
-                              filter,
-                            ),
+                            __html: highlight(prompt.name, filter),
                           }}
                         />
                       </div>
-                      {installedServer.has(server.key) ? (
+                      {installedPromptNames.has(prompt.name) ? (
                         <Button 
                           appearance="primary" 
                           size="small" 
-                          onClick={() => onInstall(server)}
+                          onClick={() => onInstall(prompt)}
                         >
-                          {t('Common.Action.Reinstall')}
+                          {t('Prompt.Market.Reinstall')}
                         </Button>
                       ) : (
                         <Button
                           appearance="primary"
                           size="small"
-                          onClick={() => onInstall(server)}
+                          onClick={() => onInstall(prompt)}
                         >
-                          {t('Common.Action.Install')}
+                          {t('Prompt.Market.Install')}
                         </Button>
                       )}
                     </div>
                     <p
                       className="text-gray-800 dark:text-gray-200 text-sm mt-2"
                       dangerouslySetInnerHTML={{
-                        __html: highlight(server.description || '', filter),
+                        __html: highlight(prompt.description || prompt.systemMessage || '', filter),
                       }}
                     />
                   </div>
@@ -162,9 +160,9 @@ export default function ToolMarketDrawer({
             </List>
           </div>
         ) : (
-          <Empty image="tools" text={t('Tool.Info.Empty')} />
+          <Empty image="prompts" text={t('Prompt.Market.NoPrompts')} />
         )}
       </DrawerBody>
     </Drawer>
   );
-}
+} 

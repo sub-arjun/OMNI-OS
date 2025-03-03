@@ -153,12 +153,58 @@ export default class ModuleContext {
 
   public async addServer(server: IMCPServer) {
     const config = await this.getConfig();
-    if (!config.servers.find((svr: IMCPServer) => svr.key === server.key)) {
-      config.servers.push(server);
-      await this.putConfig(config);
-      return true;
+    const originalKey = server.key;
+    
+    // Check if this key already has an instance number
+    const isAlreadyNumbered = originalKey.includes('-') && 
+                             !isNaN(Number(originalKey.split('-').pop()));
+    
+    // Get base key without instance number if it exists
+    const baseKey = isAlreadyNumbered ? originalKey.split('-').slice(0, -1).join('-') : originalKey;
+    
+    // Find all instances of this server (original and duplicates)
+    const existingInstances = config.servers.filter((svr: IMCPServer) => {
+      // Match exact key or key-number pattern
+      return svr.key === baseKey || 
+             (svr.key.startsWith(baseKey + '-') && !isNaN(Number(svr.key.split('-').pop())));
+    });
+    
+    if (existingInstances.length > 0) {
+      // Find the highest instance number
+      let highestInstance = 0;
+      existingInstances.forEach((svr: IMCPServer) => {
+        if (svr.key.includes('-')) {
+          const instanceNum = Number(svr.key.split('-').pop());
+          if (!isNaN(instanceNum) && instanceNum > highestInstance) {
+            highestInstance = instanceNum;
+          }
+        }
+      });
+      
+      // Create new key with next instance number
+      const newInstance = highestInstance + 1;
+      const newKey = `${baseKey}-${newInstance}`;
+      server.key = newKey;
+      
+      // Update name to include instance number
+      if (server.name) {
+        // First check if the original name already has a number in parentheses at the end
+        // This handles cases where marketplace servers might already have (2) etc. in their names
+        let baseName = server.name;
+        
+        // Remove any existing number in parentheses at the end of the name
+        baseName = baseName.replace(/\s*\(\d+\)\s*$/, '');
+        
+        // Set the name with the new instance number + 1 (for human-friendly numbering)
+        // The first duplicate should be labeled as (2), second as (3), etc.
+        server.name = `${baseName} (${newInstance + 1})`;
+      }
     }
-    return false;
+    
+    // Add the server to the config
+    config.servers.push(server);
+    await this.putConfig(config);
+    return true;
   }
 
   public async updateServer(server: IMCPServer) {
@@ -243,23 +289,36 @@ export default class ModuleContext {
       if (!this.clients[key]) {
         throw new Error(`MCP Client ${key} not found`);
       }
+      const config = await this.getConfig();
+      const server = config.servers.find((svr: IMCPServer) => svr.key === key);
+      const serverName = server?.name || key;
       const { tools } = await this.clients[key].listTools();
       allTools = tools.map((tool: any) => {
+        // Keep the original tool name format for compatibility
         tool.name = `${key}--${tool.name}`;
+        // Store server information separately
+        tool._serverName = serverName;
+        tool._clientKey = key;
         return tool;
       });
     } else {
-      for (const clientName in this.clients) {
-        const { tools } = await this.clients[clientName].listTools();
+      const config = await this.getConfig();
+      for (const clientKey in this.clients) {
+        const server = config.servers.find((svr: IMCPServer) => svr.key === clientKey);
+        const serverName = server?.name || clientKey;
+        const { tools } = await this.clients[clientKey].listTools();
         allTools = allTools.concat(
           tools.map((tool: any) => {
-            tool.name = `${clientName}--${tool.name}`;
+            // Keep the original tool name format for compatibility
+            tool.name = `${clientKey}--${tool.name}`;
+            // Store server information separately
+            tool._serverName = serverName;
+            tool._clientKey = clientKey;
             return tool;
           }),
         );
       }
     }
-    // logging.debug('All Tools:', JSON.stringify(allTools, null, 2));
     return allTools;
   }
 
@@ -272,12 +331,20 @@ export default class ModuleContext {
     name: string;
     args: any;
   }) {
-    if (!this.clients[client]) {
+    // Extract the actual tool name from the combined string (removing server name prefix)
+    const toolName = name.split('--')[1];
+    
+    // Get the client key from the tool's metadata if available
+    const tools = await this.listTools();
+    const tool = tools.find((t: any) => t.name === name);
+    const clientKey = tool?._clientKey || client;
+
+    if (!this.clients[clientKey]) {
       throw new Error(`MCP Client ${client} not found`);
     }
-    logging.debug('Calling:', client, name, args);
-    const result = await this.clients[client].callTool({
-      name,
+    logging.debug('Calling:', clientKey, toolName, args);
+    const result = await this.clients[clientKey].callTool({
+      name: toolName,
       arguments: args,
     });
     return result;
