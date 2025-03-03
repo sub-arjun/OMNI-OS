@@ -3,12 +3,14 @@ import Ollama from '../../providers/Ollama';
 import {
   IChatContext,
   IChatRequestMessage,
+  IChatRequestPayload,
+  IChatRequestMessageContent,
 } from 'intellichat/types';
 import INextChatService from './INextCharService';
 import OpenAIChatService from './OpenAIChatService';
 import OllamaReader from 'intellichat/readers/OllamaChatReader';
 import { ITool } from 'intellichat/readers/IChatReader';
-import { urlJoin } from 'utils/util';
+import { urlJoin, getBase64, splitByImg } from 'utils/util';
 
 const debug = Debug('OMNI-OS:intellichat:OllamaChatService');
 export default class OllamaChatService
@@ -21,6 +23,43 @@ export default class OllamaChatService
 
   protected getReaderType() {
     return OllamaReader;
+  }
+
+  protected async convertPromptContent(
+    content: string,
+  ): Promise<string | IChatRequestMessageContent[]> {
+    if (this.context.getModel().vision?.enabled) {
+      const items = splitByImg(content);
+      const result: IChatRequestMessageContent[] = [];
+      for (let item of items) {
+        if (item.type === 'image') {
+          let data = '';
+          if (item.dataType === 'URL') {
+            data = await getBase64(item.data);
+            data = data.split('base64,')[1]; // Remove data:image/png;base64,
+          } else {
+            data = item.data.split('base64,')[1]; // Remove data:image/png;base64,
+          }
+          result.push({
+            type: 'image',
+            source: {
+              type: 'base64',
+              media_type: item.mimeType as string,
+              data,
+            },
+          });
+        } else if (item.type === 'text') {
+          result.push({
+            type: 'text',
+            text: item.data,
+          });
+        } else {
+          throw new Error('Unknown message type');
+        }
+      }
+      return result;
+    }
+    return content;
   }
 
   protected makeToolMessages(
@@ -49,6 +88,29 @@ export default class OllamaChatService
         tool_call_id: tool.id,
       },
     ];
+  }
+
+  protected async makePayload(
+    messages: IChatRequestMessage[]
+  ): Promise<IChatRequestPayload> {
+    const payload = await super.makePayload(messages);
+    // Convert messages to Ollama format
+    const ollamaMessages = await Promise.all(
+      messages.map(async (msg) => {
+        const converted = {
+          role: msg.role,
+          content: typeof msg.content === 'string' 
+            ? await this.convertPromptContent(msg.content)
+            : msg.content,
+        };
+        return converted;
+      })
+    );
+    return {
+      ...payload,
+      messages: ollamaMessages,
+      stream: true,
+    };
   }
 
   protected async makeRequest(
