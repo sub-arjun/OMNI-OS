@@ -23,6 +23,7 @@ import { IBookmark } from 'types/bookmark';
 import { fmtDateTime, unix2date } from 'utils/util';
 import useToast from 'hooks/useToast';
 import { IChatMessage } from 'intellichat/types';
+import TTSButton from 'renderer/components/TTSButton';
 
 const DeleteIcon = bundleIcon(Delete16Filled, Delete16Regular);
 const CopyIcon = bundleIcon(Copy16Filled, Copy16Regular);
@@ -49,18 +50,15 @@ export default function MessageToolbar({ message }: { message: IChatMessage }) {
       citedChunks: message.citedChunks,
       memo: message.memo,
     } as IBookmark);
-    notifySuccess(t('Bookmarks.Notification.Added'));
-    bookmarkMessage(message.id, bookmark.id);
-    window.electron.ingestEvent([{ app: 'bookmark' }]);
+    await bookmarkMessage(message.id, bookmark.id);
+    notifySuccess(t('Common.Notification.BookmarkAdded'));
   };
 
   const unbookmark = async () => {
-    if (message.bookmarkId) {
-      await deleteBookmark(message.bookmarkId);
-      notifySuccess(t('Bookmarks.Notification.Removed'));
-      bookmarkMessage(message.id, null);
-      window.electron.ingestEvent([{ app: 'unbookmark' }]);
-    }
+    if (!message.bookmarkId) return;
+    await deleteBookmark(message.bookmarkId);
+    await bookmarkMessage(message.id, null);
+    notifySuccess(t('Common.Notification.BookmarkRemoved'));
   };
 
   const copy = () => {
@@ -69,9 +67,20 @@ export default function MessageToolbar({ message }: { message: IChatMessage }) {
     notifySuccess(t('Common.Notification.Copied'));
   };
 
+  // Determine if message is from the assistant
+  const isAssistantMessage = message.reply && !message.isActive;
+
   return !message.isActive && (
     <div className="message-toolbar p-0.5 rounded-md flex justify-between items-center">
       <div className="flex justify-start items-center gap-3">
+        {/* Only show TTS button for assistant messages */}
+        {isAssistantMessage && (
+          <TTSButton 
+            message={message.reply} 
+            id={`tts-${message.id}`} 
+          />
+        )}
+        
         {message.bookmarkId ? (
           <Tooltip
             content={t('Common.Action.Bookmark')}

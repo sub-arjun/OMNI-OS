@@ -505,3 +505,76 @@ export function urlJoin(part: string, base: string): URL {
   // Join with a single slash
   return new URL(`${trimmedBase}/${trimmedPart}`);
 }
+
+// Text-to-speech function using Replicate API
+export async function textToSpeech(text: string): Promise<string> {
+  try {
+    const response = await fetch('https://api.replicate.com/v1/predictions', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer r8_Tby8gXReJWwfuFBG356CFDOdmXBXrtH42mm3L',
+        'Content-Type': 'application/json',
+        'Prefer': 'wait'
+      },
+      body: JSON.stringify({
+        version: "f559560eb822dc509045f3921a1921234918b91739db4bf3daab2169b71c7a13",
+        input: {
+          text: text,
+          speed: 1,
+          voice: "af_bella"
+        }
+      })
+    });
+    
+    const data = await response.json();
+    
+    if (data.error) {
+      throw new Error(data.error);
+    }
+    
+    // If prediction is still processing, poll for result
+    if (data.status === 'processing') {
+      return await pollForResult(data.id);
+    }
+    
+    // Return direct URL if available
+    return data.output;
+  } catch (error) {
+    console.error('Error in text-to-speech:', error);
+    throw error;
+  }
+}
+
+// Helper function to poll for TTS result
+async function pollForResult(predictionId: string): Promise<string> {
+  const maxAttempts = 30; // Maximum polling attempts
+  const delay = 1000; // Delay between polls in ms
+  
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      // Wait before polling
+      await new Promise(resolve => setTimeout(resolve, delay));
+      
+      const response = await fetch(`https://api.replicate.com/v1/predictions/${predictionId}`, {
+        headers: {
+          'Authorization': 'Bearer r8_Tby8gXReJWwfuFBG356CFDOdmXBXrtH42mm3L',
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      const data = await response.json();
+      
+      if (data.status === 'succeeded') {
+        return data.output;
+      } else if (data.status === 'failed') {
+        throw new Error(`TTS generation failed: ${data.error}`);
+      }
+      // Continue polling if still processing
+    } catch (error) {
+      console.error('Error polling for TTS result:', error);
+      throw error;
+    }
+  }
+  
+  throw new Error('TTS generation timed out');
+}

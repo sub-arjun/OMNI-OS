@@ -305,5 +305,12 @@
   "Prompt.Market.Reinstall": "Reinstall",
   "Prompt.Market.InstallSuccess": "Prompt installed successfully",
   "Prompt.Market.InstallError": "Failed to install prompt",
-  "Common.Market": "Market"
+  "Common.Market": "Market",
+  "Common.Notification.BookmarkAdded": "Bookmark added",
+  "Common.Notification.BookmarkRemoved": "Bookmark removed",
+  "Common.Action.TextToSpeech": "Text to speech",
+  "Common.StopSpeech": "Stop reading",
+  "Common.PlaySpeech": "Read aloud",
+  "Common.Notification.GeneratingSpeech": "Generating speech...",
+  "Common.Notification.SpeechError": "Error generating speech"
 }
