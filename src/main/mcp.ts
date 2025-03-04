@@ -331,57 +331,134 @@ export default class ModuleContext {
     name: string;
     args: any;
   }) {
-    if (!name) {
-      throw new Error('Tool name is required');
-    }
-    
-    // Extract the actual tool name from the combined string (removing server name prefix)
-    const toolName = name.split('--')[1];
-    
-    if (!toolName) {
-      throw new Error(`Invalid tool name format: ${name}. Expected format: clientKey--toolName`);
-    }
-    
-    // Get the client key from the tool's metadata if available
-    const tools = await this.listTools();
-    const tool = tools.find((t: any) => t.name === name);
-    const clientKey = tool?._clientKey || client;
-    
-    if (!clientKey) {
-      throw new Error('Client key is required');
-    }
+    try {
+      if (!name) {
+        return {
+          isError: true,
+          content: [{ error: "Tool name is required. Please try again with a valid tool name." }]
+        };
+      }
+      
+      // Simple parsing of the tool name
+      const parts = name.split('--');
+      const toolName = parts.length > 1 ? parts[1] : name;
+      const clientKey = client || (parts.length > 1 ? parts[0] : '');
+      
+      if (!clientKey) {
+        return {
+          isError: true,
+          content: [{ error: "Client key is required. Please try again with a valid client identifier." }]
+        };
+      }
 
-    if (!this.clients[clientKey]) {
-      throw new Error(`MCP Client ${clientKey} not found`);
+      if (!this.clients[clientKey]) {
+        return {
+          isError: true,
+          content: [{ error: `Client '${clientKey}' not found. Available clients: ${Object.keys(this.clients).join(', ')}` }]
+        };
+      }
+      
+      // Identify the model family for logging purposes
+      const isOpenAI = clientKey.toLowerCase().includes('openai') || name.toLowerCase().includes('openai');
+      const isGrok = clientKey.toLowerCase().includes('grok') || clientKey.toLowerCase().includes('x-ai');
+      const isAnthropicClaude = clientKey.toLowerCase().includes('anthropic') || name.toLowerCase().includes('claude');
+      const isGemini = clientKey.toLowerCase().includes('google') || clientKey.toLowerCase().includes('gemini');
+      
+      // Log tool call details
+      logging.debug(`Tool call: ${clientKey}/${toolName}`, {
+        modelFamily: isOpenAI ? 'OpenAI' : isGrok ? 'Grok' : isAnthropicClaude ? 'Claude' : isGemini ? 'Gemini' : 'Other',
+        argsType: typeof args
+      });
+      
+      // Prepare arguments - keep it simple
+      let toolArgs = args;
+      
+      // Handle string-based arguments that might be partial JSON
+      if (typeof toolArgs === 'string') {
+        const trimmedArgs = toolArgs.trim();
+        
+        // Handle complete and partial JSON
+        if (trimmedArgs.startsWith('{') && trimmedArgs.endsWith('}')) {
+          try {
+            // Complete JSON object
+            toolArgs = JSON.parse(trimmedArgs);
+            logging.debug('Parsed complete JSON string arguments');
+          } catch (e) {
+            // Malformed JSON, but looks like a search query
+            if (toolName.toLowerCase().includes('search')) {
+              logging.debug('Using malformed JSON as search query');
+              toolArgs = { query: trimmedArgs };
+            }
+          }
+        } 
+        // Handle partial JSON with query keywords (common in streaming responses)
+        else if (trimmedArgs.includes('query') || trimmedArgs.includes('quer')) {
+          logging.debug('Found partial query in string arguments');
+          toolArgs = { query: trimmedArgs };
+        }
+        // General string for search tools
+        else if (toolName.toLowerCase().includes('search')) {
+          logging.debug('Using string directly as search query');
+          toolArgs = { query: trimmedArgs };
+        }
+      }
+      
+      // Handle completely empty arguments case
+      if (toolArgs === null || toolArgs === undefined) {
+        toolArgs = {};
+      }
+      
+      // Ensure we have an object
+      if (typeof toolArgs !== 'object') {
+        toolArgs = { query: String(toolArgs) };
+      }
+      
+      // For search tools, require a valid query from the model
+      if (toolName.toLowerCase().includes('search') && 
+          (!toolArgs.query || toolArgs.query === "")) {
+        
+        logging.debug('Missing search query from model');
+        return {
+          isError: true,
+          content: [{
+            error: "Search tools require a query parameter. Please provide a specific search query.",
+            suggestion: "Try again with a detailed search query instead of an empty search."
+          }]
+        };
+      }
+      
+      // Log final arguments being sent
+      logging.debug('Final processed tool args:', toolArgs);
+      
+      // Call the tool
+      try {
+        const result = await this.clients[clientKey].callTool({
+          name: toolName,
+          arguments: toolArgs
+        });
+        return result;
+      } catch (toolError: any) {
+        // Create a meaningful error message for the model to understand and retry
+        logging.error(`Error calling ${clientKey} tool ${toolName}:`, toolError);
+        return {
+          isError: true,
+          content: [{
+            error: `Error calling ${toolName}: ${toolError.message || 'Unknown error'}. Please try again with valid parameters.`,
+            details: String(toolError)
+          }]
+        };
+      }
+    } catch (error: any) {
+      // Format error for the model to understand
+      logging.error('Error in MCP callTool:', error);
+      return {
+        isError: true,
+        content: [{ 
+          error: `Failed to process tool call: ${error.message || 'Unknown error'}. Please try again.`,
+          details: String(error)
+        }]
+      };
     }
-    
-    logging.debug('Calling:', clientKey, toolName, args);
-    
-    // Get the server name from the tool metadata or config
-    const serverName = tool?._serverName || clientKey;
-    
-    // Include the server name directly in the arguments
-    const enhancedArgs = {
-      ...args,
-      _serverInfo: {
-        name: serverName,
-        key: clientKey
-      }
-    };
-    
-    // Log the enhanced arguments for debugging
-    logging.debug('Enhanced arguments with server info:', enhancedArgs);
-    
-    const result = await this.clients[clientKey].callTool({
-      name: toolName,
-      arguments: enhancedArgs,
-      // Context might not be used by all implementations
-      context: {
-        serverName: serverName,
-        serverKey: clientKey
-      }
-    });
-    return result;
   }
 
   public getClient(name: string) {

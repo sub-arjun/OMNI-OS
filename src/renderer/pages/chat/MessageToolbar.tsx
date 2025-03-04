@@ -71,7 +71,7 @@ export default function MessageToolbar({ message }: { message: IChatMessage }) {
   const isAssistantMessage = message.reply && !message.isActive;
 
   return !message.isActive && (
-    <div className="message-toolbar p-0.5 rounded-md flex justify-between items-center">
+    <div className="message-toolbar p-0.5 rounded-md flex justify-between items-center mb-5">
       <div className="flex justify-start items-center gap-3">
         {/* Only show TTS button for assistant messages */}
         {isAssistantMessage && (

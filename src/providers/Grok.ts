@@ -17,6 +17,25 @@ export default {
       modelCustomizable: true,
     },
     models: {
+      'grok-beta': {
+        name: 'grok-beta',
+        label: 'Grok Beta',
+        contextWindow: 131072,
+        defaultMaxTokens:4000,
+        maxTokens: 4096,
+        inputPrice: 5,
+        outputPrice: 15,
+        isDefault: true,
+        vision: {
+          enabled: true,
+          allowBase64: true,
+          allowUrl: true,
+        },
+        description: `✨ xAI's experimental language model with state-of-the-art reasoning capabilities, can search the internet for up-to-date information.\n\n📊 For experts: Successor to Grok 2 with enhanced context length of 131K tokens and improved reasoning capabilities.`,
+        toolEnabled: true,
+        onlineEnabled: true,
+        group: 'Grok',
+      },
       'grok-2-vision': {
         name: 'grok-2-vision',
         contextWindow: 32768,
@@ -24,7 +43,7 @@ export default {
         maxTokens: 4096,
         inputPrice: 0.002,
         outputPrice: 0.01,
-        isDefault: true,
+        isDefault: false,
         vision: {
           enabled: true,
           allowBase64: true,
@@ -41,7 +60,7 @@ export default {
         maxTokens: 128000,
         inputPrice: 0.002,
         outputPrice: 0.01,
-        isDefault: true,
+        isDefault: false,
         description: `Comparable performance to Grok 2 but with improved efficiency, speed and capabilities.`,
         toolEnabled: true,
         group: 'Grok',

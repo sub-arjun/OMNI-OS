@@ -19,6 +19,45 @@ const MuteIcon = bundleIcon(SpeakerMute24Filled, SpeakerMute24Regular);
 let currentAudio: HTMLAudioElement | null = null;
 let currentButtonId: string | null = null;
 
+// CSS for the waveform animation
+const waveformStyle = `
+.waveform-container {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  height: 15px;
+  margin-top: 2px;
+  width: 32px;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: -18px;
+  gap: 1px;
+}
+
+.waveform-bar {
+  background-color: var(--colorBrandForeground1);
+  width: 2px;
+  margin: 0 1px;
+  height: 3px;
+  border-radius: 1px;
+  animation: waveform-animation 1s infinite ease-in-out;
+}
+
+.waveform-bar:nth-child(1) { animation-delay: 0.0s; }
+.waveform-bar:nth-child(2) { animation-delay: 0.1s; }
+.waveform-bar:nth-child(3) { animation-delay: 0.2s; }
+.waveform-bar:nth-child(4) { animation-delay: 0.3s; }
+.waveform-bar:nth-child(5) { animation-delay: 0.4s; }
+.waveform-bar:nth-child(6) { animation-delay: 0.5s; }
+.waveform-bar:nth-child(7) { animation-delay: 0.15s; }
+
+@keyframes waveform-animation {
+  0%, 100% { height: 3px; }
+  50% { height: 10px; }
+}
+`;
+
 export default function TTSButton({ 
   message, 
   id 
@@ -61,6 +100,17 @@ export default function TTSButton({
       }
     };
   }, [id, handleAudioEnded]);
+  
+  useEffect(() => {
+    // Add style element for waveform
+    const styleEl = document.createElement('style');
+    styleEl.innerHTML = waveformStyle;
+    document.head.appendChild(styleEl);
+
+    return () => {
+      document.head.removeChild(styleEl);
+    };
+  }, []);
   
   const togglePlay = async () => {
     // If currently playing, stop playback
@@ -134,18 +184,38 @@ export default function TTSButton({
     }
   };
   
+  // Render waveform when playing
+  const renderWaveform = () => {
+    if (!isPlaying) return null;
+    
+    return (
+      <div className="waveform-container">
+        <div className="waveform-bar"></div>
+        <div className="waveform-bar"></div>
+        <div className="waveform-bar"></div>
+        <div className="waveform-bar"></div>
+        <div className="waveform-bar"></div>
+        <div className="waveform-bar"></div>
+        <div className="waveform-bar"></div>
+      </div>
+    );
+  };
+
   return (
-    <Tooltip content={isPlaying ? t('Common.StopSpeech') : t('Common.PlaySpeech')} relationship="label">
-      <Button
-        data-tts-id={id}
-        data-playing={isPlaying ? 'true' : 'false'}
-        size="small"
-        icon={isLoading ? <Spinner size="tiny" /> : (isPlaying ? <MuteIcon /> : <SpeakerIcon />)}
-        appearance="subtle"
-        onClick={togglePlay}
-        disabled={isLoading}
-        aria-label={isPlaying ? t('Common.StopSpeech') : t('Common.PlaySpeech')}
-      />
-    </Tooltip>
+    <div className="relative">
+      <Tooltip content={isPlaying ? t('Common.StopSpeech') : t('Common.PlaySpeech')} relationship="label">
+        <Button
+          data-tts-id={id}
+          data-playing={isPlaying ? 'true' : 'false'}
+          size="small"
+          icon={isLoading ? <Spinner size="tiny" /> : (isPlaying ? <MuteIcon /> : <SpeakerIcon />)}
+          appearance="subtle"
+          onClick={togglePlay}
+          disabled={isLoading}
+          aria-label={isPlaying ? t('Common.StopSpeech') : t('Common.PlaySpeech')}
+        />
+      </Tooltip>
+      {renderWaveform()}
+    </div>
   );
 } 
