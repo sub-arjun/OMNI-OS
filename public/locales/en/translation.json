@@ -312,5 +312,5 @@
   "Common.StopSpeech": "Stop reading",
   "Common.PlaySpeech": "Read aloud",
   "Common.Notification.GeneratingSpeech": "Generating speech...",
-  "Common.Notification.SpeechError": "Error generating speech"
+  "Common.Error.AudioPlayback": "Error generating speech"
 }

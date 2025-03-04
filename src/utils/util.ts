@@ -512,7 +512,7 @@ export async function textToSpeech(text: string): Promise<string> {
     const response = await fetch('https://api.replicate.com/v1/predictions', {
       method: 'POST',
       headers: {
-        'Authorization': 'Bearer r8_Tby8gXReJWwfuFBG356CFDOdmXBXrtH42mm3L',
+        'Authorization': '',
         'Content-Type': 'application/json',
         'Prefer': 'wait'
       },
