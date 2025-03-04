@@ -429,3 +429,105 @@ mark {
     stroke: #171717;
   }
 }
+
+/* Dark mode text contrast fixes */
+[data-theme='dark'] {
+  /* Ensure all text inputs have proper contrast */
+  input, textarea, select, .fui-Input, .fui-Textarea, .fui-Select {
+    color: rgba(var(--color-text-base), 1) !important;
+  }
+  
+  /* Fix contrast for text in dialogs and panels */
+  .fui-Dialog, .fui-Panel, .fui-Card {
+    color: rgba(var(--color-text-base), 1) !important;
+  }
+  
+  /* Ensure labels and form elements have proper contrast */
+  label, .fui-Label, .fui-Text, .fui-Field, .fui-FieldLabel {
+    color: rgba(var(--color-text-base), 1) !important;
+  }
+  
+  /* Fix contrast for menu items */
+  .fui-MenuItem, .fui-Menu, .fui-MenuList, .fui-MenuPopover {
+    color: rgba(var(--color-text-base), 1) !important;
+  }
+  
+  /* Fix contrast for buttons with no explicit styling */
+  button:not([class*="primary"]):not([class*="accent"]):not([class*="brand"]) {
+    color: rgba(var(--color-text-base), 1) !important;
+  }
+  
+  /* Fix contrast for all paragraph and heading text */
+  p, h1, h2, h3, h4, h5, h6, span, div {
+    color: rgba(var(--color-text-base), 1);
+  }
+  
+  /* Only override when not explicitly styled */
+  p:not([style*="color"]), h1:not([style*="color"]), h2:not([style*="color"]), 
+  h3:not([style*="color"]), h4:not([style*="color"]), h5:not([style*="color"]), 
+  h6:not([style*="color"]), span:not([style*="color"]), div:not([style*="color"]) {
+    color: rgba(var(--color-text-base), 1);
+  }
+}
+
+/* Dark contrast mode - even higher contrast */
+[data-theme='dark-contrast'] {
+  input, textarea, select, .fui-Input, .fui-Textarea, .fui-Select,
+  label, .fui-Label, .fui-Text, .fui-Field, .fui-FieldLabel,
+  .fui-MenuItem, .fui-Menu, .fui-MenuList, .fui-MenuPopover,
+  button:not([class*="primary"]):not([class*="accent"]):not([class*="brand"]),
+  p, h1, h2, h3, h4, h5, h6, span, div {
+    color: rgba(var(--color-text-base), 1) !important;
+  }
+}
+
+/* Fix for marketplace cards with white background in dark mode */
+[data-theme='dark'] .market-card {
+  background-color: rgba(var(--color-bg-surface-2), 1) !important;
+}
+
+[data-theme='dark'] .market-card-title,
+[data-theme='dark'] .market-card-title mark {
+  color: rgba(var(--color-text-base), 1) !important;
+}
+
+[data-theme='dark'] .market-card-description,
+[data-theme='dark'] .market-card-description mark {
+  color: rgba(var(--color-text-base), 0.8) !important;
+}
+
+/* Explicitly set mark background in dark mode for better visibility */
+[data-theme='dark'] mark,
+[data-theme='dark'] .highlight-match {
+  background-color: rgba(var(--color-accent), 0.3);
+  color: inherit !important;
+}
+
+/* When cards have white background in dark mode, ensure text is black */
+[data-theme='dark'] .market-card.white-bg {
+  background-color: #FFFFFF !important;
+}
+
+[data-theme='dark'] .market-card.white-bg .market-card-title,
+[data-theme='dark'] .market-card.white-bg .market-card-description,
+[data-theme='dark'] .market-card.white-bg .market-card-title *,
+[data-theme='dark'] .market-card.white-bg .market-card-description * {
+  color: #000000 !important;
+}
+
+/* Specific styling for highlighted matches */
+.highlight-match {
+  background-color: rgba(var(--color-accent), 0.3);
+  padding: 0 2px;
+  border-radius: 2px;
+}
+
+[data-theme='dark'] .market-card .highlight-match {
+  background-color: rgba(var(--color-accent), 0.3);
+  color: inherit !important;
+}
+
+[data-theme='dark'] .market-card.white-bg .highlight-match {
+  background-color: rgba(var(--color-accent), 0.5);
+  color: #000000 !important;
+}

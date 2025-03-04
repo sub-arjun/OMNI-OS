@@ -86,6 +86,42 @@ export default function PromptMarketDrawer({
     };
   }, [open, loadPrompts]);
 
+  // Function to check if a card has a white background and add the white-bg class
+  const checkCardBackgrounds = () => {
+    const cards = document.querySelectorAll('.market-card');
+    cards.forEach(card => {
+      // Get the computed background color
+      const bgColor = window.getComputedStyle(card).backgroundColor;
+      // Check if it's white or very light
+      if (bgColor === 'rgb(255, 255, 255)' || 
+          bgColor === 'rgba(255, 255, 255, 1)' ||
+          bgColor.includes('255, 255, 255')) {
+        card.classList.add('white-bg');
+      } else {
+        card.classList.remove('white-bg');
+      }
+    });
+  };
+
+  useEffect(() => {
+    if (open) {
+      // Check immediately after render
+      setTimeout(checkCardBackgrounds, 50);
+      
+      // Check periodically while drawer is open
+      const interval = setInterval(checkCardBackgrounds, 500);
+      
+      return () => clearInterval(interval);
+    }
+  }, [open, prompts, filter]);
+  
+  // Additional check when prompt list changes
+  useEffect(() => {
+    if (open && prompts.length > 0) {
+      setTimeout(checkCardBackgrounds, 100);
+    }
+  }, [prompts, filter]);
+
   return (
     <Drawer open={open} position="end" separator size="medium">
       <DrawerHeader className="border-none">
@@ -120,11 +156,11 @@ export default function PromptMarketDrawer({
             <List navigationMode="items">
               {prompts.map((prompt) => (
                 <ListItem key={prompt.name}>
-                  <div className="p-3 my-2 w-full rounded-md bg-gray-50 hover:bg-gray-100 dark:bg-neutral-800 dark:hover:bg-neutral-700 shadow-sm">
+                  <div className="p-3 my-2 w-full rounded-md bg-gray-50 hover:bg-gray-100 dark:bg-neutral-800 dark:hover:bg-neutral-700 shadow-sm market-card">
                     <div className="flex justify-between items-center">
                       <div className="flex flex-start items-center flex-grow">
                         <div
-                          className="text-base font-bold"
+                          className="text-base font-bold market-card-title"
                           dangerouslySetInnerHTML={{
                             __html: highlight(prompt.name, filter),
                           }}
@@ -149,7 +185,7 @@ export default function PromptMarketDrawer({
                       )}
                     </div>
                     <p
-                      className="text-gray-800 dark:text-gray-200 text-sm mt-2"
+                      className="text-gray-800 dark:text-gray-200 text-sm mt-2 market-card-description"
                       dangerouslySetInnerHTML={{
                         __html: highlight(prompt.description || prompt.systemMessage || '', filter),
                       }}

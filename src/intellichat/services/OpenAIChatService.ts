@@ -121,14 +121,46 @@ export default class OpenAIChatService
   protected makeTool(
     tool: IMCPTool,
   ): IOpenAITool | IAnthropicTool | IGoogleTool {
+    // Get server information if available - cast to any since these properties are added at runtime
+    const serverName = (tool as any)._serverName || (tool as any)._clientKey || '';
+    
+    // Create a clear name that includes server information
+    const enhancedName = serverName ? 
+      `${tool.name} (from ${serverName})` : 
+      tool.name;
+    
+    // Enhance the description with server information
+    const enhancedDescription = serverName ? 
+      `[FROM SERVER: ${serverName}] ${tool.description}` : 
+      tool.description;
+    
     return {
       type: 'function',
       function: {
+        // Keep the original name for technical operation
         name: tool.name,
-        description: tool.description.substring(0, 1000), // some models have a limit on the description length, like gpt series, so we truncate it
+        // Use enhanced description with server info prominently displayed
+        description: enhancedDescription.substring(0, 1000), // some models have a limit on the description length
         parameters: {
           type: tool.inputSchema.type,
-          properties: tool.inputSchema.properties || {},
+          properties: {
+            // Add server info as an additional parameter (read-only)
+            ...(serverName ? {
+              _serverInfo: {
+                type: "object",
+                description: `Information about the server providing this tool: ${serverName}`,
+                properties: {
+                  name: {
+                    type: "string",
+                    description: `Server name: ${serverName}`
+                  }
+                },
+                readOnly: true
+              }
+            } : {}),
+            // Include the original properties
+            ...tool.inputSchema.properties || {},
+          },
           required: tool.inputSchema.required || [],
           additionalProperties: tool.inputSchema.additionalProperties || false,
         },
@@ -140,6 +172,26 @@ export default class OpenAIChatService
     tool: ITool,
     toolResult: any,
   ): IChatRequestMessage[] {
+    // Extract server info if available in the result
+    const serverInfo = toolResult?.serverInfo || 
+                      (toolResult?.content && typeof toolResult.content === 'object' && toolResult.content._serverInfo) || 
+                      (tool.args && tool.args._serverInfo);
+    
+    // Prepare the content with server info if available
+    let content = typeof toolResult === 'string' ? toolResult : toolResult.content;
+    
+    // If server info is available and content is an object, add it directly
+    if (serverInfo && typeof content === 'object') {
+      content = {
+        ...content,
+        _serverInfo: serverInfo
+      };
+    } 
+    // If server info is available and content is a string, add a prefix
+    else if (serverInfo && typeof content === 'string') {
+      content = `[From server: ${serverInfo.name}] ${content}`;
+    }
+    
     return [
       {
         role: 'assistant',
@@ -157,8 +209,7 @@ export default class OpenAIChatService
       {
         role: 'tool',
         name: tool.name,
-        content:
-          typeof toolResult === 'string' ? toolResult : toolResult.content,
+        content: content,
         tool_call_id: tool.id,
       },
     ];

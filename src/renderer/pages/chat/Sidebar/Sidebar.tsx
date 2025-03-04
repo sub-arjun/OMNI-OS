@@ -58,7 +58,7 @@ export default function Sidebar({ chatId }: { chatId: string }) {
       {/* Glass reflection effect */}
       <div className="absolute top-0 left-0 right-0 h-[1px] bg-white opacity-20"></div>
       
-      <div className="flex justify-between items-center text-gray-300 dark:text-gray-600 font-bold text-lg mb-2 pr-2">
+      <div className="flex justify-between items-center text-gray-300 dark:text-gray-400 font-bold text-lg mb-2 pr-2">
         <div className="flex items-center">
           <Info24Regular className="mr-2 text-color-tertiary" />
           {t('Common.Inspector')}

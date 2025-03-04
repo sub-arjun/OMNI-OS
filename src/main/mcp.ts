@@ -331,21 +331,55 @@ export default class ModuleContext {
     name: string;
     args: any;
   }) {
+    if (!name) {
+      throw new Error('Tool name is required');
+    }
+    
     // Extract the actual tool name from the combined string (removing server name prefix)
     const toolName = name.split('--')[1];
+    
+    if (!toolName) {
+      throw new Error(`Invalid tool name format: ${name}. Expected format: clientKey--toolName`);
+    }
     
     // Get the client key from the tool's metadata if available
     const tools = await this.listTools();
     const tool = tools.find((t: any) => t.name === name);
     const clientKey = tool?._clientKey || client;
+    
+    if (!clientKey) {
+      throw new Error('Client key is required');
+    }
 
     if (!this.clients[clientKey]) {
-      throw new Error(`MCP Client ${client} not found`);
+      throw new Error(`MCP Client ${clientKey} not found`);
     }
+    
     logging.debug('Calling:', clientKey, toolName, args);
+    
+    // Get the server name from the tool metadata or config
+    const serverName = tool?._serverName || clientKey;
+    
+    // Include the server name directly in the arguments
+    const enhancedArgs = {
+      ...args,
+      _serverInfo: {
+        name: serverName,
+        key: clientKey
+      }
+    };
+    
+    // Log the enhanced arguments for debugging
+    logging.debug('Enhanced arguments with server info:', enhancedArgs);
+    
     const result = await this.clients[clientKey].callTool({
       name: toolName,
-      arguments: args,
+      arguments: enhancedArgs,
+      // Context might not be used by all implementations
+      context: {
+        serverName: serverName,
+        serverKey: clientKey
+      }
     });
     return result;
   }

@@ -51,6 +51,26 @@ export default class GoogleChatService
     tool: ITool,
     toolResult: any
   ): IChatRequestMessage[] {
+    // Extract server info if available in the result
+    const serverInfo = toolResult?.serverInfo || 
+                      (toolResult?.content && typeof toolResult.content === 'object' && toolResult.content._serverInfo) || 
+                      (tool.args && tool.args._serverInfo);
+    
+    // Prepare the content with server info if available
+    let content = typeof toolResult === 'string' ? toolResult : toolResult.content;
+    
+    // If server info is available and content is an object, add it directly
+    if (serverInfo && typeof content === 'object') {
+      content = {
+        ...content,
+        _serverInfo: serverInfo
+      };
+    } 
+    // If server info is available and content is a string, add a prefix
+    else if (serverInfo && typeof content === 'string') {
+      content = `[From server: ${serverInfo.name}] ${content}`;
+    }
+    
     return [
       {
         role: 'model',
@@ -71,10 +91,7 @@ export default class GoogleChatService
               name: tool.name,
               response: {
                 name: tool.name,
-                content:
-                  typeof toolResult === 'string'
-                    ? toolResult
-                    : toolResult.content,
+                content: content,
               },
             },
           },
@@ -86,13 +103,38 @@ export default class GoogleChatService
   protected makeTool(
     tool: IMCPTool
   ): IOpenAITool | IAnthropicTool | IGoogleTool {
+    // Get server information if available - cast to any since these properties are added at runtime
+    const serverName = (tool as any)._serverName || (tool as any)._clientKey || '';
+    
+    // Enhance the description with server information
+    const enhancedDescription = serverName ? 
+      `[FROM SERVER: ${serverName}] ${tool.description}` : 
+      tool.description;
+    
     if (Object.keys(tool.inputSchema.properties).length === 0) {
       return {
         name: tool.name,
-        description: tool.description,
+        description: enhancedDescription,
       };
     }
+    
     const properties: any = {};
+    
+    // Add server info property
+    if (serverName) {
+      properties._serverInfo = {
+        type: "object",
+        description: `Information about the server providing this tool: ${serverName}`,
+        properties: {
+          name: {
+            type: "string",
+            description: `Server name: ${serverName}`
+          }
+        }
+      };
+    }
+    
+    // Process other properties
     for (const key in tool.inputSchema.properties) {
       const prop = tool.inputSchema.properties[key];
       /**
@@ -110,7 +152,7 @@ export default class GoogleChatService
 
     return {
       name: tool.name,
-      description: tool.description,
+      description: enhancedDescription,
       parameters: {
         type: tool.inputSchema.type,
         properties: properties,

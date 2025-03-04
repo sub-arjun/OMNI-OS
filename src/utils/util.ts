@@ -51,12 +51,12 @@ export function highlight(text: string, keyword: string | string[]) {
   if (typeof keyword === 'string') {
     if (keyword.trim() === '') return text;
     const regex = new RegExp(keyword.trim(), 'gi');
-    return text.replace(regex, (match) => `<mark>${match}</mark>`);
+    return text.replace(regex, (match) => `<mark class="highlight-match">${match}</mark>`);
   }
   let result = text;
   keyword.forEach((word) => {
     const regex = new RegExp(word, 'gi');
-    result = result.replace(regex, (match) => `<mark>${match}</mark>`);
+    result = result.replace(regex, (match) => `<mark class="highlight-match">${match}</mark>`);
   });
   return result;
 }

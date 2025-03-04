@@ -237,11 +237,11 @@ export default abstract class NextCharService {
       debug(`Final token counts - Input: ${this.inputTokens}, Output: ${this.outputTokens}`);
       
       if (readResult.tool) {
-        const [client, name] = readResult.tool.name.split('--');
-        this.traceTool(chatId, name, '');
+        const [client, toolName] = readResult.tool.name.split('--');
+        this.traceTool(chatId, toolName, '');
         const toolCallsResult = await window.electron.mcp.callTool({
           client,
-          name,
+          name: readResult.tool.name,
           args: readResult.tool.args,
         });
         this.traceTool(

@@ -235,7 +235,7 @@ export default function ModelCtrl({
               </>
             )}
             {!autoEnabled && modelMapping[activeModel.label || ''] && (
-              <span className="text-gray-300 dark:text-gray-600">
+              <span className="text-gray-300 dark:text-gray-400">
                 ‣{modelMapping[activeModel.label || '']}
               </span>
             )}
@@ -336,7 +336,7 @@ export default function ModelCtrl({
                       </div>
                       <span className="latin">{item.label}</span>
                       {modelMapping[item.label || ''] && (
-                        <span className="text-gray-300 dark:text-gray-600 -ml-1">
+                        <span className="text-gray-300 dark:text-gray-400 -ml-1">
                           ‣{modelMapping[item.label || '']}
                         </span>
                       )}
@@ -406,7 +406,7 @@ export default function ModelCtrl({
           <span className="font-medium">{activeModel.label}</span>
         </span>
         {modelMapping[activeModel.label || ''] && (
-          <span className="text-gray-300 dark:text-gray-600 -ml-1">
+          <span className="text-gray-300 dark:text-gray-400 -ml-1">
             ‣{modelMapping[activeModel.label || '']}
           </span>
         )}

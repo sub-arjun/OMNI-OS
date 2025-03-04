@@ -100,8 +100,25 @@ const darkTheme: Theme = {
   ...createDarkTheme(fire),
 };
 
+// Enhance dark theme for better contrast
 darkTheme.colorBrandForeground1 = fire[120];
 darkTheme.colorBrandForeground2 = fire[130];
+
+// Improve text contrast in dark mode
+darkTheme.colorNeutralForeground1 = '#FFFFFF';
+darkTheme.colorNeutralForeground2 = '#F5F5F5';
+darkTheme.colorNeutralForeground3 = '#EBEBEB';
+darkTheme.colorNeutralForegroundInverted = '#000000';
+
+// Improve contrast for input fields
+darkTheme.colorNeutralForegroundOnBrand = '#FFFFFF';
+darkTheme.colorCompoundBrandForeground1 = '#FFFFFF';
+darkTheme.colorNeutralForegroundDisabled = '#A0A0A0';
+
+// Improve contrast for interactive elements
+darkTheme.colorNeutralForegroundInvertedLink = '#FFFFFF';
+darkTheme.colorBrandForegroundLink = '#FFFFFF';
+darkTheme.colorNeutralForeground2Link = '#FFFFFF';
 
 export default function FluentApp() {
   const { i18n } = useTranslation();

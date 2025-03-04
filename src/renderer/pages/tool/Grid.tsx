@@ -104,7 +104,7 @@ export default function Grid({
                 ) : item.isActive ? (
                   <Circle16Filled className="text-green-500 -mb-0.5" />
                 ) : (
-                  <CircleOff16Regular className="text-gray-400 dark:text-gray-600 -mb-0.5" />
+                  <CircleOff16Regular className="text-gray-400 dark:text-gray-400 -mb-0.5" />
                 )}
                 <div className="ml-1.5">
                   {item.key.includes('-') && 
