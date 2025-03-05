@@ -12,16 +12,19 @@ import {
   shell,
   ipcMain,
   nativeTheme,
+  Menu,
 } from 'electron';
 import crypto from 'crypto';
+import { autoUpdater } from 'electron-updater';
+import log from 'electron-log';
+import dotenv from 'dotenv';
+import Store from 'electron-store';
 dotenv.config({
   path: app.isPackaged
     ? path.join(process.resourcesPath, '.env')
     : path.resolve(process.cwd(), '.env'),
 });
-import { autoUpdater } from 'electron-updater';
 import { Deeplink } from 'electron-deeplink';
-import Store from 'electron-store';
 import * as logging from './logging';
 import axiom from '../vendors/axiom';
 import MenuBuilder from './menu';
@@ -499,13 +502,33 @@ const createWindow = async () => {
     if (!mainWindow) {
       throw new Error('"mainWindow" is not defined');
     }
+    
+    // Get saved window state or default to maximized
+    const shouldBeMaximized = store.get('windowMaximized', true) as boolean;
+    
+    // Show the window first
     mainWindow.show();
+    
+    // Then maximize if needed (keeps taskbar visible)
+    if (shouldBeMaximized) {
+      mainWindow.maximize();
+    }
+    
     const fixPath = (await import('fix-path')).default;
     fixPath();
   });
 
   mainWindow.on('closed', () => {
     mainWindow = null;
+  });
+
+  // Save window state when it changes
+  mainWindow.on('maximize', () => {
+    store.set('windowMaximized', true);
+  });
+  
+  mainWindow.on('unmaximize', () => {
+    store.set('windowMaximized', false);
   });
 
   nativeTheme.on('updated', () => {

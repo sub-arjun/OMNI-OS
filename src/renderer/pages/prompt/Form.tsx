@@ -1,20 +1,16 @@
 import {
   Button,
-  Combobox,
-  Option,
   Divider,
   Field,
   Input,
   Text,
   InputOnChangeData,
   InfoLabel,
-  OptionGroup,
 } from '@fluentui/react-components';
 import { BracesVariable20Regular } from '@fluentui/react-icons';
-import { getGroupedChatModelNames } from 'providers';
 import useToast from 'hooks/useToast';
 import { IPromptDef } from 'intellichat/types';
-import { ChangeEvent, useEffect, useMemo, useState } from 'react';
+import { ChangeEvent, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
 import usePromptStore from 'stores/usePromptStore';
@@ -35,6 +31,8 @@ function MessageField({
   variables: string[];
 }) {
   const { t } = useTranslation();
+  const isSystemMessage = label === t('Common.SystemMessage');
+  
   return (
     <div>
       <Field
@@ -48,6 +46,11 @@ function MessageField({
         />
         <Text size={200} className="text-color-secondary mt-1">
           {t('Prompt.Form.Tooltip.Variable')}
+        </Text>
+        <Text size={200} className="text-color-secondary mt-1 block">
+          {isSystemMessage 
+            ? t('Prompt.Form.Example.SystemVariable')
+            : t('Prompt.Form.Example.UserVariable')}
         </Text>
       </Field>
       {variables.length ? (
@@ -86,7 +89,6 @@ export default function Form() {
   const updatePrompt = usePromptStore((state) => state.updatePrompt);
   const getPrompt = usePromptStore((state) => state.getPrompt);
   const { notifyInfo, notifySuccess, notifyError } = useToast();
-  const groupedModelNames = useMemo(() => getGroupedChatModelNames(), []);
 
   type PromptPayload = { id: string } & Partial<IPromptDef>;
 
@@ -121,23 +123,24 @@ export default function Form() {
   const onUserMessageChange = (e: any) => {
     setUserMessage(e.target.value);
   };
-  const onModelSelect = (e: any, data: any) => {
-    setModels(data.selectedOptions);
-  };
 
   const onSave = async () => {
     const $prompt = {
       id,
       name,
       userMessage,
-      models,
       userVariables,
     } as PromptPayload;
-    // claude models don't need system message
-    if (!models.some((model) => model.startsWith('claude'))) {
-      $prompt.systemMessage = systemMessage;
-      $prompt.systemVariables = systemVariables;
+    
+    // Keep the models array if it exists from an existing prompt
+    if (models.length > 0) {
+      $prompt.models = models;
     }
+    
+    // Handle system message (no longer checking for claude models since we don't have the selector)
+    $prompt.systemMessage = systemMessage;
+    $prompt.systemVariables = systemVariables;
+    
     if (isBlank($prompt.name)) {
       notifyInfo(t('Notification.NameRequired'));
       return;
@@ -192,44 +195,14 @@ export default function Form() {
               </Field>
             </div>
             <div className="mb-2.5">
-              <Field label={t('Prompt.Form.ApplicableModels')}>
-                <Combobox
-                  aria-labelledby="models"
-                  multiselect
-                  placeholder={
-                    models.length ? models.join(', ') : t('Common.Optional')
-                  }
-                  selectedOptions={models}
-                  onOptionSelect={onModelSelect}
-                >
-                  {Object.keys(groupedModelNames).map((group: string) => (
-
-                    <OptionGroup label={group} key={group}>
-                      {groupedModelNames[group].map((model: string) => (
-                        <Option key={model} value={model}>
-                          {model}
-                        </Option>
-                      ))}
-                    </OptionGroup>
-
-                  ))}
-                </Combobox>
-              </Field>
-              <Text size={200} className="text-color-secondary">
-                {t('Prompt.Form.Tooltip.ApplicableModels')}
-              </Text>
+              <MessageField
+                label={t('Common.SystemMessage')}
+                tooltip={t('Tooltip.SystemMessage')}
+                value={systemMessage}
+                onChange={onSystemMessageChange}
+                variables={systemVariables}
+              />
             </div>
-            {models.some((model) => model.startsWith('claude')) ? null : (
-              <div className="mb-2.5">
-                <MessageField
-                  label={t('Common.SystemMessage')}
-                  tooltip={t('Tooltip.SystemMessage')}
-                  value={systemMessage}
-                  onChange={onSystemMessageChange}
-                  variables={systemVariables}
-                />
-              </div>
-            )}
             <div className="mb-2.5">
               <MessageField
                 label={t('Common.UserMessage')}
