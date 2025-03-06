@@ -27,7 +27,8 @@ import { useEffect, useMemo, useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import useChatStore from 'stores/useChatStore';
 import useSettingsStore from 'stores/useSettingsStore';
-import { IChatModel, ProviderType } from 'providers/types';
+import useAppearanceStore from 'stores/useAppearanceStore';
+import { IChatModel, ProviderType, ChatModelGroup } from 'providers/types';
 import useProvider from 'hooks/useProvider';
 import useAuthStore from 'stores/useAuthStore';
 import ToolStatusIndicator from 'renderer/components/ToolStatusIndicator';
@@ -75,57 +76,67 @@ export default function ModelCtrl({
 }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
-  const api = useSettingsStore((state) => state.api);
-  const modelMapping = useSettingsStore((state) => state.modelMapping);
-  const { getToolState, setToolState } = useSettingsStore();
-  const autoEnabled = useSettingsStore((state) => state.autoEnabled);
-  const setAutoEnabled = useSettingsStore((state) => state.setAutoEnabled);
-  const session = useAuthStore((state) => state.session);
+  
+  // Add null checks and default values for store selectors
+  const api = useSettingsStore((state) => state?.api || { provider: 'OMNI' });
+  const modelMapping = useSettingsStore((state) => state?.modelMapping || {});
+  const getToolState = useSettingsStore((state) => state?.getToolState);
+  const setToolState = useSettingsStore((state) => state?.setToolState);
+  const autoEnabled = useSettingsStore((state) => state?.autoEnabled ?? true);
+  const setAutoEnabled = useSettingsStore((state) => state?.setAutoEnabled);
+  const session = useAuthStore((state) => state?.session);
+  const editStage = useChatStore((state) => state?.editStage);
+  // Get theme from appearance store with a default value
+  const theme = useAppearanceStore((state) => state?.theme || 'light');
+  
   const { getProvider, getChatModels } = useProvider();
-  const [providerName, setProviderName] = useState<ProviderType>(api.provider);
-  const editStage = useChatStore((state) => state.editStage);
-
-  // Add hook for dark mode text styling
+  // Don't use state value directly from store in useState initial value
+  // This is to prevent re-renders when api.provider changes
+  const [providerName, setProviderName] = useState<ProviderType>('OMNI');
+  
+  // Set provider name once on mount or when api.provider changes
   useEffect(() => {
-    // Apply white text for dark mode elements
-    const style = document.createElement('style');
-    style.textContent = `
-      @media (prefers-color-scheme: dark) {
-        [data-dark-mode-text="true"] {
-          color: white !important;
-        }
-        
-        .force-white-text.dark\\:text-white,
-        .force-white-text .dark\\:text-white:not(.text-green-700):not(.dark\\:text-green-300) {
-          color: white !important;
-        }
-      }
-      
-      html.dark [data-dark-mode-text="true"] {
-        color: white !important;
-      }
-      
-      html.dark .force-white-text.dark\\:text-white,
-      html.dark .force-white-text .dark\\:text-white:not(.text-green-700):not(.dark\\:text-green-300) {
-        color: white !important;
-      }
-    `;
-    document.head.appendChild(style);
-    
-    return () => {
-      document.head.removeChild(style);
+    if (api?.provider) {
+      setProviderName(api.provider);
+    }
+  }, [api?.provider]);
+  
+  // Define text colors based on theme
+  const textColors = useMemo(() => {
+    return {
+      primary: theme === 'dark' ? 'white' : '#1f2937',
+      secondary: theme === 'dark' ? '#e5e7eb' : '#4b5563',
     };
-  }, []);
+  }, [theme]);
 
   const allModels = useMemo<IChatModel[]>(() => {
-    if (!api.provider || api.provider === 'Azure') return [];
-    const provider = getProvider(api.provider);
-    setProviderName(provider.name);
-    if (provider.chat.options.modelCustomizable) {
-      return getChatModels(provider.name) || [];
+    if (!api?.provider || api.provider === 'Azure') return [];
+    try {
+      const provider = getProvider?.(api.provider);
+      if (!provider) return [];
+      
+      // Move state update to useEffect to avoid render loop
+      // Don't update state during render/useMemo
+      return provider.chat?.options?.modelCustomizable && getChatModels?.(provider.name) || [];
+    } catch (error) {
+      console.error('Error loading models:', error);
     }
     return [];
-  }, [api.provider, session]);
+  }, [api?.provider, session, getProvider, getChatModels]);
+
+  // Update provider name in useEffect instead of during render
+  useEffect(() => {
+    if (api?.provider && getProvider) {
+      try {
+        const provider = getProvider(api.provider);
+        if (provider?.name) {
+          setProviderName(provider.name);
+        }
+      } catch (error) {
+        console.error('Error setting provider name:', error);
+      }
+    }
+  }, [api?.provider, getProvider]);
 
   const autoModel = useMemo(() => {
     return allModels.find(model => model.autoEnabled === true);
@@ -138,13 +149,38 @@ export default function ModelCtrl({
     }
     // Fallback to empty array if no auto model is found
     return [];
-  }, [allModels, autoModel]);
+  }, [autoModel]);
 
-  const activeModel = useMemo(() => ctx.getModel(), [chat.model]);
+  const activeModel = useMemo(() => {
+    try {
+      return ctx?.getModel() || { 
+        label: 'Default', 
+        name: 'default', 
+        autoEnabled: false, 
+        description: '',
+        contextWindow: null,
+        inputPrice: 0,
+        outputPrice: 0,
+        group: 'OMNI' as ChatModelGroup
+      };
+    } catch (error) {
+      console.error('Error getting model:', error);
+      return { 
+        label: 'Default', 
+        name: 'default', 
+        autoEnabled: false, 
+        description: '',
+        contextWindow: null,
+        inputPrice: 0,
+        outputPrice: 0,
+        group: 'OMNI' as ChatModelGroup
+      };
+    }
+  }, [ctx]);
 
   // Set autoEnabled to true by default
   useEffect(() => {
-    if (!autoEnabled && autoModel) {
+    if (autoEnabled === false && autoModel && setAutoEnabled) {
       setAutoEnabled(true);
     }
   }, [autoEnabled, autoModel, setAutoEnabled]);
@@ -153,9 +189,17 @@ export default function ModelCtrl({
     _: MenuCheckedValueChangeEvent,
     data: MenuCheckedValueChangeData,
   ) => {
+    if (!chat?.id || !editStage) return;
+    
     const $model = data.checkedItems[0];
     editStage(chat.id, { model: $model });
-    window.electron.ingestEvent([{ app: 'switch-model' }, { model: $model }]);
+    
+    try {
+      window.electron?.ingestEvent?.([{ app: 'switch-model' }, { model: $model }]);
+    } catch (error) {
+      console.error('Error ingesting event:', error);
+    }
+    
     // Close dialog when changing model selection
     closeDialog();
   };
@@ -170,20 +214,36 @@ export default function ModelCtrl({
 
   const openDialog = () => {
     setOpen(true);
-    Mousetrap.bind('esc', closeDialog);
+    try {
+      Mousetrap.bind('esc', closeDialog);
+    } catch (error) {
+      console.error('Error binding mousetrap:', error);
+    }
   };
 
   const closeDialog = () => {
     setOpen(false);
-    Mousetrap.unbind('esc');
+    try {
+      Mousetrap.unbind('esc');
+    } catch (error) {
+      console.error('Error unbinding mousetrap:', error);
+    }
   };
 
   useEffect(() => {
     if (models.length > 0) {
-      Mousetrap.bind('mod+shift+1', toggleDialog);
+      try {
+        Mousetrap.bind('mod+shift+1', toggleDialog);
+      } catch (error) {
+        console.error('Error binding mousetrap:', error);
+      }
     }
     return () => {
-      Mousetrap.unbind('mod+shift+1');
+      try {
+        Mousetrap.unbind('mod+shift+1');
+      } catch (error) {
+        console.error('Error unbinding mousetrap:', error);
+      }
     };
   }, [models]);
 
@@ -280,7 +340,7 @@ export default function ModelCtrl({
                 </div>
               </div>
               <div className="flex-shrink overflow-hidden whitespace-nowrap text-ellipsis min-w-12">
-                <span className="text-gray-700 dark:text-gray-200">
+                <span className="text-gray-800 dark:text-white">
                   {providerName === 'Ollama' ? 'OMNI Edge' : providerName} /
                 </span>
                 <span className="font-medium text-gray-900 dark:text-white">{activeModel.label}</span>
@@ -295,17 +355,15 @@ export default function ModelCtrl({
           <Button 
             size="small" 
             appearance="subtle"
-            style={{ 
-              marginLeft: '4px',
-              padding: '2px 6px',
-              fontSize: '0.7rem',
-              background: 'rgba(37, 99, 235, 0.1)',
-              color: '#2563eb',
+            style={{
+              fontSize: '10px',
+              padding: '3px 10px',
               borderRadius: '4px',
               height: '20px',
-              minWidth: 'auto'
+              minWidth: 'auto',
+              marginLeft: '6px'
             }}
-            className="hover:bg-blue-100 dark:hover:bg-blue-900/30 dark:bg-blue-900/40 dark:text-white"
+            className="bg-blue-600 hover:bg-blue-700 text-white dark:bg-blue-700 dark:hover:bg-blue-800"
           >
             Learn
           </Button>
@@ -318,7 +376,7 @@ export default function ModelCtrl({
                 icon={<Info16Regular />}
                 size="small"
                 appearance="subtle"
-                className="dark:text-white"
+                className="text-gray-700 dark:text-white"
               />
             </Tooltip>
           )}
@@ -330,9 +388,9 @@ export default function ModelCtrl({
             width: '450px', 
             ['--text-color' as any]: "white" 
           }} 
-          className="dark:text-white force-white-text"
+          className="dark:text-white"
         >
-          <div className="px-3 pt-2 text-xl font-semibold text-gray-700 dark:text-white">
+          <div className="px-3 pt-2 text-xl font-semibold" style={{ color: textColors.primary }}>
             {providerName === 'OMNI' ? 'OMNI AI' : providerName === 'Ollama' ? 'OMNI Edge' : providerName}
           </div>
           
@@ -355,7 +413,7 @@ export default function ModelCtrl({
                       model={autoModel?.name || ''}
                       withTooltip={true}
                     />
-                    <span style={{ fontSize: '1rem', fontWeight: 500, textAlign: 'center', color: 'var(--text-color, inherit)' }} className="dark:text-white" data-dark-mode-text="true">&nbsp;&nbsp;✨ AUTO ✨</span>
+                    <span style={{ fontSize: '1rem', fontWeight: 500, textAlign: 'center' }} className="text-gray-800 dark:text-white">&nbsp;&nbsp;✨ AUTO ✨</span>
                   </div>
                   <GreenSwitch
                     checked={autoEnabled}
@@ -365,36 +423,42 @@ export default function ModelCtrl({
                   />
                 </div>
                 <div className="mb-2">
-                  <div style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-color, inherit)' }} className="dark:text-white" data-dark-mode-text="true">
+                  <div 
+                    style={{ 
+                      fontSize: '0.95rem', 
+                      fontWeight: 600,
+                      color: textColors.primary
+                    }}
+                  >
                     Automatically selects the best advanced AI model for your task
                   </div>
                   <div className="text-xs text-gray-500 dark:text-white">
-                    <span className="opacity-80">Powered by {providerName === 'Ollama' ? 'OMNI Edge' : providerName}</span>
+                    <span className="opacity-80">Powered by {providerName === 'OMNI' ? 'OMNI OS' : providerName === 'Ollama' ? 'OMNI Edge' : providerName}</span>
                   </div>
                 </div>
                 <div style={{ paddingLeft: '4px', marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   <span style={{ 
                     fontSize: '0.95rem', 
-                    fontWeight: 700, 
-                    color: 'var(--text-color, #1f2937)',
+                    fontWeight: 700,
                     border: '1px solid #9ca3af',
                     padding: '4px 8px',
                     borderRadius: '4px',
                     marginBottom: '4px',
                     display: 'inline-block',
                     width: 'fit-content',
-                    background: 'rgba(255,255,255,0.05)'
-                  }} 
-                  className="dark:text-white dark:border-gray-400 dark:bg-gray-700"
-                  data-dark-mode-text="true">
-                    Optimized for:
-                  </span>
+                    background: 'rgba(255,255,255,0.05)',
+                    color: textColors.primary
+                  }}
+                  className="dark:border-gray-400 dark:bg-gray-700"
+                >
+                  Optimized for:
+                </span>
                   <div className="dark:bg-gray-800 bg-gray-100" style={{ display: 'flex', gap: '12px', marginLeft: '4px', padding: '6px 10px', borderRadius: '6px', width: 'fit-content' }}>
-                    <span style={{ fontSize: '0.9rem', color: '#2563eb', fontWeight: 500 }} className="dark:text-blue-300">Performance</span>
-                    <span style={{ color: '#9ca3af' }} className="dark:text-gray-400">•</span>
-                    <span style={{ fontSize: '0.9rem', color: '#0891b2', fontWeight: 500 }} className="dark:text-cyan-300">Speed</span>
-                    <span style={{ color: '#9ca3af' }} className="dark:text-gray-400">•</span>
-                    <span style={{ fontSize: '0.9rem', color: '#059669', fontWeight: 500 }} className="dark:text-green-300">Cost</span>
+                    <span style={{ fontSize: '0.9rem', fontWeight: 500 }} className="text-blue-600 dark:text-blue-300">Performance</span>
+                    <span className="text-gray-400 dark:text-gray-400">•</span>
+                    <span style={{ fontSize: '0.9rem', fontWeight: 500 }} className="text-cyan-600 dark:text-cyan-300">Speed</span>
+                    <span className="text-gray-400 dark:text-gray-400">•</span>
+                    <span style={{ fontSize: '0.9rem', fontWeight: 500 }} className="text-green-600 dark:text-green-300">Cost</span>
                   </div>
                 </div>
               </div>
@@ -405,26 +469,28 @@ export default function ModelCtrl({
               {providerName !== 'Ollama' && (
                 <>
                   <div className="px-1 text-sm text-gray-700 dark:text-gray-200">
-                    <p className="text-gray-800 dark:text-white font-bold text-base mb-3" style={{ color: 'var(--text-color, #1f2937)' }} data-dark-mode-text="true">Use the specialized model buttons for specific tasks:</p>
+                    <p className="font-bold text-base mb-3" style={{ color: textColors.primary }}>
+                      Use the specialized model buttons for specific tasks:
+                    </p>
                     <div className="grid grid-cols-1 gap-3">
                       <div className="flex items-start p-2 rounded-md bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
                         <span className="text-purple-500 dark:text-purple-300 text-lg mr-2">🔍</span>
                         <div>
-                          <div className="font-medium text-gray-800 dark:text-white" data-dark-mode-text="true">DeepSearch</div>
+                          <div className="font-medium text-gray-800 dark:text-white">DeepSearch</div>
                           <div className="text-xs text-gray-600 dark:text-gray-300">For internet research & factual inquiries</div>
                         </div>
                       </div>
                       <div className="flex items-start p-2 rounded-md bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
                         <span className="text-rose-500 dark:text-rose-300 text-lg mr-2">💭</span>
                         <div>
-                          <div className="font-medium text-gray-800 dark:text-white" data-dark-mode-text="true">DeepThought</div>
+                          <div className="font-medium text-gray-800 dark:text-white">DeepThought</div>
                           <div className="text-xs text-gray-600 dark:text-gray-300">For complex reasoning & analysis</div>
                         </div>
                       </div>
                       <div className="flex items-start p-2 rounded-md bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
                         <span className="text-orange-500 dark:text-orange-300 text-lg mr-2">⚡</span>
                         <div>
-                          <div className="font-medium text-gray-800 dark:text-white" data-dark-mode-text="true">Flash</div>
+                          <div className="font-medium text-gray-800 dark:text-white">Flash</div>
                           <div className="text-xs text-gray-600 dark:text-gray-300">For speed and processing long documents</div>
                         </div>
                       </div>
@@ -482,17 +548,15 @@ export default function ModelCtrl({
             <Button 
               size="small" 
               appearance="subtle"
-              style={{ 
-                marginLeft: '4px',
-                padding: '2px 6px',
-                fontSize: '0.7rem',
-                background: 'rgba(37, 99, 235, 0.1)',
-                color: '#2563eb',
+              style={{
+                fontSize: '10px',
+                padding: '3px 10px',
                 borderRadius: '4px',
                 height: '20px',
-                minWidth: 'auto'
+                minWidth: 'auto',
+                marginLeft: '6px'
               }}
-              className="hover:bg-blue-100 dark:hover:bg-blue-900/30 dark:bg-blue-900/40 dark:text-white"
+              className="bg-blue-600 hover:bg-blue-700 text-white dark:bg-blue-700 dark:hover:bg-blue-800"
             >
               Learn
             </Button>
@@ -546,7 +610,7 @@ export default function ModelCtrl({
               withTooltip={true}
             />
           </div>
-          <span className="text-gray-700 dark:text-gray-200">
+          <span className="text-gray-800 dark:text-white">
             {providerName === 'Ollama' ? 'OMNI Edge' : providerName}
             {providerName !== 'Ollama' && ' /'}
           </span>
@@ -562,17 +626,15 @@ export default function ModelCtrl({
             <Button 
               size="small" 
               appearance="subtle"
-              style={{ 
-                marginLeft: '4px',
-                padding: '2px 6px',
-                fontSize: '0.7rem',
-                background: 'rgba(37, 99, 235, 0.1)',
-                color: '#2563eb',
+              style={{
+                fontSize: '10px',
+                padding: '3px 10px',
                 borderRadius: '4px',
                 height: '20px',
-                minWidth: 'auto'
+                minWidth: 'auto',
+                marginLeft: '6px'
               }}
-              className="hover:bg-blue-100 dark:hover:bg-blue-900/30 dark:bg-blue-900/40 dark:text-white"
+              className="bg-blue-600 hover:bg-blue-700 text-white dark:bg-blue-700 dark:hover:bg-blue-800"
             >
               Learn
             </Button>
