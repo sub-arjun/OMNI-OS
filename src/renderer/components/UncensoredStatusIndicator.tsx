@@ -16,11 +16,12 @@ const ShieldIcon = bundleIcon(
 export default function UncensoredStatusIndicator(
   props: {
     provider: string;
+    providerDisplayName?: string;
     model: string;
     withTooltip?: boolean;
   } & any,
 ) {
-  const { provider, model, withTooltip, ...rest } = props;
+  const { provider, providerDisplayName, model, withTooltip, ...rest } = props;
   const { getChatModel } = useProvider();
 
   const hasUncensoredCapability = useMemo(() => {
@@ -30,7 +31,10 @@ export default function UncensoredStatusIndicator(
   }, [provider, model]);
 
   const { t } = useTranslation();
-  const tip = t('Uncensored.Supported');  // Use the translation key
+  const tip = t('Uncensored.Supported').replace(
+    '{provider}', 
+    providerDisplayName || provider
+  );
 
   const indicator = () => {
     if (!hasUncensoredCapability) {

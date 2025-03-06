@@ -234,7 +234,7 @@
   "Common.Image": "Image",
   "Tool.HowToAddTools": "How to add tools？",
   "Tool.ConfigFile": "Configuration file",
-  "Tool.HowToAddToolsDescription": "You can add tools by modifying the configuration file. If changes cause errors and cannot be fixed, simply delete the configuration file. OMNI OS will reset it upon the next launch. Feel free to explore!",
+  "Tool.HowToAddToolsDescription": "You can add tools by modifying the configuration file. If changes cause errors and cannot be fixed, simply delete the configuration file. OMNIDesktop will reset it upon the next launch. Feel free to explore!",
   "Common.Add": "Add",
   "Common.NoMoreThan": "No more than",
   "Common.Normal": "Normal",

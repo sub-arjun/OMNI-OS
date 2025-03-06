@@ -110,14 +110,14 @@ export default function OllamaModelPicker({
             >
               <div className="flex justify-start items-center gap-1">
                 <div style={{ display: 'flex', width: '68px', justifyContent: 'flex-start' }}>
-                  <OnlineStatusIndicator model={item.name} provider="Ollama" withTooltip={true} />
-                  <ReasoningStatusIndicator model={item.name} provider="Ollama" withTooltip={true} />
-                  <FastResponseStatusIndicator model={item.name} provider="Ollama" withTooltip={true} />
-                  <ToolStatusIndicator model={item.name} provider="Ollama" withTooltip={true} />
-                  <UncensoredStatusIndicator model={item.name} provider="Ollama" withTooltip={true} />
-                  <MuricaStatusIndicator model={item.name} provider="Ollama" withTooltip={true} />
-                  <ArjunsFavoriteStatusIndicator model={item.name} provider="Ollama" withTooltip={true} />
-                  <LongContextStatusIndicator model={item.name} provider="Ollama" withTooltip={true} />
+                  <OnlineStatusIndicator model={item.name} provider="Ollama" providerDisplayName="OMNI Edge" withTooltip={true} />
+                  <ReasoningStatusIndicator model={item.name} provider="Ollama" providerDisplayName="OMNI Edge" withTooltip={true} />
+                  <FastResponseStatusIndicator model={item.name} provider="Ollama" providerDisplayName="OMNI Edge" withTooltip={true} />
+                  <ToolStatusIndicator model={item.name} provider="Ollama" providerDisplayName="OMNI Edge" withTooltip={true} />
+                  <UncensoredStatusIndicator model={item.name} provider="Ollama" providerDisplayName="OMNI Edge" withTooltip={true} />
+                  <MuricaStatusIndicator model={item.name} provider="Ollama" providerDisplayName="OMNI Edge" withTooltip={true} />
+                  <ArjunsFavoriteStatusIndicator model={item.name} provider="Ollama" providerDisplayName="OMNI Edge" withTooltip={true} />
+                  <LongContextStatusIndicator model={item.name} provider="Ollama" providerDisplayName="OMNI Edge" withTooltip={true} />
                 </div>
                 <span>{item.name}</span>
               </div>

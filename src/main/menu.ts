@@ -54,17 +54,17 @@ export default class MenuBuilder {
 
   buildDarwinTemplate(): MenuItemConstructorOptions[] {
     const subMenuAbout: DarwinMenuItemConstructorOptions = {
-      label: 'OMNI OS',
+      label: 'OMNI',
       submenu: [
         {
-          label: 'About OMNI OS',
+          label: 'About OMNI',
           selector: 'orderFrontStandardAboutPanel:',
         },
         { type: 'separator' },
         { label: 'Services', submenu: [] },
         { type: 'separator' },
         {
-          label: 'Hide OMNI OS',
+          label: 'Hide OMNI',
           accelerator: 'Command+H',
           selector: 'hide:',
         },

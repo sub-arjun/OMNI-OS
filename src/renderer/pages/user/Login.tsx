@@ -136,7 +136,7 @@ export default function Login() {
       {/* Login brand element */}
       <div className="absolute top-8 left-1/2 transform -translate-x-1/2 opacity-90">
         <h1 className="text-3xl font-light tracking-wider">
-          <span className="font-bold">OMNI</span>OS
+          <span className="font-bold">OMNI</span>
         </h1>
       </div>
       
@@ -176,7 +176,7 @@ export default function Login() {
         
         <div className="mb-8">
           <h2 className="text-xl mb-2 font-medium text-center" style={{ color: theme === 'dark' ? '#EAEAEA' : '#333333' }}>
-            Welcome to <span className="font-bold">OMNI</span>OS
+            Welcome to <span className="font-bold">OMNI</span>
           </h2>
           <p className="text-center text-sm" style={{ color: theme === 'dark' ? '#BBBBBB' : '#555555' }}>
             Please sign in to access the application.
@@ -342,6 +342,7 @@ export default function Login() {
         }}
       >
         OMNI © {new Date().getFullYear()} • Secure AI Experience
+        <p className="mt-1">Powered by OMNI OS</p>
       </div>
     </div>
   );

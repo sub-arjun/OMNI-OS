@@ -8,12 +8,11 @@ export default function useProvider() {
   // Instead, access them inside the functions where they're actually needed
 
   function getProviders(arg?:{withDisabled:boolean}): { [key: string]: IServiceProvider } {
-    // Only show OMNI provider in the frontend
-    // Filter out all providers except OMNI, but keep their code available
+    // Show OMNI and Ollama providers in the frontend
     return Object.values(providers).reduce(
       (acc: { [key: string]: IServiceProvider }, cur: IServiceProvider) => {
-        // Only allow OMNI provider to be shown in the frontend
-        if (cur.name === 'OMNI') {
+        // Only allow OMNI and Ollama providers to be shown in the frontend
+        if (cur.name === 'OMNI' || cur.name === 'Ollama') {
           acc[cur.name] = cur;
         }
         return acc;
@@ -23,15 +22,20 @@ export default function useProvider() {
   }
 
   function getProvider(providerName: ProviderType): IServiceProvider {
-    const allProviders = getProviders();
-    // Always return OMNI provider, even if another provider is requested
-    return allProviders['OMNI'];
+    // Return the actual requested provider
+    return providers[providerName];
   }
 
-  function getDefaultChatModel(provider: ProviderType): IChatModel {
-    const models = getChatModels(provider)
-    if(models.length === 0) return {} as IChatModel;
-    const defaultModel = models.filter((m: IChatModel) => m.isDefault)[0];
+  function getDefaultChatModel(providerName: ProviderType): IChatModel {
+    // Get all models for the provider
+    const models = getChatModels(providerName);
+    
+    if (models.length === 0) {
+      return {} as IChatModel;
+    }
+    
+    // Find a model marked as default, or use the first one
+    const defaultModel = models.find((m: IChatModel) => m.isDefault);
     return defaultModel || models[0];
   }
 
@@ -48,16 +52,17 @@ export default function useProvider() {
     providerName: ProviderType,
     modelLabel: string
   ): IChatModel {
-    // Always use OMNI provider regardless of requested provider
-    const omniProvider = getProvider('OMNI')    
+    // Use the requested provider
+    const provider = getProvider(providerName);
+    
     // First try direct lookup by key
-    let model = omniProvider.chat.models[modelLabel];
+    let model = provider.chat.models[modelLabel];
     
     // If not found, try to find by name
     if (!model) {
       // Look through all models to find one with matching name
-      for (const key in omniProvider.chat.models) {
-        const currentModel = omniProvider.chat.models[key];
+      for (const key in provider.chat.models) {
+        const currentModel = provider.chat.models[key];
         if (currentModel.name === modelLabel || currentModel.label === modelLabel) {
           model = currentModel;
           break;
@@ -66,7 +71,7 @@ export default function useProvider() {
       
       // If still not found, return default model
       if (!model) {
-        model = getDefaultChatModel('OMNI');
+        model = getDefaultChatModel(providerName);
       }
     }
     

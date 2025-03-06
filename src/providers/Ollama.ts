@@ -1,6 +1,8 @@
 import { IServiceProvider } from './types';
 export default {
   name: 'Ollama',
+  displayName: 'OMNI Edge',
+  description: 'Run AI models locally on your device for maximum privacy',
   apiBase: 'http://127.0.0.1:11434',
   currency: 'USD',
   options: {

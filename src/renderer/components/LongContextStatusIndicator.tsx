@@ -16,11 +16,12 @@ const TextExpandIcon = bundleIcon(
 export default function LongContextStatusIndicator(
   props: {
     provider: string;
+    providerDisplayName?: string;
     model: string;
     withTooltip?: boolean;
   } & any,
 ) {
-  const { provider, model, withTooltip, ...rest } = props;
+  const { provider, providerDisplayName, model, withTooltip, ...rest } = props;
   const { getChatModel } = useProvider();
 
   const hasLongContextCapability = useMemo(() => {
@@ -30,7 +31,10 @@ export default function LongContextStatusIndicator(
   }, [provider, model]);
 
   const { t } = useTranslation();
-  const tip = t('LongContext.Supported');
+  const tip = t('LongContext.Supported').replace(
+    '{provider}', 
+    providerDisplayName || provider
+  );
 
   const indicator = () => {
     if (!hasLongContextCapability) {

@@ -125,6 +125,7 @@ export interface IEmbeddingConfig {
 
 export interface IServiceProvider {
   name: ProviderType;
+  displayName?: string;
   description?: string;
   disabled?: boolean;
   isPremium?: boolean;

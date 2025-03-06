@@ -16,11 +16,12 @@ const HeartIcon = bundleIcon(
 export default function ArjunsFavoriteStatusIndicator(
   props: {
     provider: string;
+    providerDisplayName?: string;
     model: string;
     withTooltip?: boolean;
   } & any,
 ) {
-  const { provider, model, withTooltip, ...rest } = props;
+  const { provider, providerDisplayName, model, withTooltip, ...rest } = props;
   const { getChatModel } = useProvider();
 
   const hasArjunsFavoriteCapability = useMemo(() => {
@@ -30,7 +31,10 @@ export default function ArjunsFavoriteStatusIndicator(
   }, [provider, model]);
 
   const { t } = useTranslation();
-  const tip = t('ArjunsFavorite.Supported');  // Use the translation key
+  const tip = t('ArjunsFavorite.Supported').replace(
+    '{provider}', 
+    providerDisplayName || provider
+  );
 
   const indicator = () => {
     if (!hasArjunsFavoriteCapability) {

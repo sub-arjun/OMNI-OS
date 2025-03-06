@@ -13,10 +13,10 @@ import './App.scss';
 import './fluentui.scss';
 
 if (window.envVars.NODE_ENV === 'development') {
-  Debug.enable('OMNI-OS:*');
+  Debug.enable('OMNI:*');
 }
 
-const debug = Debug('OMNI-OS:App');
+const debug = Debug('OMNI:App');
 
 logging.init();
 

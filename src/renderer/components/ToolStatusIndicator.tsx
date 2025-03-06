@@ -18,12 +18,13 @@ const WrenchScrewdriverIcon = bundleIcon(
 export default function ToolStatusIndicator(
   props: {
     provider: string;
+    providerDisplayName?: string;
     model: string;
     withTooltip?: boolean;
     compact?: boolean;
   } & any,
 ) {
-  const { provider, model, withTooltip, compact = false, ...rest } = props;
+  const { provider, providerDisplayName, model, withTooltip, compact = false, ...rest } = props;
   const { getToolState } = useSettingsStore();
   const { getChatModel } = useProvider();
 
@@ -41,7 +42,10 @@ export default function ToolStatusIndicator(
   }, [provider, model, originalSupport]);
 
   const { t } = useTranslation();
-  const tip = t(actualSupport ? 'Tool.Supported' : 'Tool.NotSupported');
+  const tip = t(actualSupport ? 'Tool.Supported' : 'Tool.NotSupported').replace(
+    '{provider}', 
+    providerDisplayName || provider
+  );
 
   const indicator = () => {
     // Only render something if the model has tool support

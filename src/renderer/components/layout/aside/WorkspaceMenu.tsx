@@ -40,7 +40,7 @@ import { MenuButtonProps } from './MenuButton';
 import { useChat } from '@/renderer/hooks/useChat';
 import { useToast as useToastRenderer } from '@/renderer/hooks/useToast';
 
-const debug = Debug('OMNI-OS:components:layout:aside:WorkspaceMenu');
+const debug = Debug('OMNI:components:layout:aside:WorkspaceMenu');
 
 const FireIcon = bundleIcon(Fire24Filled, Fire24Regular);
 
@@ -97,7 +97,7 @@ export default function WorkspaceMenu({ collapsed }: { collapsed: boolean }) {
               className="w-full justify-start outline-none hover:bg-black/10 dark:hover:bg-white/10"
               onClick={() => setOpen(true)}
             >
-              {collapsed ? null : <span className="text-3xl tracking-wide" style={{ fontSize: '2.2rem', textShadow: '0 0 3px rgba(255,255,255,0.25)' }}><span className="font-black"><strong>OMNI</strong></span><span className="font-normal">OS</span></span>}
+              {collapsed ? null : <span className="text-3xl tracking-wide" style={{ fontSize: '2.2rem', textShadow: '0 0 3px rgba(255,255,255,0.25)' }}><span className="font-black"><strong>OMNI</strong></span></span>}
             </MenuButton>
           </MenuTrigger>
         </div>

@@ -2,13 +2,13 @@ import { ChatModelGroup, IServiceProvider } from './types';
 
 export default {
   name: 'OMNI',
-  apiBase: 'https://openrouter.ai/api/v1', // Updated to correct OpenRouter API endpoint
+  apiBase: 'https://openrouter.ai', // Base URL without any API version path
   apiKey: 'sk-or-...',  // Add a placeholder API key that will be overridden
   currency: 'USD',
   isPremium: false,
   description: 'Secure provider powered by top American AI models',
   options: {
-    apiBaseCustomizable: false,
+    apiBaseCustomizable: false, // NEVER allow customizing the API base
     apiKeyCustomizable: true, // Allow users to enter their OpenRouter API key
   },
   chat: {

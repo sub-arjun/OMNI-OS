@@ -16,11 +16,12 @@ const BrainIcon = bundleIcon(
 export default function ReasoningStatusIndicator(
   props: {
     provider: string;
+    providerDisplayName?: string;
     model: string;
     withTooltip?: boolean;
   } & any,
 ) {
-  const { provider, model, withTooltip, ...rest } = props;
+  const { provider, providerDisplayName, model, withTooltip, ...rest } = props;
   const { getChatModel } = useProvider();
 
   const hasReasoningCapability = useMemo(() => {
@@ -30,7 +31,10 @@ export default function ReasoningStatusIndicator(
   }, [provider, model]);
 
   const { t } = useTranslation();
-  const tip = t('Reasoning.Supported');
+  const tip = t('Reasoning.Supported').replace(
+    '{provider}', 
+    providerDisplayName || provider
+  );
 
   const indicator = () => {
     if (!hasReasoningCapability) {

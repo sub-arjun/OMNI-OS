@@ -47,9 +47,16 @@ export default function APISettings() {
       }
     );
 
+    // Always ensure the API base URL is set correctly when switching providers
+    // Force the correct API base for OMNI provider
+    if (data.optionValue === 'OMNI') {
+      apiConfig.base = $provider.apiBase; // Always use the provider's API base
+    } else {
+      apiConfig.base = $provider.apiBase;
+    }
+
     if ($provider.isPremium) {
       apiConfig.key = '';
-      apiConfig.base = $provider.apiBase;
     }
     if (
       Object.keys($provider.chat.models).length &&
@@ -105,9 +112,9 @@ export default function APISettings() {
               onOptionSelect={onAPIProviderChange}
             >
               {Object.values(providers).map((provider: IServiceProvider) => (
-                <Option key={provider.name} text={provider.name}>
+                <Option key={provider.name} text={provider.displayName || provider.name}>
                   <div className="flex justify-between w-full gap-2 latin">
-                    {provider.name}
+                    {provider.displayName || provider.name}
                     {provider.isPremium ? (
                       <div className="flex justify-start items-center gap-1 text-xs">
                         <Premium16Regular className="text-purple-600" />
@@ -121,7 +128,7 @@ export default function APISettings() {
             </Dropdown>
           </div>
         </div>
-        {provider.options.apiBaseCustomizable && (
+        {provider.options.apiBaseCustomizable && provider.name !== 'OMNI' && (
           <div className="my-3.5">
             <div className="flex justify-start items-center mb-1.5">
               <Label htmlFor="apiBase">{t('Common.APIBase')}</Label>

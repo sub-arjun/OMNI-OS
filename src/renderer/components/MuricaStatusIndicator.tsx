@@ -36,11 +36,12 @@ const AmericanFlagIcon = (props: any) => (
 export default function MuricaStatusIndicator(
   props: {
     provider: string;
+    providerDisplayName?: string;
     model: string;
     withTooltip?: boolean;
   } & any,
 ) {
-  const { provider, model, withTooltip, ...rest } = props;
+  const { provider, providerDisplayName, model, withTooltip, ...rest } = props;
   const { getChatModel } = useProvider();
 
   const hasMuricaCapability = useMemo(() => {
@@ -50,7 +51,10 @@ export default function MuricaStatusIndicator(
   }, [provider, model]);
 
   const { t } = useTranslation();
-  const tip = t('Murica.Supported');  // Use the translation key
+  const tip = t('Murica.Supported').replace(
+    '{provider}', 
+    providerDisplayName || provider
+  );
 
   const indicator = () => {
     if (!hasMuricaCapability) {

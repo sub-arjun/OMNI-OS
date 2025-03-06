@@ -16,11 +16,12 @@ const LightningIcon = bundleIcon(
 export default function FastResponseStatusIndicator(
   props: {
     provider: string;
+    providerDisplayName?: string;
     model: string;
     withTooltip?: boolean;
   } & any,
 ) {
-  const { provider, model, withTooltip, ...rest } = props;
+  const { provider, providerDisplayName, model, withTooltip, ...rest } = props;
   const { getChatModel } = useProvider();
 
   const hasFastResponseCapability = useMemo(() => {
@@ -30,7 +31,10 @@ export default function FastResponseStatusIndicator(
   }, [provider, model]);
 
   const { t } = useTranslation();
-  const tip = t('FastResponse.Supported');
+  const tip = t('FastResponse.Supported').replace(
+    '{provider}', 
+    providerDisplayName || provider
+  );
 
   const indicator = () => {
     if (!hasFastResponseCapability) {

@@ -347,10 +347,18 @@ export default class OMNIChatService
       headers['Authorization'] = `Bearer ${userId}`;
     }
     
-    // Use correct path for the OpenRouter API endpoint
-    const url = urlJoin('/v1/chat/completions', base);
+    // For OMNI provider, always use the correct OpenRouter API URL
+    let finalUrl;
+    if (this.provider.name === 'OMNI') {
+      finalUrl = new URL('https://openrouter.ai/api/v1/chat/completions');
+    } else {
+      // Use correct path for other providers
+      finalUrl = urlJoin('api/v1/chat/completions', base);
+    }
     
-    const response = await fetch(url.toString(), {
+    debug('Making request to API URL:', finalUrl.toString());
+    
+    const response = await fetch(finalUrl.toString(), {
       method: 'POST',
       headers,
       body: JSON.stringify(extendedPayload),

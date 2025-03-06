@@ -52,9 +52,12 @@ export default function ModelField({
   useEffect(() => {
     if (provider) {
       const defaultModel = getDefaultChatModel(provider.name).name || '';
-      setAPI({
-        model: model || defaultModel,
-      });
+      const modelExists = !!models.find(m => m.name === model);
+      if (!model || !modelExists) {
+        setAPI({
+          model: defaultModel
+        });
+      }
     }
   }, [provider]);
 
@@ -106,47 +109,69 @@ export default function ModelField({
           <TooltipIcon tip={t(provider.chat.docs?.model || '')} />
         </div>
         <div className="w-full">
-          {models.length > 0 ? (
+          {provider.name === 'OMNI' ? (
+            <div className="flex flex-row justify-start items-center gap-1 w-full">
+              <span className="latin">OMNI AI</span>
+              <Tooltip
+                content="OMNI automatically selects the best model for your query"
+                relationship="label"
+              >
+                <Button
+                  icon={<Info16Regular />}
+                  size="small"
+                  appearance="subtle"
+                />
+              </Tooltip>
+            </div>
+          ) : models.length > 0 ? (
             models.length === 1 ? (
               <div className="flex flex-row justify-start items-center gap-1 w-full">
                 <OnlineStatusIndicator
                   provider={provider.name}
+                  providerDisplayName={provider.displayName}
                   model={models[0].name}
                   withTooltip
                 />
                 <ReasoningStatusIndicator
                   provider={provider.name}
+                  providerDisplayName={provider.displayName}
                   model={models[0].name}
                   withTooltip
                 />
                 <FastResponseStatusIndicator
                   provider={provider.name}
+                  providerDisplayName={provider.displayName}
                   model={models[0].name}
                   withTooltip
                 />
                 <ToolStatusIndicator
                   provider={provider.name}
+                  providerDisplayName={provider.displayName}
                   model={models[0].name}
                   withTooltip
                 />
                 <UncensoredStatusIndicator
                   provider={provider.name}
+                  providerDisplayName={provider.displayName}
                   model={models[0].name}
                   withTooltip
                 />
                 <MuricaStatusIndicator
                   provider={provider.name}
+                  providerDisplayName={provider.displayName}
                   model={models[0].name}
                   withTooltip
                 />
                 <ArjunsFavoriteStatusIndicator
                   provider={provider.name}
+                  providerDisplayName={provider.displayName}
                   model={models[0].name}
                   withTooltip
                 />
                 <LongContextStatusIndicator
                   model={models[0].name}
                   provider={provider.name}
+                  providerDisplayName={provider.displayName}
                   withTooltip={true}
                 />
                 <span className="latin">{models[0].label}</span>
@@ -180,41 +205,51 @@ export default function ModelField({
                     <div className="flex justify-start items-baseline latin">
                       <div className="flex justify-start items-baseline gap-1">
                         <OnlineStatusIndicator
-                          model={model.name}
                           provider={provider.name}
+                          providerDisplayName={provider.displayName}
+                          model={model.name}
+                          withTooltip
                         />
                         <ReasoningStatusIndicator
-                          model={model.name}
                           provider={provider.name}
+                          providerDisplayName={provider.displayName}
+                          model={model.name}
                           withTooltip
                         />
                         <FastResponseStatusIndicator
-                          model={model.name}
                           provider={provider.name}
+                          providerDisplayName={provider.displayName}
+                          model={model.name}
                           withTooltip
                         />
                         <ToolStatusIndicator
-                          model={model.name}
                           provider={provider.name}
+                          providerDisplayName={provider.displayName}
+                          model={model.name}
+                          withTooltip
                         />
                         <UncensoredStatusIndicator
-                          model={model.name}
                           provider={provider.name}
+                          providerDisplayName={provider.displayName}
+                          model={model.name}
                           withTooltip
                         />
                         <MuricaStatusIndicator
-                          model={model.name}
                           provider={provider.name}
+                          providerDisplayName={provider.displayName}
+                          model={model.name}
                           withTooltip
                         />
                         <ArjunsFavoriteStatusIndicator
-                          model={model.name}
                           provider={provider.name}
+                          providerDisplayName={provider.displayName}
+                          model={model.name}
                           withTooltip
                         />
                         <LongContextStatusIndicator
                           model={model.name}
                           provider={provider.name}
+                          providerDisplayName={provider.displayName}
                           withTooltip={true}
                         />
                         <span className="latin">{model.label as string}</span>

@@ -16,11 +16,12 @@ const WifiIcon = bundleIcon(
 export default function OnlineStatusIndicator(
   props: {
     provider: string;
+    providerDisplayName?: string;
     model: string;
     withTooltip?: boolean;
   } & any,
 ) {
-  const { provider, model, withTooltip, ...rest } = props;
+  const { provider, providerDisplayName, model, withTooltip, ...rest } = props;
   const { getChatModel } = useProvider();
 
   const hasOnlineAccess = useMemo(() => {
@@ -29,7 +30,11 @@ export default function OnlineStatusIndicator(
   }, [provider, model]);
 
   const { t } = useTranslation();
-  const tip = t('Online.Supported');
+  // Use providerDisplayName in tooltip if available
+  const tip = t('Online.Supported').replace(
+    '{provider}', 
+    providerDisplayName || provider
+  );
 
   const indicator = () => {
     if (!hasOnlineAccess) {

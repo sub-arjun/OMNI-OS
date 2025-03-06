@@ -1,7 +1,7 @@
 {
-  "name": "OMNI-OS",
-  "productName": "OMNI OS",
-  "version": "0.9.7",
+  "name": "OMNI",
+  "productName": "OMNI",
+  "version": "1.0.0",
   "description": "A Sleek Desktop AI Assistant & MCP Client",
   "main": "src/main/main.ts",
   "repository": "https://github.com/sub-arjun/OMNI-OS.git",
@@ -219,7 +219,7 @@
     "zustand": "^4.3.9"
   },
   "build": {
-    "productName": "OMNI OS",
+    "productName": "OMNI",
     "appId": "app.omni.desktop",
     "compression": "maximum",
     "asar": true,

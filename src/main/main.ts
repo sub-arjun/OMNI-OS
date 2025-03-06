@@ -615,7 +615,7 @@ if (app.dock) {
   app.dock.setIcon(dockIcon);
 }
 
-app.setName('OMNI OS');
+app.setName('OMNI');
 
 app
   .whenReady()

@@ -20,10 +20,10 @@ import {
   SwitchProps,
 } from '@fluentui/react-components';
 import type { MenuCheckedValueChangeEvent } from '@fluentui/react-components';
-import { ChevronDown16Regular, Info16Regular } from '@fluentui/react-icons';
+import { Info16Regular } from '@fluentui/react-icons';
 import Mousetrap from 'mousetrap';
 import { IChat, IChatContext } from 'intellichat/types';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import useChatStore from 'stores/useChatStore';
 import useSettingsStore from 'stores/useSettingsStore';
@@ -84,6 +84,38 @@ export default function ModelCtrl({
   const { getProvider, getChatModels } = useProvider();
   const [providerName, setProviderName] = useState<ProviderType>(api.provider);
   const editStage = useChatStore((state) => state.editStage);
+
+  // Add hook for dark mode text styling
+  useEffect(() => {
+    // Apply white text for dark mode elements
+    const style = document.createElement('style');
+    style.textContent = `
+      @media (prefers-color-scheme: dark) {
+        [data-dark-mode-text="true"] {
+          color: white !important;
+        }
+        
+        .force-white-text.dark\\:text-white,
+        .force-white-text .dark\\:text-white:not(.text-green-700):not(.dark\\:text-green-300) {
+          color: white !important;
+        }
+      }
+      
+      html.dark [data-dark-mode-text="true"] {
+        color: white !important;
+      }
+      
+      html.dark .force-white-text.dark\\:text-white,
+      html.dark .force-white-text .dark\\:text-white:not(.text-green-700):not(.dark\\:text-green-300) {
+        color: white !important;
+      }
+    `;
+    document.head.appendChild(style);
+    
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, []);
 
   const allModels = useMemo<IChatModel[]>(() => {
     if (!api.provider || api.provider === 'Azure') return [];
@@ -167,12 +199,10 @@ export default function ModelCtrl({
           aria-label={t('Common.Model')}
           size="small"
           appearance="subtle"
-          iconPosition="after"
-          icon={<ChevronDown16Regular />}
           title="Mod+Shift+1"
           onClick={toggleDialog}
           style={{ borderColor: 'transparent', boxShadow: 'none', padding: 1 }}
-          className="text-color-secondary flex justify-start items-center"
+          className="text-gray-900 dark:text-white flex justify-start items-center"
         >
           {autoEnabled && autoModel && activeModel.autoEnabled ? (
             <div style={{ display: 'flex', alignItems: 'center' }}>
@@ -192,9 +222,9 @@ export default function ModelCtrl({
                   withTooltip={true}
                 />
               </div>
-              <span className="text-color-secondary">OMNI /</span>
-              <span className="font-medium">AUTO</span>
-              <span className="text-color-secondary"> 🪄</span>
+              <span className="text-gray-700 dark:text-gray-200">OMNI /</span>
+              <span className="font-medium text-gray-900 dark:text-white">AUTO</span>
+              <span className="text-gray-700 dark:text-gray-200"> 🪄</span>
             </div>
           ) : (
             <div className="flex items-center">
@@ -247,16 +277,33 @@ export default function ModelCtrl({
                 </div>
               </div>
               <div className="flex-shrink overflow-hidden whitespace-nowrap text-ellipsis min-w-12">
-                <span className="text-color-secondary">{providerName} /</span>
-                <span className="font-medium">{activeModel.label}</span>
+                <span className="text-gray-700 dark:text-gray-200">{providerName} /</span>
+                <span className="font-medium text-gray-900 dark:text-white">{activeModel.label}</span>
                 {modelMapping[activeModel.label || ''] && (
-                  <span className="text-gray-300 dark:text-gray-400">
+                  <span className="text-gray-500 dark:text-gray-300">
                     ‣{modelMapping[activeModel.label || '']}
                   </span>
                 )}
               </div>
             </div>
           )}
+          <Button 
+            size="small" 
+            appearance="subtle"
+            style={{ 
+              marginLeft: '4px',
+              padding: '2px 6px',
+              fontSize: '0.7rem',
+              background: 'rgba(37, 99, 235, 0.1)',
+              color: '#2563eb',
+              borderRadius: '4px',
+              height: '20px',
+              minWidth: 'auto'
+            }}
+            className="hover:bg-blue-100 dark:hover:bg-blue-900/30 dark:bg-blue-900/40 dark:text-white"
+          >
+            Learn
+          </Button>
           {activeModel.description && (
             <Tooltip
               content={activeModel.description as string}
@@ -266,13 +313,20 @@ export default function ModelCtrl({
                 icon={<Info16Regular />}
                 size="small"
                 appearance="subtle"
+                className="dark:text-white"
               />
             </Tooltip>
           )}
         </Button>
       </MenuTrigger>
       <MenuPopover className="model-menu-popup">
-        <MenuList style={{ width: '450px' }}>
+        <MenuList 
+          style={{ 
+            width: '450px', 
+            ['--text-color' as any]: "white" 
+          }} 
+          className="dark:text-white force-white-text"
+        >
           {autoModel && (
             <div className="px-2 py-2 mb-2">
               <div style={{ display: 'flex', flexDirection: 'column', width: '100%', marginBottom: '8px' }}>
@@ -292,48 +346,85 @@ export default function ModelCtrl({
                       model={autoModel?.name || ''}
                       withTooltip={true}
                     />
-                    <span style={{ fontSize: '1rem', fontWeight: 500, textAlign: 'center' }}>&nbsp;&nbsp;✨ AUTO ✨</span>
+                    <span style={{ fontSize: '1rem', fontWeight: 500, textAlign: 'center', color: 'var(--text-color, inherit)' }} className="dark:text-white" data-dark-mode-text="true">&nbsp;&nbsp;✨ AUTO ✨</span>
                   </div>
                 </div>
                 <div style={{ paddingLeft: '4px' }}>
-                  <span style={{ fontSize: '0.9rem' }}>Automatically selects the best advanced AI model for your task</span>
+                  <span style={{ 
+                    fontSize: '0.95rem', 
+                    fontWeight: 500, 
+                    color: 'var(--text-color, #1f2937)',
+                  }} 
+                  className="text-gray-800 dark:text-white"
+                  data-dark-mode-text="true">Automatically selects the best advanced AI model for your task</span>
                 </div>
                 <div style={{ paddingLeft: '4px', marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  <span style={{ fontSize: '0.85rem', fontWeight: 500, color: '#6b7280' }}>Optimized for:</span>
+                  <span style={{ 
+                    fontSize: '0.95rem', 
+                    fontWeight: 700, 
+                    color: 'var(--text-color, #1f2937)',
+                    border: '1px solid #9ca3af',
+                    padding: '4px 8px',
+                    borderRadius: '4px',
+                    marginBottom: '4px',
+                    display: 'inline-block',
+                    width: 'fit-content',
+                    background: 'rgba(255,255,255,0.05)'
+                  }} 
+                  className="dark:text-white dark:border-gray-400 dark:bg-gray-700"
+                  data-dark-mode-text="true">
+                    Optimized for:
+                  </span>
                   <div className="dark:bg-gray-800 bg-gray-100" style={{ display: 'flex', gap: '12px', marginLeft: '4px', padding: '6px 10px', borderRadius: '6px', width: 'fit-content' }}>
-                    <span style={{ fontSize: '0.9rem', color: '#2563eb', fontWeight: 500 }}>Performance</span>
-                    <span style={{ color: '#9ca3af' }}>•</span>
-                    <span style={{ fontSize: '0.9rem', color: '#0891b2', fontWeight: 500 }}>Speed</span>
-                    <span style={{ color: '#9ca3af' }}>•</span>
-                    <span style={{ fontSize: '0.9rem', color: '#059669', fontWeight: 500 }}>Cost</span>
+                    <span style={{ fontSize: '0.9rem', color: '#2563eb', fontWeight: 500 }} className="dark:text-blue-300">Performance</span>
+                    <span style={{ color: '#9ca3af' }} className="dark:text-gray-400">•</span>
+                    <span style={{ fontSize: '0.9rem', color: '#0891b2', fontWeight: 500 }} className="dark:text-cyan-300">Speed</span>
+                    <span style={{ color: '#9ca3af' }} className="dark:text-gray-400">•</span>
+                    <span style={{ fontSize: '0.9rem', color: '#059669', fontWeight: 500 }} className="dark:text-green-300">Cost</span>
                   </div>
                 </div>
               </div>
+              
               <div className="border-t border-gray-200 dark:border-gray-700 my-4"></div>
-              <div className="px-1 text-sm text-gray-400 dark:text-gray-500">
-                <p className="text-gray-400 dark:text-gray-500 mb-3">Use the specialized model buttons for specific tasks:</p>
+              <div className="px-1 text-sm text-gray-700 dark:text-gray-200">
+                <p className="text-gray-800 dark:text-white font-bold text-base mb-3" style={{ color: 'var(--text-color, #1f2937)' }} data-dark-mode-text="true">Use the specialized model buttons for specific tasks:</p>
                 <div className="grid grid-cols-1 gap-3">
                   <div className="flex items-start p-2 rounded-md bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-                    <span className="text-purple-500 dark:text-purple-400 text-lg mr-2">🔍</span>
+                    <span className="text-purple-500 dark:text-purple-300 text-lg mr-2">🔍</span>
                     <div>
-                      <div className="font-medium text-gray-700 dark:text-gray-300">DeepSearch</div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400">For internet research & factual inquiries</div>
+                      <div className="font-medium text-gray-800 dark:text-white" data-dark-mode-text="true">DeepSearch</div>
+                      <div className="text-xs text-gray-600 dark:text-gray-300">For internet research & factual inquiries</div>
                     </div>
                   </div>
                   <div className="flex items-start p-2 rounded-md bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-                    <span className="text-rose-500 dark:text-rose-400 text-lg mr-2">💭</span>
+                    <span className="text-rose-500 dark:text-rose-300 text-lg mr-2">💭</span>
                     <div>
-                      <div className="font-medium text-gray-700 dark:text-gray-300">DeepThought</div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400">For complex reasoning & analysis</div>
+                      <div className="font-medium text-gray-800 dark:text-white" data-dark-mode-text="true">DeepThought</div>
+                      <div className="text-xs text-gray-600 dark:text-gray-300">For complex reasoning & analysis</div>
                     </div>
                   </div>
                   <div className="flex items-start p-2 rounded-md bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-                    <span className="text-orange-500 dark:text-orange-400 text-lg mr-2">⚡</span>
+                    <span className="text-orange-500 dark:text-orange-300 text-lg mr-2">⚡</span>
                     <div>
-                      <div className="font-medium text-gray-700 dark:text-gray-300">Flash</div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400">For speed and processing long documents</div>
+                      <div className="font-medium text-gray-800 dark:text-white" data-dark-mode-text="true">Flash</div>
+                      <div className="text-xs text-gray-600 dark:text-gray-300">For speed and processing long documents</div>
                     </div>
                   </div>
+                </div>
+              </div>
+              
+              {/* Additional divider line before secure hosting section */}
+              <div className="border-t border-gray-200 dark:border-gray-700 my-3"></div>
+              
+              {/* Secure Hosting Section */}
+              <div className="p-3 bg-green-50 dark:bg-green-900/30 rounded-md border border-green-200 dark:border-green-500">
+                <div className="flex items-center">
+                  <div className="text-green-600 dark:text-green-300 mr-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                    </svg>
+                  </div>
+                  <p className="text-xs text-green-700 dark:text-green-300 font-medium">Secure US hosting with no-train policy</p>
                 </div>
               </div>
             </div>
@@ -342,7 +433,7 @@ export default function ModelCtrl({
       </MenuPopover>
     </Menu>
   ) : (
-    <Text size={200}>
+    <Text size={200} className="text-gray-900 dark:text-white">
       {autoEnabled && autoModel && activeModel.autoEnabled ? (
         <div style={{ display: 'flex', alignItems: 'center' }}>
           <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
@@ -361,9 +452,26 @@ export default function ModelCtrl({
               withTooltip={true}
             />
           </div>
-          <span className="text-color-secondary">OMNI /</span>
-          <span className="font-medium">AUTO</span>
-          <span className="text-color-secondary"> 🪄</span>
+          <span className="text-gray-700 dark:text-gray-200">OMNI /</span>
+          <span className="font-medium text-gray-900 dark:text-white">AUTO</span>
+          <span className="text-gray-700 dark:text-gray-200"> 🪄</span>
+          <Button 
+            size="small" 
+            appearance="subtle"
+            style={{ 
+              marginLeft: '4px',
+              padding: '2px 6px',
+              fontSize: '0.7rem',
+              background: 'rgba(37, 99, 235, 0.1)',
+              color: '#2563eb',
+              borderRadius: '4px',
+              height: '20px',
+              minWidth: 'auto'
+            }}
+            className="hover:bg-blue-100 dark:hover:bg-blue-900/30 dark:bg-blue-900/40 dark:text-white"
+          >
+            Learn
+          </Button>
         </div>
       ) : (
         <span className="flex justify-start items-center gap-1">
@@ -413,13 +521,30 @@ export default function ModelCtrl({
               withTooltip={true}
             />
           </div>
-          <span className="text-color-secondary">{providerName} /</span>
-          <span className="font-medium">{activeModel.label}</span>
+          <span className="text-gray-700 dark:text-gray-200">{providerName} /</span>
+          <span className="font-medium text-gray-900 dark:text-white">{activeModel.label}</span>
           {modelMapping[activeModel.label || ''] && (
-            <span className="text-gray-300 dark:text-gray-400 -ml-1">
+            <span className="text-gray-500 dark:text-gray-300">
               ‣{modelMapping[activeModel.label || '']}
             </span>
           )}
+          <Button 
+            size="small" 
+            appearance="subtle"
+            style={{ 
+              marginLeft: '4px',
+              padding: '2px 6px',
+              fontSize: '0.7rem',
+              background: 'rgba(37, 99, 235, 0.1)',
+              color: '#2563eb',
+              borderRadius: '4px',
+              height: '20px',
+              minWidth: 'auto'
+            }}
+            className="hover:bg-blue-100 dark:hover:bg-blue-900/30 dark:bg-blue-900/40 dark:text-white"
+          >
+            Learn
+          </Button>
         </span>
       )}
     </Text>
