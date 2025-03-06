@@ -24,6 +24,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import MaskableInput from 'renderer/components/MaskableInput';
 import StateButton from 'renderer/components/StateButton';
 import StateInput from 'renderer/components/StateInput';
+import TrafficLights from 'renderer/components/TrafficLights';
 import useAppearanceStore from 'stores/useAppearanceStore';
 import useAuthStore from 'stores/useAuthStore';
 import { isValidEmail } from 'utils/validators';
@@ -112,10 +113,15 @@ export default function Login() {
   };
 
   return (
-    <div className="page h-full flex flex-col items-center justify-center relative">
-      {/* Background pattern overlay */}
-      <div 
-        className="absolute inset-0 z-0" 
+    <div className="relative h-screen w-screen flex items-center justify-center overflow-hidden">
+      {/* Traffic Lights in top-left corner */}
+      <div className="absolute top-2.5 left-5 z-50">
+        <TrafficLights />
+      </div>
+      
+      {/* Background gradient */}
+      <div
+        className="absolute inset-0 z-0"
         style={{
           background: theme === 'dark' 
             ? `radial-gradient(circle at 50% 50%, rgba(100, 100, 100, 0.1) 0%, rgba(0, 0, 0, 0) 70%), 

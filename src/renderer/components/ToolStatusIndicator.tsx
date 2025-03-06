@@ -20,9 +20,10 @@ export default function ToolStatusIndicator(
     provider: string;
     model: string;
     withTooltip?: boolean;
+    compact?: boolean;
   } & any,
 ) {
-  const { provider, model, withTooltip, ...rest } = props;
+  const { provider, model, withTooltip, compact = false, ...rest } = props;
   const { getToolState } = useSettingsStore();
   const { getChatModel } = useProvider();
 
@@ -52,10 +53,11 @@ export default function ToolStatusIndicator(
       <div 
         className="flex text-center justify-center items-center"
         style={{ 
-          width: 16, 
-          height: 16, 
-          minWidth: 16,
+          width: compact ? 14 : 16, 
+          height: compact ? 14 : 16, 
+          minWidth: compact ? 14 : 16,
           marginRight: 1,
+          marginLeft: compact ? 2 : 0,
           background: actualSupport 
             ? 'linear-gradient(0deg, rgba(85,177,85,1) 0%, rgba(66,150,66,1) 100%)' 
             : 'linear-gradient(0deg, rgba(200,200,200,0.5) 0%, rgba(180,180,180,0.5) 100%)',
@@ -65,8 +67,8 @@ export default function ToolStatusIndicator(
         <WrenchScrewdriverIcon
           style={{ 
             color: 'white', 
-            width: '11px', 
-            height: '11px' 
+            width: compact ? '10px' : '11px', 
+            height: compact ? '10px' : '11px' 
           }}
           {...rest}
         />

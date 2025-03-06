@@ -154,11 +154,10 @@ ipcMain.on('minimize-app', () => {
   mainWindow?.minimize();
 });
 ipcMain.on('maximize-app', () => {
-  if (mainWindow?.isMaximized()) {
-    mainWindow?.unmaximize();
-  } else {
-    mainWindow?.maximize();
-  }
+  // Always maximize the window
+  mainWindow?.maximize();
+  // Always set the preference to true
+  store.set('windowMaximized', true);
 });
 ipcMain.on('close-app', () => {
   mainWindow?.close();
@@ -503,16 +502,14 @@ const createWindow = async () => {
       throw new Error('"mainWindow" is not defined');
     }
     
-    // Get saved window state or default to maximized
-    const shouldBeMaximized = store.get('windowMaximized', true) as boolean;
-    
     // Show the window first
     mainWindow.show();
     
-    // Then maximize if needed (keeps taskbar visible)
-    if (shouldBeMaximized) {
-      mainWindow.maximize();
-    }
+    // Always maximize the window (keeps taskbar visible)
+    mainWindow.maximize();
+    
+    // Always set the preference to true
+    store.set('windowMaximized', true);
     
     const fixPath = (await import('fix-path')).default;
     fixPath();

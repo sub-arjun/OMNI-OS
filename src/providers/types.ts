@@ -70,6 +70,7 @@ export interface IChatModel {
   uncensoredEnabled?: boolean;
   muricaEnabled?: boolean;
   arjunsFavoriteEnabled?: boolean;
+  longContextEnabled?: boolean;
   vision?: IChatModelVision;
   endpoint?: string;
   group: ChatModelGroup;

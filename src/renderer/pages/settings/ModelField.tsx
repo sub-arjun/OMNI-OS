@@ -20,6 +20,7 @@ import FastResponseStatusIndicator from 'renderer/components/FastResponseStatusI
 import UncensoredStatusIndicator from 'renderer/components/UncensoredStatusIndicator';
 import MuricaStatusIndicator from 'renderer/components/MuricaStatusIndicator';
 import ArjunsFavoriteStatusIndicator from 'renderer/components/ArjunsFavoriteStatusIndicator';
+import LongContextStatusIndicator from 'renderer/components/LongContextStatusIndicator';
 import { isUndefined } from 'lodash';
 import OllamaModelPicker from './OllamaModelPicker';
 import { IChatModel, IServiceProvider } from '../../../providers/types';
@@ -143,6 +144,11 @@ export default function ModelField({
                   model={models[0].name}
                   withTooltip
                 />
+                <LongContextStatusIndicator
+                  model={models[0].name}
+                  provider={provider.name}
+                  withTooltip={true}
+                />
                 <span className="latin">{models[0].label}</span>
                 {models[0].description && (
                   <Tooltip
@@ -205,6 +211,11 @@ export default function ModelField({
                           model={model.name}
                           provider={provider.name}
                           withTooltip
+                        />
+                        <LongContextStatusIndicator
+                          model={model.name}
+                          provider={provider.name}
+                          withTooltip={true}
                         />
                         <span className="latin">{model.label as string}</span>
                       </div>

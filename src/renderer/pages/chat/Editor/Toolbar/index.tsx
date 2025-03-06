@@ -1,6 +1,7 @@
 import { Toolbar } from '@fluentui/react-components';
 import useChatContext from 'hooks/useChatContext';
 import ModelCtrl from './ModelCtrl';
+import DeepSearchCtrl from './DeepSearchCtrl';
 import PromptCtrl from './PromptCtrl';
 import TemperatureCtrl from './TemperatureCtrl';
 import MaxTokensCtrl from './MaxTokensCtrl';
@@ -28,6 +29,7 @@ export default function EditorToolbar({
         className="flex items-center gap-3 ml-2 editor-toolbar"
       >
         <ModelCtrl ctx={ctx} chat={chat} />
+        <DeepSearchCtrl ctx={ctx} chat={chat} />
         <PromptCtrl ctx={ctx} chat={chat} />
         <KnowledgeCtrl ctx={ctx} chat={chat} />
         {hasVisionSupport && <ImgCtrl ctx={ctx} chat={chat} />}

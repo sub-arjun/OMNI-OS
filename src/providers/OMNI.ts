@@ -25,7 +25,7 @@ export default {
         name: 'openrouter/auto',
         label: 'OmniRouter',
         contextWindow: 200000,
-        maxTokens: 4096,
+        maxTokens: 6000,
         defaultMaxTokens: 4000,
         inputPrice: 0.003,
         outputPrice: 0.015,
@@ -40,7 +40,7 @@ export default {
         description: `✨ Let AI pick the best model for your question.\n\n📊 For experts: Auto-router selects optimal model based on query content, balancing capabilities and cost efficiency.`,
         group: 'OMNI' as ChatModelGroup,
       },
-      'Deep-Searcher': {
+      'Deep-Searcher-R1': {
         name: 'perplexity/sonar-reasoning',
         label: 'Sonar Reasoning',
         contextWindow: 127000,
@@ -61,12 +61,13 @@ export default {
         description: `✨ Built-in internet search! Great for facts, news, and research.\n\n📊 For experts: DeepSeek-based model fine-tuned for truthfulness and resistance to propoganda hosted in the USA with integrated web search capabilities for research, citations, and up-to-date answers.`,
         group: 'DeepSeek' as ChatModelGroup,
       },
-      'Deep-Thinker': {
+      'Deep-Thinker-R1': {
         name: 'perplexity/r1-1776',
         label: 'R1-1776',
         contextWindow: 128000,
         maxTokens: 8192,
         defaultMaxTokens: 8000,
+        arjunsFavoriteEnabled: true,
         inputPrice: 0.002,
         outputPrice: 0.008,
         jsonModelEnabled: false,
@@ -82,7 +83,7 @@ export default {
         description: `✨ Finetuned to remove propaganda and aligned to American values with strong reasoning capabilities.\n\n📊 For experts: High-performance model with extensive 128K context, optimized for accurate, bias-free analysis from an American perspective.`,
         group: 'DeepSeek' as ChatModelGroup,
       },
-      'google/gemini-2.0-flash': {
+      'Flash-2.0': {
         name: 'google/gemini-2.0-flash-001',
         contextWindow: 1048576,
         maxTokens: 8192,
@@ -92,6 +93,7 @@ export default {
         jsonModelEnabled: true,
         toolEnabled: true,
         fastResponseEnabled: true,
+        longContextEnabled: true,
         vision:{
           enabled:true,
         },

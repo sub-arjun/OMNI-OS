@@ -26,6 +26,7 @@ import useAuthStore from 'stores/useAuthStore';
 import StateButton from 'renderer/components/StateButton';
 import StateInput from 'renderer/components/StateInput';
 import MaskableStateInput from 'renderer/components/MaskableStateInput';
+import TrafficLights from 'renderer/components/TrafficLights';
 import { tempChatId } from 'consts';
 
 const debug = Debug('5ire:pages:user:Register');
@@ -146,7 +147,11 @@ export default function Register() {
 
   return (
     <div className="page h-full">
-      <div className="page-top-bar"></div>
+      <div className="page-top-bar">
+        <div className="absolute top-2.5 left-5 z-50">
+          <TrafficLights />
+        </div>
+      </div>
       <div className="page-header flex items-center justify-between">
         <div className="flex items-center justify-between w-full">
           <h1 className="text-2xl flex-shrink-0 mr-6">

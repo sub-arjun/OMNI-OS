@@ -16,6 +16,7 @@ import FastResponseStatusIndicator from 'renderer/components/FastResponseStatusI
 import UncensoredStatusIndicator from 'renderer/components/UncensoredStatusIndicator';
 import MuricaStatusIndicator from 'renderer/components/MuricaStatusIndicator';
 import ArjunsFavoriteStatusIndicator from 'renderer/components/ArjunsFavoriteStatusIndicator';
+import LongContextStatusIndicator from 'renderer/components/LongContextStatusIndicator';
 
 type Item = {
   name: string;
@@ -116,6 +117,7 @@ export default function OllamaModelPicker({
                   <UncensoredStatusIndicator model={item.name} provider="Ollama" withTooltip={true} />
                   <MuricaStatusIndicator model={item.name} provider="Ollama" withTooltip={true} />
                   <ArjunsFavoriteStatusIndicator model={item.name} provider="Ollama" withTooltip={true} />
+                  <LongContextStatusIndicator model={item.name} provider="Ollama" withTooltip={true} />
                 </div>
                 <span>{item.name}</span>
               </div>

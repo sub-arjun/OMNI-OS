@@ -32,13 +32,18 @@ import { useTranslation } from 'react-i18next';
 import Empty from './Empty';
 import ProtectedRoute from './ProtectedRoute';
 import useAuthStore from 'stores/useAuthStore';
+import TrafficLights from './TrafficLights';
 
 // Coming Soon component for Analytics
 const ComingSoon = () => {
   const { t } = useTranslation();
   return (
     <div className="page h-full">
-      <div className="page-top-bar"></div>
+      <div className="page-top-bar">
+        <div className="absolute top-2.5 left-5 z-50">
+          <TrafficLights />
+        </div>
+      </div>
       <div className="page-header flex items-center justify-between">
         <div className="flex items-center justify-between w-full">
           <h1 className="text-2xl flex-shrink-0 mr-6">{t('Common.Analytics')}</h1>
@@ -57,7 +62,11 @@ const ComingSoonAuth = () => {
   const { t } = useTranslation();
   return (
     <div className="page h-full">
-      <div className="page-top-bar"></div>
+      <div className="page-top-bar">
+        <div className="absolute top-2.5 left-5 z-50">
+          <TrafficLights />
+        </div>
+      </div>
       <div className="page-header flex items-center justify-between">
         <div className="flex items-center justify-between w-full">
           <h1 className="text-2xl flex-shrink-0 mr-6">{t('Account.SignUp')}</h1>

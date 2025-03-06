@@ -31,12 +31,14 @@ import { IChatModel, ProviderType } from 'providers/types';
 import useProvider from 'hooks/useProvider';
 import useAuthStore from 'stores/useAuthStore';
 import ToolStatusIndicator from 'renderer/components/ToolStatusIndicator';
-import OnlineStatusIndicator from 'renderer/components/OnlineStatusIndicator';
+import SearchStatusIndicator from 'renderer/components/SearchStatusIndicator';
 import ReasoningStatusIndicator from 'renderer/components/ReasoningStatusIndicator';
 import FastResponseStatusIndicator from 'renderer/components/FastResponseStatusIndicator';
 import UncensoredStatusIndicator from 'renderer/components/UncensoredStatusIndicator';
 import MuricaStatusIndicator from 'renderer/components/MuricaStatusIndicator';
 import ArjunsFavoriteStatusIndicator from 'renderer/components/ArjunsFavoriteStatusIndicator';
+import LongContextStatusIndicator from 'renderer/components/LongContextStatusIndicator';
+import SecureStatusIndicator from 'renderer/components/SecureStatusIndicator';
 import { isUndefined } from 'lodash';
 
 // Custom styled Switch component with green color when checked
@@ -101,8 +103,12 @@ export default function ModelCtrl({
     if (autoEnabled && autoModel) {
       return [autoModel];
     }
-    // Otherwise show all available models except the auto model
-    return allModels.filter(model => !model.autoEnabled);
+    // Otherwise show all available models except the auto model and Deep-Searcher-R1
+    return allModels.filter(model => 
+      !model.autoEnabled && 
+      model.name !== 'perplexity/sonar-reasoning' && 
+      model.label !== 'Sonar Reasoning'
+    );
   }, [allModels, autoEnabled, autoModel]);
 
   const activeModel = useMemo(() => ctx.getModel(), [chat.model]);
@@ -182,76 +188,96 @@ export default function ModelCtrl({
           style={{ borderColor: 'transparent', boxShadow: 'none', padding: 1 }}
           className="text-color-secondary flex justify-start items-center"
         >
-          <div className="flex flex-row justify-start items-center mr-1">
-            <div style={{ display: 'flex', width: '68px', justifyContent: 'flex-start' }}>
-              <OnlineStatusIndicator
+          {autoEnabled && autoModel && activeModel.autoEnabled ? (
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <span className="text-color-secondary">OMNI /</span>
+              <SecureStatusIndicator
                 provider={providerName}
-                model={activeModel.name}
                 withTooltip={true}
-              />
-              <ReasoningStatusIndicator
-                provider={providerName}
-                model={activeModel.name}
-                withTooltip={true}
-              />
-              <FastResponseStatusIndicator
-                provider={providerName}
-                model={activeModel.name}
-                withTooltip={true}
+                compact={true}
               />
               <ToolStatusIndicator
                 provider={providerName}
                 model={activeModel.name}
                 withTooltip={true}
+                compact={true}
               />
-              <UncensoredStatusIndicator
-                provider={providerName}
-                model={activeModel.name}
-                withTooltip={true}
-              />
-              <MuricaStatusIndicator
-                provider={providerName}
-                model={activeModel.name}
-                withTooltip={true}
-              />
-              <ArjunsFavoriteStatusIndicator
-                provider={providerName}
-                model={activeModel.name}
-                withTooltip={true}
-              />
+              <span className="font-medium">AUTO</span>
+              <span className="text-color-secondary"> 🪄 (Experimental)</span>
             </div>
-          </div>
-          <div className="flex-shrink overflow-hidden whitespace-nowrap text-ellipsis min-w-12">
-            {autoEnabled && autoModel && activeModel.autoEnabled ? (
-              <>
-                <span className="text-color-secondary">OMNI /</span>
-                <span className="font-medium">AUTO</span>
-                <span className="text-color-secondary"> 🪄 AI Selects Best Model 🪄 (Experimental)</span>
-              </>
-            ) : (
-              <>
+          ) : (
+            <div className="flex items-center">
+              <div className="flex flex-row justify-start items-center mr-1">
+                <div style={{ display: 'flex', width: '68px', justifyContent: 'flex-start' }}>
+                  <SecureStatusIndicator
+                    provider={providerName}
+                    withTooltip={true}
+                  />
+                  <SearchStatusIndicator
+                    provider={providerName}
+                    model={activeModel.name}
+                    withTooltip={true}
+                  />
+                  <ReasoningStatusIndicator
+                    provider={providerName}
+                    model={activeModel.name}
+                    withTooltip={true}
+                  />
+                  <FastResponseStatusIndicator
+                    provider={providerName}
+                    model={activeModel.name}
+                    withTooltip={true}
+                  />
+                  <ToolStatusIndicator
+                    provider={providerName}
+                    model={activeModel.name}
+                    withTooltip={true}
+                  />
+                  <UncensoredStatusIndicator
+                    provider={providerName}
+                    model={activeModel.name}
+                    withTooltip={true}
+                  />
+                  <MuricaStatusIndicator
+                    provider={providerName}
+                    model={activeModel.name}
+                    withTooltip={true}
+                  />
+                  <ArjunsFavoriteStatusIndicator
+                    provider={providerName}
+                    model={activeModel.name}
+                    withTooltip={true}
+                  />
+                  <LongContextStatusIndicator
+                    model={activeModel.name}
+                    provider={providerName}
+                    withTooltip={true}
+                  />
+                </div>
+              </div>
+              <div className="flex-shrink overflow-hidden whitespace-nowrap text-ellipsis min-w-12">
                 <span className="text-color-secondary">{providerName} /</span>
                 <span className="font-medium">{activeModel.label}</span>
-              </>
-            )}
-            {!autoEnabled && modelMapping[activeModel.label || ''] && (
-              <span className="text-gray-300 dark:text-gray-400">
-                ‣{modelMapping[activeModel.label || '']}
-              </span>
-            )}
-            {activeModel.description && (
-              <Tooltip
-                content={activeModel.description as string}
-                relationship="label"
-              >
-                <Button
-                  icon={<Info16Regular />}
-                  size="small"
-                  appearance="subtle"
-                />
-              </Tooltip>
-            )}
-          </div>
+                {modelMapping[activeModel.label || ''] && (
+                  <span className="text-gray-300 dark:text-gray-400">
+                    ‣{modelMapping[activeModel.label || '']}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+          {activeModel.description && (
+            <Tooltip
+              content={activeModel.description as string}
+              relationship="label"
+            >
+              <Button
+                icon={<Info16Regular />}
+                size="small"
+                appearance="subtle"
+              />
+            </Tooltip>
+          )}
         </Button>
       </MenuTrigger>
       <MenuPopover className="model-menu-popup">
@@ -260,7 +286,18 @@ export default function ModelCtrl({
             <div className="px-2 py-2 mb-2 border-b border-gray-200 dark:border-gray-700">
               <div style={{ display: 'flex', flexDirection: 'column', width: '100%', marginBottom: '8px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', marginBottom: '8px' }}>
-                  <span style={{ fontSize: '1rem', fontWeight: 500, textAlign: 'center' }}>&nbsp;&nbsp;✨ AUTO ✨</span>
+                  <div style={{ display: 'flex', alignItems: 'center' }}>
+                    <SecureStatusIndicator
+                      provider={providerName}
+                      withTooltip={true}
+                    />
+                    <ToolStatusIndicator
+                      provider={providerName}
+                      model={autoModel?.name || ''}
+                      withTooltip={true}
+                    />
+                    <span style={{ fontSize: '1rem', fontWeight: 500, textAlign: 'center' }}>&nbsp;&nbsp;✨ AUTO ✨</span>
+                  </div>
                   <div style={{ flexShrink: 0 }}>
                     <GreenSwitch checked={autoEnabled} onChange={toggleAuto} />
                   </div>
@@ -282,10 +319,14 @@ export default function ModelCtrl({
             </div>
           )}
           
-          {/* Only show non-auto models */}
+          {/* Show non-auto models only when AUTO is disabled */}
           {!autoEnabled && (
             <>
-              {allModels.filter(model => !model.autoEnabled).map((item) => {
+              {allModels.filter(model => 
+                !model.autoEnabled && 
+                model.name !== 'perplexity/sonar-reasoning' && 
+                model.label !== 'Sonar Reasoning'
+              ).map((item) => {
                 let toolEnabled = getToolState(providerName, item.name);
                 if (isUndefined(toolEnabled)) {
                   toolEnabled = item.toolEnabled;
@@ -298,7 +339,11 @@ export default function ModelCtrl({
                   >
                     <div className="flex justify-start items-center gap-1">
                       <div style={{ display: 'flex', width: '68px', justifyContent: 'flex-start' }}>
-                        <OnlineStatusIndicator
+                        <SecureStatusIndicator
+                          provider={providerName}
+                          withTooltip={true}
+                        />
+                        <SearchStatusIndicator
                           provider={providerName}
                           model={item.name}
                           withTooltip={true}
@@ -317,6 +362,7 @@ export default function ModelCtrl({
                           provider={providerName}
                           model={item.name}
                           withTooltip={true}
+                          compact={true}
                         />
                         <UncensoredStatusIndicator
                           provider={providerName}
@@ -331,6 +377,11 @@ export default function ModelCtrl({
                         <ArjunsFavoriteStatusIndicator
                           provider={providerName}
                           model={item.name}
+                          withTooltip={true}
+                        />
+                        <LongContextStatusIndicator
+                          model={item.name}
+                          provider={providerName}
                           withTooltip={true}
                         />
                       </div>
@@ -363,54 +414,82 @@ export default function ModelCtrl({
     </Menu>
   ) : (
     <Text size={200}>
-      <span className="flex justify-start items-center gap-1">
-        <div style={{ display: 'flex', width: '68px', justifyContent: 'flex-start' }}>
-          <OnlineStatusIndicator
+      {autoEnabled && autoModel && activeModel.autoEnabled ? (
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          <span className="text-color-secondary">OMNI /</span>
+          <SecureStatusIndicator
             provider={providerName}
-            model={activeModel.name}
             withTooltip={true}
-          />
-          <ReasoningStatusIndicator
-            provider={providerName}
-            model={activeModel.name}
-            withTooltip={true}
-          />
-          <FastResponseStatusIndicator
-            provider={providerName}
-            model={activeModel.name}
-            withTooltip={true}
+            compact={true}
           />
           <ToolStatusIndicator
             provider={providerName}
             model={activeModel.name}
             withTooltip={true}
+            compact={true}
           />
-          <UncensoredStatusIndicator
-            provider={providerName}
-            model={activeModel.name}
-            withTooltip={true}
-          />
-          <MuricaStatusIndicator
-            provider={providerName}
-            model={activeModel.name}
-            withTooltip={true}
-          />
-          <ArjunsFavoriteStatusIndicator
-            provider={providerName}
-            model={activeModel.name}
-            withTooltip={true}
-          />
+          <span className="font-medium">AUTO</span>
+          <span className="text-color-secondary"> 🪄 (Experimental)</span>
         </div>
-        <span className="latin">
-          <span className="text-color-secondary">{api.provider} / </span>
-          <span className="font-medium">{activeModel.label}</span>
-        </span>
-        {modelMapping[activeModel.label || ''] && (
-          <span className="text-gray-300 dark:text-gray-400 -ml-1">
-            ‣{modelMapping[activeModel.label || '']}
+      ) : (
+        <span className="flex justify-start items-center gap-1">
+          <div style={{ display: 'flex', width: '68px', justifyContent: 'flex-start' }}>
+            <SecureStatusIndicator
+              provider={providerName}
+              withTooltip={true}
+            />
+            <SearchStatusIndicator
+              provider={providerName}
+              model={activeModel.name}
+              withTooltip={true}
+            />
+            <ReasoningStatusIndicator
+              provider={providerName}
+              model={activeModel.name}
+              withTooltip={true}
+            />
+            <FastResponseStatusIndicator
+              provider={providerName}
+              model={activeModel.name}
+              withTooltip={true}
+            />
+            <ToolStatusIndicator
+              provider={providerName}
+              model={activeModel.name}
+              withTooltip={true}
+            />
+            <UncensoredStatusIndicator
+              provider={providerName}
+              model={activeModel.name}
+              withTooltip={true}
+            />
+            <MuricaStatusIndicator
+              provider={providerName}
+              model={activeModel.name}
+              withTooltip={true}
+            />
+            <ArjunsFavoriteStatusIndicator
+              provider={providerName}
+              model={activeModel.name}
+              withTooltip={true}
+            />
+            <LongContextStatusIndicator
+              model={activeModel.name}
+              provider={providerName}
+              withTooltip={true}
+            />
+          </div>
+          <span className="latin">
+            <span className="text-color-secondary">{providerName} / </span>
+            <span className="font-medium">{activeModel.label}</span>
           </span>
-        )}
-      </span>
+          {modelMapping[activeModel.label || ''] && (
+            <span className="text-gray-300 dark:text-gray-400 -ml-1">
+              ‣{modelMapping[activeModel.label || '']}
+            </span>
+          )}
+        </span>
+      )}
     </Text>
   );
 }
