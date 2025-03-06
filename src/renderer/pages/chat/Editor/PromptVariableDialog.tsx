@@ -68,6 +68,7 @@ export default function PromptVariableDialog(args: {
                 <div className="mb-4">
                   <div className="text-base font-medium">
                     {t('Common.SystemMessage')}
+                    {' '}
                     {t('Common.Variables')}
                   </div>
                   {systemVariables.map((variable) => {
@@ -93,6 +94,7 @@ export default function PromptVariableDialog(args: {
                 <div>
                   <div className="text-base font-medium">
                     {t('User Message')}
+                    {' '}
                     {t('Common.Variables')}
                   </div>
                   {userVariables.map((variable) => {

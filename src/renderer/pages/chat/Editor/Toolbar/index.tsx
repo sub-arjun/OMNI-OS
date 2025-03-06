@@ -36,6 +36,7 @@ export default function EditorToolbar({
           <DeepThoughtCtrl ctx={ctx} chat={chat} />
           <OmegaFlashCtrl ctx={ctx} chat={chat} />
         </div>
+        <div className="border-l border-gray-300 dark:border-gray-700 h-6"></div>
         <PromptCtrl ctx={ctx} chat={chat} />
         <KnowledgeCtrl ctx={ctx} chat={chat} />
         {hasVisionSupport && <ImgCtrl ctx={ctx} chat={chat} />}

@@ -2,7 +2,7 @@ import {
   Button,
   Tooltip,
 } from '@fluentui/react-components';
-import { Flashlight20Regular, Flashlight20Filled } from '@fluentui/react-icons';
+import { TextExpandRegular } from '@fluentui/react-icons';
 import { useEffect, useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { IChat, IChatContext } from 'intellichat/types';
@@ -10,23 +10,14 @@ import useChatStore from 'stores/useChatStore';
 import useProvider from 'hooks/useProvider';
 import useSettingsStore from 'stores/useSettingsStore';
 
-// Custom styled flash icons with orange color
-const OrangeFlashIcon = (props: React.SVGProps<SVGSVGElement>) => (
-  <Flashlight20Regular 
+// Smaller version of the TextExpand icon
+const SmallTextExpandIcon = (props: React.SVGProps<SVGSVGElement>) => (
+  <TextExpandRegular 
     {...props} 
     style={{ 
       ...props.style,
-      color: '#f97316', // Tailwind orange-500
-    }} 
-  />
-);
-
-const OrangeFlashFilledIcon = (props: React.SVGProps<SVGSVGElement>) => (
-  <Flashlight20Filled 
-    {...props} 
-    style={{ 
-      ...props.style,
-      color: '#f97316', // Tailwind orange-500
+      width: '15px',
+      height: '15px',
     }} 
   />
 );
@@ -131,7 +122,7 @@ export default function OmegaFlashCtrl({
   
   // Always render the component, even if the model isn't found
   return (
-    <div className="flex items-center ml-1">
+    <div className="flex items-center ml-0.5">
       <Tooltip
         content={{
           children: (
@@ -153,9 +144,10 @@ export default function OmegaFlashCtrl({
           appearance={omegaFlashEnabled ? "primary" : "subtle"}
           onClick={toggleOmegaFlash}
           disabled={!flashModel}
-          className={omegaFlashEnabled ? 'bg-orange-500 hover:bg-orange-600 text-white' : ''}
+          className={omegaFlashEnabled ? 'bg-orange-500 hover:bg-orange-600 text-white px-2 py-0.5 text-sm' : 'px-2 py-0.5 text-sm'}
         >
           <span className="flex items-center font-medium">
+            <SmallTextExpandIcon className="mr-1.5" />
             Flash
           </span>
         </Button>

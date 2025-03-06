@@ -2,7 +2,7 @@ import {
   Button,
   Tooltip,
 } from '@fluentui/react-components';
-import { BrainCircuit20Regular, BrainCircuit20Filled } from '@fluentui/react-icons';
+import { BrainCircuit20Regular, BrainCircuit20Filled, Search16Regular } from '@fluentui/react-icons';
 import { useEffect, useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { IChat, IChatContext } from 'intellichat/types';
@@ -159,7 +159,7 @@ export default function DeepSearchCtrl({
   
   // Always render the component, even if the model isn't found
   return (
-    <div className="flex items-center ml-1">
+    <div className="flex items-center ml-0.5">
       <Tooltip
         content={{
           children: (
@@ -182,9 +182,10 @@ export default function DeepSearchCtrl({
           appearance={deepSearchEnabled ? "primary" : "subtle"}
           onClick={toggleDeepSearch}
           disabled={!deepSearcherModel}
-          className={deepSearchEnabled ? 'bg-purple-500 hover:bg-purple-600 text-white' : ''}
+          className={deepSearchEnabled ? 'bg-purple-500 hover:bg-purple-600 text-white px-2 py-0.5 text-sm' : 'px-2 py-0.5 text-sm'}
         >
           <span className="flex items-center font-medium">
+            <Search16Regular className="mr-1" />
             DeepSearch
           </span>
         </Button>

@@ -38,7 +38,8 @@ import UncensoredStatusIndicator from 'renderer/components/UncensoredStatusIndic
 import MuricaStatusIndicator from 'renderer/components/MuricaStatusIndicator';
 import ArjunsFavoriteStatusIndicator from 'renderer/components/ArjunsFavoriteStatusIndicator';
 import LongContextStatusIndicator from 'renderer/components/LongContextStatusIndicator';
-import SecureStatusIndicator from 'renderer/components/SecureStatusIndicator';
+import SecureStatusIndicator from '../../../../components/SecureStatusIndicator';
+import RouterStatusIndicator from '../../../../components/RouterStatusIndicator';
 import { isUndefined } from 'lodash';
 
 // Custom styled Switch component with green color when checked
@@ -185,6 +186,11 @@ export default function ModelCtrl({
                   model={activeModel.name}
                   withTooltip={true}
                 />
+                <RouterStatusIndicator
+                  provider={providerName}
+                  model={activeModel.name}
+                  withTooltip={true}
+                />
               </div>
               <span className="text-color-secondary">OMNI /</span>
               <span className="font-medium">AUTO</span>
@@ -281,6 +287,11 @@ export default function ModelCtrl({
                       model={autoModel?.name || ''}
                       withTooltip={true}
                     />
+                    <RouterStatusIndicator
+                      provider={providerName}
+                      model={autoModel?.name || ''}
+                      withTooltip={true}
+                    />
                     <span style={{ fontSize: '1rem', fontWeight: 500, textAlign: 'center' }}>&nbsp;&nbsp;✨ AUTO ✨</span>
                   </div>
                 </div>
@@ -289,7 +300,7 @@ export default function ModelCtrl({
                 </div>
                 <div style={{ paddingLeft: '4px', marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   <span style={{ fontSize: '0.85rem', fontWeight: 500, color: '#6b7280' }}>Optimized for:</span>
-                  <div style={{ display: 'flex', gap: '12px', marginLeft: '4px' }}>
+                  <div className="dark:bg-gray-800 bg-gray-100" style={{ display: 'flex', gap: '12px', marginLeft: '4px', padding: '6px 10px', borderRadius: '6px', width: 'fit-content' }}>
                     <span style={{ fontSize: '0.9rem', color: '#2563eb', fontWeight: 500 }}>Performance</span>
                     <span style={{ color: '#9ca3af' }}>•</span>
                     <span style={{ fontSize: '0.9rem', color: '#0891b2', fontWeight: 500 }}>Speed</span>
@@ -340,6 +351,11 @@ export default function ModelCtrl({
               withTooltip={true}
             />
             <ToolStatusIndicator
+              provider={providerName}
+              model={activeModel.name}
+              withTooltip={true}
+            />
+            <RouterStatusIndicator
               provider={providerName}
               model={activeModel.name}
               withTooltip={true}

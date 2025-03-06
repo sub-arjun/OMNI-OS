@@ -37,7 +37,7 @@ export default {
         toolEnabled: true,
         isDefault: true,
         autoEnabled: true,
-        description: `✨ Let AI pick the best model for your question.\n\n📊 For experts: Auto-router selects optimal model based on query content, balancing capabilities and cost efficiency.`,
+        description: ``,
         group: 'OMNI' as ChatModelGroup,
       },
       'Deep-Searcher-R1': {
