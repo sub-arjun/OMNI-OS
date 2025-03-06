@@ -506,9 +506,66 @@ export function urlJoin(part: string, base: string): URL {
   return new URL(`${trimmedBase}/${trimmedPart}`);
 }
 
-// Text-to-speech function using Replicate API
+/**
+ * Converts Markdown text to plain text by removing common Markdown syntax
+ */
+export function markdownToPlainText(markdown: string): string {
+  if (!markdown) return '';
+  
+  let plainText = markdown;
+  
+  // Remove code blocks
+  plainText = plainText.replace(/```[\s\S]*?```/g, '');
+  
+  // Remove inline code
+  plainText = plainText.replace(/`([^`]+)`/g, '$1');
+  
+  // Remove headers
+  plainText = plainText.replace(/^#{1,6}\s+(.+)$/gm, '$1');
+  
+  // Remove bold and italic
+  plainText = plainText.replace(/\*\*\*(.*?)\*\*\*/g, '$1');
+  plainText = plainText.replace(/\*\*(.*?)\*\*/g, '$1');
+  plainText = plainText.replace(/\*(.*?)\*/g, '$1');
+  plainText = plainText.replace(/_{3}(.*?)_{3}/g, '$1');
+  plainText = plainText.replace(/_{2}(.*?)_{2}/g, '$1');
+  plainText = plainText.replace(/_(.*?)_/g, '$1');
+  
+  // Remove links but keep the text
+  plainText = plainText.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
+  
+  // Remove image syntax
+  plainText = plainText.replace(/!\[([^\]]*)\]\([^)]+\)/g, '');
+  
+  // Convert bullet points to simple text
+  plainText = plainText.replace(/^\s*[-*+]\s+(.+)$/gm, '• $1');
+  
+  // Convert numbered lists to simple text
+  plainText = plainText.replace(/^\s*\d+\.\s+(.+)$/gm, '$1');
+  
+  // Remove blockquotes
+  plainText = plainText.replace(/^\s*>\s+(.+)$/gm, '$1');
+  
+  // Remove horizontal rules
+  plainText = plainText.replace(/^\s*[-*_]{3,}\s*$/gm, '');
+  
+  // Remove HTML tags
+  plainText = plainText.replace(/<[^>]*>/g, '');
+  
+  // Fix multiple consecutive spaces
+  plainText = plainText.replace(/\s+/g, ' ');
+  
+  // Fix multiple consecutive line breaks
+  plainText = plainText.replace(/\n+/g, '\n');
+  
+  return plainText.trim();
+}
+
 export async function textToSpeech(text: string): Promise<string> {
   try {
+    // Convert markdown to plain text before sending to TTS
+    const plainText = markdownToPlainText(text);
+    
     const response = await fetch('https://api.replicate.com/v1/predictions', {
       method: 'POST',
       headers: {
@@ -519,7 +576,7 @@ export async function textToSpeech(text: string): Promise<string> {
       body: JSON.stringify({
         version: "f559560eb822dc509045f3921a1921234918b91739db4bf3daab2169b71c7a13",
         input: {
-          text: text,
+          text: plainText,
           speed: 1,
           voice: "af_bella"
         }
