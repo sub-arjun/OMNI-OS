@@ -45,9 +45,11 @@ export interface ISettingStore {
     providerName: string,
     modelName: string,
   ) => boolean | undefined;
-  setAutoEnabled: (enabled: boolean) => void;
+  setAutoEnabled: (auto: boolean) => void;
   setLanguage: (language: LanguageType) => void;
   setFontSize: (fontSize: FontSize) => void;
+  specializedModel: string | null;
+  setSpecializedModel: (modelName: string | null) => void;
 }
 
 const settings = window.electron.store.get('settings', {}) as ISettings;
@@ -65,6 +67,7 @@ const useSettingsStore = create<ISettingStore>((set, get) => ({
   toolStates: settings.toolStates || defaultToolStates,
   autoEnabled: settings.autoEnabled !== false && (settings as any).autoOMNIEnabled !== false, // Default to true if not set
   api: apiSettings,
+  specializedModel: null,
   setTheme: async (theme: ThemeType) => {
     set({ theme });
     window.electron.store.set('settings.theme', theme);
@@ -111,9 +114,9 @@ const useSettingsStore = create<ISettingStore>((set, get) => ({
   getToolState(providerName: string, modelName: string) {
     return get().toolStates[`${providerName}.${modelName}`];
   },
-  setAutoEnabled(enabled: boolean) {
-    set({ autoEnabled: enabled });
-    window.electron.store.set('settings.autoOMNIEnabled', enabled);
+  setAutoEnabled(auto: boolean) {
+    set({ autoEnabled: auto });
+    window.electron.store.set('settings.autoOMNIEnabled', auto);
   },
   setLanguage: (language: 'en' | 'zh' | 'system') => {
     set({ language });
@@ -123,6 +126,7 @@ const useSettingsStore = create<ISettingStore>((set, get) => ({
     set({ fontSize });
     window.electron.store.set('settings.fontSize', fontSize);
   },
+  setSpecializedModel: (modelName: string | null) => set({ specializedModel: modelName }),
 }));
 
 export default useSettingsStore;

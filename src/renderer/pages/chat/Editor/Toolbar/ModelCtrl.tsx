@@ -99,19 +99,22 @@ export default function ModelCtrl({
   }, [allModels]);
 
   const models = useMemo<IChatModel[]>(() => {
-    // If AUTO is enabled and exists, only show the auto model
-    if (autoEnabled && autoModel) {
+    // Always show only the auto model
+    if (autoModel) {
       return [autoModel];
     }
-    // Otherwise show all available models except the auto model and Deep-Searcher-R1
-    return allModels.filter(model => 
-      !model.autoEnabled && 
-      model.name !== 'perplexity/sonar-reasoning' && 
-      model.label !== 'Sonar Reasoning'
-    );
-  }, [allModels, autoEnabled, autoModel]);
+    // Fallback to empty array if no auto model is found
+    return [];
+  }, [allModels, autoModel]);
 
   const activeModel = useMemo(() => ctx.getModel(), [chat.model]);
+
+  // Set autoEnabled to true by default
+  useEffect(() => {
+    if (!autoEnabled && autoModel) {
+      setAutoEnabled(true);
+    }
+  }, [autoEnabled, autoModel, setAutoEnabled]);
 
   const onModelChange = (
     _: MenuCheckedValueChangeEvent,
@@ -140,24 +143,6 @@ export default function ModelCtrl({
   const closeDialog = () => {
     setOpen(false);
     Mousetrap.unbind('esc');
-  };
-
-  const toggleAuto = () => {
-    const newState = !autoEnabled;
-    setAutoEnabled(newState);
-    
-    // If turning AUTO on, switch to the auto model
-    if (newState && autoModel) {
-      editStage(chat.id, { model: autoModel.label });
-      // Close dialog when enabling AUTO
-      closeDialog();
-    } 
-    // If turning AUTO off and currently using the auto model,
-    // switch to the first non-auto model
-    else if (!newState && activeModel.autoEnabled && models.length > 0) {
-      editStage(chat.id, { model: models[0].label });
-      // Keep dialog open when disabling AUTO so user can select a model
-    }
   };
 
   useEffect(() => {
@@ -190,20 +175,20 @@ export default function ModelCtrl({
         >
           {autoEnabled && autoModel && activeModel.autoEnabled ? (
             <div style={{ display: 'flex', alignItems: 'center' }}>
+              <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+                <SecureStatusIndicator
+                  provider={providerName}
+                  withTooltip={true}
+                />
+                <ToolStatusIndicator
+                  provider={providerName}
+                  model={activeModel.name}
+                  withTooltip={true}
+                />
+              </div>
               <span className="text-color-secondary">OMNI /</span>
-              <SecureStatusIndicator
-                provider={providerName}
-                withTooltip={true}
-                compact={true}
-              />
-              <ToolStatusIndicator
-                provider={providerName}
-                model={activeModel.name}
-                withTooltip={true}
-                compact={true}
-              />
               <span className="font-medium">AUTO</span>
-              <span className="text-color-secondary"> 🪄 (Experimental)</span>
+              <span className="text-color-secondary"> 🪄</span>
             </div>
           ) : (
             <div className="flex items-center">
@@ -283,7 +268,7 @@ export default function ModelCtrl({
       <MenuPopover className="model-menu-popup">
         <MenuList style={{ width: '450px' }}>
           {autoModel && (
-            <div className="px-2 py-2 mb-2 border-b border-gray-200 dark:border-gray-700">
+            <div className="px-2 py-2 mb-2">
               <div style={{ display: 'flex', flexDirection: 'column', width: '100%', marginBottom: '8px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', marginBottom: '8px' }}>
                   <div style={{ display: 'flex', alignItems: 'center' }}>
@@ -298,116 +283,49 @@ export default function ModelCtrl({
                     />
                     <span style={{ fontSize: '1rem', fontWeight: 500, textAlign: 'center' }}>&nbsp;&nbsp;✨ AUTO ✨</span>
                   </div>
-                  <div style={{ flexShrink: 0 }}>
-                    <GreenSwitch checked={autoEnabled} onChange={toggleAuto} />
+                </div>
+                <div style={{ paddingLeft: '4px' }}>
+                  <span style={{ fontSize: '0.9rem' }}>Automatically selects the best advanced AI model for your task</span>
+                </div>
+                <div style={{ paddingLeft: '4px', marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <span style={{ fontSize: '0.85rem', fontWeight: 500, color: '#6b7280' }}>Optimized for:</span>
+                  <div style={{ display: 'flex', gap: '12px', marginLeft: '4px' }}>
+                    <span style={{ fontSize: '0.9rem', color: '#2563eb', fontWeight: 500 }}>Performance</span>
+                    <span style={{ color: '#9ca3af' }}>•</span>
+                    <span style={{ fontSize: '0.9rem', color: '#0891b2', fontWeight: 500 }}>Speed</span>
+                    <span style={{ color: '#9ca3af' }}>•</span>
+                    <span style={{ fontSize: '0.9rem', color: '#059669', fontWeight: 500 }}>Cost</span>
                   </div>
                 </div>
-                <div style={{ paddingLeft: '4px' }}>
-                  <span style={{ fontSize: '0.9rem' }}>🪄 AI Selects Best Model 🪄</span>
-                </div>
-                <div style={{ paddingLeft: '4px' }}>
-                  <span style={{ fontSize: '0.9rem' }}>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;(Experimental)</span>
+              </div>
+              <div className="border-t border-gray-200 dark:border-gray-700 my-4"></div>
+              <div className="px-1 text-sm text-gray-400 dark:text-gray-500">
+                <p className="text-gray-400 dark:text-gray-500 mb-3">Use the specialized model buttons for specific tasks:</p>
+                <div className="grid grid-cols-1 gap-3">
+                  <div className="flex items-start p-2 rounded-md bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                    <span className="text-purple-500 dark:text-purple-400 text-lg mr-2">🔍</span>
+                    <div>
+                      <div className="font-medium text-gray-700 dark:text-gray-300">DeepSearch</div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">For internet research & factual inquiries</div>
+                    </div>
+                  </div>
+                  <div className="flex items-start p-2 rounded-md bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                    <span className="text-rose-500 dark:text-rose-400 text-lg mr-2">💭</span>
+                    <div>
+                      <div className="font-medium text-gray-700 dark:text-gray-300">DeepThought</div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">For complex reasoning & analysis</div>
+                    </div>
+                  </div>
+                  <div className="flex items-start p-2 rounded-md bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                    <span className="text-orange-500 dark:text-orange-400 text-lg mr-2">⚡</span>
+                    <div>
+                      <div className="font-medium text-gray-700 dark:text-gray-300">Flash</div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">For speed and processing long documents</div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
-          )}
-          
-          {/* Manual model selection title */}
-          {!autoEnabled && (
-            <div className="px-3 py-2 mb-2">
-              <span style={{ fontSize: '0.9rem', fontWeight: 500 }}>Manual Model Selection</span>
-            </div>
-          )}
-          
-          {/* Show non-auto models only when AUTO is disabled */}
-          {!autoEnabled && (
-            <>
-              {allModels.filter(model => 
-                !model.autoEnabled && 
-                model.name !== 'perplexity/sonar-reasoning' && 
-                model.label !== 'Sonar Reasoning'
-              ).map((item) => {
-                let toolEnabled = getToolState(providerName, item.name);
-                if (isUndefined(toolEnabled)) {
-                  toolEnabled = item.toolEnabled;
-                }
-                return (
-                  <MenuItemRadio
-                    name="model"
-                    value={item.label as string}
-                    key={item.label}
-                  >
-                    <div className="flex justify-start items-center gap-1">
-                      <div style={{ display: 'flex', width: '68px', justifyContent: 'flex-start' }}>
-                        <SecureStatusIndicator
-                          provider={providerName}
-                          withTooltip={true}
-                        />
-                        <SearchStatusIndicator
-                          provider={providerName}
-                          model={item.name}
-                          withTooltip={true}
-                        />
-                        <ReasoningStatusIndicator
-                          provider={providerName}
-                          model={item.name}
-                          withTooltip={true}
-                        />
-                        <FastResponseStatusIndicator
-                          provider={providerName}
-                          model={item.name}
-                          withTooltip={true}
-                        />
-                        <ToolStatusIndicator
-                          provider={providerName}
-                          model={item.name}
-                          withTooltip={true}
-                          compact={true}
-                        />
-                        <UncensoredStatusIndicator
-                          provider={providerName}
-                          model={item.name}
-                          withTooltip={true}
-                        />
-                        <MuricaStatusIndicator
-                          provider={providerName}
-                          model={item.name}
-                          withTooltip={true}
-                        />
-                        <ArjunsFavoriteStatusIndicator
-                          provider={providerName}
-                          model={item.name}
-                          withTooltip={true}
-                        />
-                        <LongContextStatusIndicator
-                          model={item.name}
-                          provider={providerName}
-                          withTooltip={true}
-                        />
-                      </div>
-                      <span className="latin">{item.label}</span>
-                      {modelMapping[item.label || ''] && (
-                        <span className="text-gray-300 dark:text-gray-400 -ml-1">
-                          ‣{modelMapping[item.label || '']}
-                        </span>
-                      )}
-                      {item.description && (
-                        <Tooltip
-                          content={item.description as string}
-                          relationship="label"
-                        >
-                          <Button
-                            icon={<Info16Regular />}
-                            size="small"
-                            appearance="subtle"
-                          />
-                        </Tooltip>
-                      )}
-                    </div>
-                  </MenuItemRadio>
-                );
-              })}
-            </>
           )}
         </MenuList>
       </MenuPopover>
@@ -416,24 +334,24 @@ export default function ModelCtrl({
     <Text size={200}>
       {autoEnabled && autoModel && activeModel.autoEnabled ? (
         <div style={{ display: 'flex', alignItems: 'center' }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+            <SecureStatusIndicator
+              provider={providerName}
+              withTooltip={true}
+            />
+            <ToolStatusIndicator
+              provider={providerName}
+              model={activeModel.name}
+              withTooltip={true}
+            />
+          </div>
           <span className="text-color-secondary">OMNI /</span>
-          <SecureStatusIndicator
-            provider={providerName}
-            withTooltip={true}
-            compact={true}
-          />
-          <ToolStatusIndicator
-            provider={providerName}
-            model={activeModel.name}
-            withTooltip={true}
-            compact={true}
-          />
           <span className="font-medium">AUTO</span>
-          <span className="text-color-secondary"> 🪄 (Experimental)</span>
+          <span className="text-color-secondary"> 🪄</span>
         </div>
       ) : (
         <span className="flex justify-start items-center gap-1">
-          <div style={{ display: 'flex', width: '68px', justifyContent: 'flex-start' }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
             <SecureStatusIndicator
               provider={providerName}
               withTooltip={true}
@@ -479,10 +397,8 @@ export default function ModelCtrl({
               withTooltip={true}
             />
           </div>
-          <span className="latin">
-            <span className="text-color-secondary">{providerName} / </span>
-            <span className="font-medium">{activeModel.label}</span>
-          </span>
+          <span className="text-color-secondary">{providerName} /</span>
+          <span className="font-medium">{activeModel.label}</span>
           {modelMapping[activeModel.label || ''] && (
             <span className="text-gray-300 dark:text-gray-400 -ml-1">
               ‣{modelMapping[activeModel.label || '']}

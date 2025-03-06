@@ -13,11 +13,11 @@ import {
   ipcMain,
   nativeTheme,
   Menu,
+  screen,
 } from 'electron';
 import crypto from 'crypto';
 import { autoUpdater } from 'electron-updater';
 import log from 'electron-log';
-import dotenv from 'dotenv';
 import Store from 'electron-store';
 dotenv.config({
   path: app.isPackaged
@@ -42,7 +42,7 @@ import {
   MAX_FILE_SIZE,
   SUPPORTED_IMAGE_TYPES,
 } from '../consts';
-import { IMCPConfig } from 'stores/useMCPStore';
+import type { IMCPConfig } from 'types/mcp';
 import mcpConfig from '../mcp.config';
 
 logging.init();
@@ -497,6 +497,19 @@ const createWindow = async () => {
 
   mainWindow.loadURL(resolveHtmlPath('index.html'));
 
+  // Save window state when it changes
+  mainWindow.on('maximize', () => {
+    if (mainWindow) {
+      store.set('windowMaximized', true);
+    }
+  });
+
+  mainWindow.on('unmaximize', () => {
+    if (mainWindow) {
+      store.set('windowMaximized', false);
+    }
+  });
+
   mainWindow.on('ready-to-show', async () => {
     if (!mainWindow) {
       throw new Error('"mainWindow" is not defined');
@@ -505,27 +518,46 @@ const createWindow = async () => {
     // Show the window first
     mainWindow.show();
     
-    // Always maximize the window (keeps taskbar visible)
-    mainWindow.maximize();
-    
-    // Always set the preference to true
-    store.set('windowMaximized', true);
+    // Check if window was previously maximized
+    const wasMaximized = store.get('windowMaximized', true);
+    if (wasMaximized) {
+      // Set normal window size first so unmaximize works properly
+      const primaryDisplay = screen.getPrimaryDisplay();
+      const { width, height } = primaryDisplay.workAreaSize;
+      mainWindow.setBounds({ 
+        x: Math.floor(width * 0.1), 
+        y: Math.floor(height * 0.1), 
+        width: Math.floor(width * 0.8), 
+        height: Math.floor(height * 0.8) 
+      });
+      
+      // Now maximize the window
+      mainWindow.maximize();
+    }
     
     const fixPath = (await import('fix-path')).default;
     fixPath();
   });
 
-  mainWindow.on('closed', () => {
-    mainWindow = null;
+  // Set up IPC handlers for window controls
+  ipcMain.on('window-minimize', () => {
+    mainWindow?.minimize();
   });
 
-  // Save window state when it changes
-  mainWindow.on('maximize', () => {
-    store.set('windowMaximized', true);
+  ipcMain.on('window-maximize', () => {
+    if (mainWindow?.isMaximized()) {
+      mainWindow.unmaximize();
+    } else {
+      mainWindow?.maximize();
+    }
   });
-  
-  mainWindow.on('unmaximize', () => {
-    store.set('windowMaximized', false);
+
+  ipcMain.on('window-close', () => {
+    mainWindow?.close();
+  });
+
+  mainWindow.on('closed', () => {
+    mainWindow = null;
   });
 
   nativeTheme.on('updated', () => {

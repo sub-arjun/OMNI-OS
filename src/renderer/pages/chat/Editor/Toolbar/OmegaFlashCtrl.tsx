@@ -2,7 +2,7 @@ import {
   Button,
   Tooltip,
 } from '@fluentui/react-components';
-import { BrainCircuit20Regular, BrainCircuit20Filled } from '@fluentui/react-icons';
+import { Flashlight20Regular, Flashlight20Filled } from '@fluentui/react-icons';
 import { useEffect, useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { IChat, IChatContext } from 'intellichat/types';
@@ -10,28 +10,28 @@ import useChatStore from 'stores/useChatStore';
 import useProvider from 'hooks/useProvider';
 import useSettingsStore from 'stores/useSettingsStore';
 
-// Custom styled brain icons with purple color
-const PurpleBrainIcon = (props: React.SVGProps<SVGSVGElement>) => (
-  <BrainCircuit20Regular 
+// Custom styled flash icons with orange color
+const OrangeFlashIcon = (props: React.SVGProps<SVGSVGElement>) => (
+  <Flashlight20Regular 
     {...props} 
     style={{ 
       ...props.style,
-      color: '#8b5cf6', // Tailwind purple-500
+      color: '#f97316', // Tailwind orange-500
     }} 
   />
 );
 
-const PurpleBrainFilledIcon = (props: React.SVGProps<SVGSVGElement>) => (
-  <BrainCircuit20Filled 
+const OrangeFlashFilledIcon = (props: React.SVGProps<SVGSVGElement>) => (
+  <Flashlight20Filled 
     {...props} 
     style={{ 
       ...props.style,
-      color: '#8b5cf6', // Tailwind purple-500
+      color: '#f97316', // Tailwind orange-500
     }} 
   />
 );
 
-export default function DeepSearchCtrl({
+export default function OmegaFlashCtrl({
   ctx,
   chat,
 }: {
@@ -48,8 +48,8 @@ export default function DeepSearchCtrl({
   const messages = useChatStore((state) => state.messages);
   const { getProvider, getChatModels } = useProvider();
   
-  // Check if Deep Search is currently enabled
-  const deepSearchEnabled = specializedModel === 'Deep-Searcher-R1';
+  // Check if Omega Flash is currently enabled
+  const omegaFlashEnabled = specializedModel === 'Flash-2.0';
   
   // Store the current system message, temperature, and other settings
   const systemMessageRef = useRef<string | null | undefined>(null);
@@ -57,16 +57,16 @@ export default function DeepSearchCtrl({
   const maxTokensRef = useRef<number | null | undefined>(undefined);
   const maxCtxMessagesRef = useRef<number | undefined>(undefined);
   
-  // Get the Deep-Searcher-R1 model
+  // Get the Flash-2.0 model
   const provider = getProvider('OMNI');
   const allModels = getChatModels(provider.name) || [];
   // Use the label instead of the name to find the model
-  const deepSearcherModel = allModels.find(model => model.label === 'Sonar Reasoning' || model.name === 'perplexity/sonar-reasoning');
+  const flashModel = allModels.find(model => model.name === 'google/gemini-2.0-flash-001' || model.label === 'Flash-2.0');
   
   // Handle button click
-  const toggleDeepSearch = () => {
-    if (!deepSearchEnabled) {
-      // Enable Deep Search
+  const toggleOmegaFlash = () => {
+    if (!omegaFlashEnabled) {
+      // Enable Omega Flash
       
       // Save current model and settings
       const currentModel = ctx.getModel();
@@ -81,15 +81,15 @@ export default function DeepSearchCtrl({
       maxCtxMessagesRef.current = chat.maxCtxMessages;
       
       // Update the specialized model
-      setSpecializedModel('Deep-Searcher-R1');
+      setSpecializedModel('Flash-2.0');
       
       // Ensure AUTO is disabled
       setAutoEnabled(false);
       
-      if (deepSearcherModel) {
-        // Switch to Deep Search model
+      if (flashModel) {
+        // Switch to Omega Flash model
         editStage(chat.id, { 
-          model: deepSearcherModel.label,
+          model: flashModel.label,
           // Keep the same settings
           systemMessage: systemMessageRef.current,
           temperature: temperatureRef.current,
@@ -98,7 +98,7 @@ export default function DeepSearchCtrl({
         });
       }
     } else {
-      // Disable Deep Search
+      // Disable Omega Flash
       
       // Clear the specialized model
       setSpecializedModel(null);
@@ -129,34 +129,6 @@ export default function DeepSearchCtrl({
     setMessageCount(messages.length);
   }, [messages]);
   
-  // When message count increases and deep search is enabled, disable it and switch back
-  useEffect(() => {
-    const currentMessages = useChatStore.getState().messages;
-    if (deepSearchEnabled && currentMessages.length > messageCount) {
-      // Disable deep search
-      setSpecializedModel(null);
-      
-      // Enable AUTO
-      setAutoEnabled(true);
-      
-      // Get the AUTO model
-      const autoModel = allModels.find(model => model.autoEnabled === true);
-      
-      // Switch back to AUTO model
-      if (autoModel) {
-        // Switch to AUTO model with the same settings
-        editStage(chat.id, { 
-          model: autoModel.label,
-          // Keep the same settings
-          systemMessage: systemMessageRef.current,
-          temperature: temperatureRef.current,
-          maxTokens: maxTokensRef.current,
-          maxCtxMessages: maxCtxMessagesRef.current
-        });
-      }
-    }
-  }, [messages, messageCount, deepSearchEnabled, previousModel, chat.id, editStage, setSpecializedModel, setAutoEnabled, allModels]);
-  
   // Always render the component, even if the model isn't found
   return (
     <div className="flex items-center ml-1">
@@ -164,13 +136,12 @@ export default function DeepSearchCtrl({
         content={{
           children: (
             <div style={{ maxWidth: "280px" }}>
-              <p className="font-bold mb-1">Internet-Connected Research</p>
+              <p className="font-bold mb-1">Ultra-Fast Responses</p>
               <ul className="list-disc pl-4 mb-1 space-y-1">
-                <li>Searches the web for current information</li>
-                <li>Plans and executes research strategies</li>
-                <li>Provides factual, cited responses</li>
+                <li>Optimized for speed and efficiency</li>
+                <li>Handles extremely long documents</li>
+                <li>Processes code and data rapidly</li>
               </ul>
-              <p className="text-xs italic mt-2">Returns to AUTO after one response</p>
             </div>
           ),
         }}
@@ -179,13 +150,13 @@ export default function DeepSearchCtrl({
         relationship="label"
       >
         <Button
-          appearance={deepSearchEnabled ? "primary" : "subtle"}
-          onClick={toggleDeepSearch}
-          disabled={!deepSearcherModel}
-          className={deepSearchEnabled ? 'bg-purple-500 hover:bg-purple-600 text-white' : ''}
+          appearance={omegaFlashEnabled ? "primary" : "subtle"}
+          onClick={toggleOmegaFlash}
+          disabled={!flashModel}
+          className={omegaFlashEnabled ? 'bg-orange-500 hover:bg-orange-600 text-white' : ''}
         >
           <span className="flex items-center font-medium">
-            DeepSearch
+            Flash
           </span>
         </Button>
       </Tooltip>

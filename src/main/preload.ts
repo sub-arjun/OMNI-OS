@@ -17,6 +17,7 @@ export type Channels =
   | 'sign-in'
   | 'minimize-app'
   | 'maximize-app'
+  | 'window-maximize'
   | 'download-started'
   | 'download-progress'
   | 'download-completed'

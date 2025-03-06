@@ -29,7 +29,7 @@ const Icon = ({
 );
 
 type TrafficLightButtonProps = {
-  message: 'minimize-app' | 'maximize-app' | 'close-app';
+  message: 'minimize-app' | 'window-maximize' | 'close-app';
   children: ReactNode;
 };
 
@@ -81,7 +81,7 @@ export default function TrafficLights() {
           />
         </Icon>
       </TrafficLightButton>
-      <TrafficLightButton message="maximize-app">
+      <TrafficLightButton message="window-maximize">
         <Icon className="absolute z-0" {...iconStyles}>
           <circle cx="6.3" cy="6.3" r="6.3" fill="#00C543" />
         </Icon>
