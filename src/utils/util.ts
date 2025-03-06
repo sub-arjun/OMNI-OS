@@ -508,6 +508,7 @@ export function urlJoin(part: string, base: string): URL {
 
 /**
  * Converts Markdown text to plain text by removing common Markdown syntax
+ * while preserving punctuation for text-to-speech
  */
 export function markdownToPlainText(markdown: string): string {
   if (!markdown) return '';
@@ -517,13 +518,13 @@ export function markdownToPlainText(markdown: string): string {
   // Remove code blocks
   plainText = plainText.replace(/```[\s\S]*?```/g, '');
   
-  // Remove inline code
+  // Remove inline code but preserve punctuation
   plainText = plainText.replace(/`([^`]+)`/g, '$1');
   
-  // Remove headers
+  // Remove headers but preserve punctuation
   plainText = plainText.replace(/^#{1,6}\s+(.+)$/gm, '$1');
   
-  // Remove bold and italic
+  // Remove bold and italic but preserve punctuation
   plainText = plainText.replace(/\*\*\*(.*?)\*\*\*/g, '$1');
   plainText = plainText.replace(/\*\*(.*?)\*\*/g, '$1');
   plainText = plainText.replace(/\*(.*?)\*/g, '$1');
@@ -531,32 +532,35 @@ export function markdownToPlainText(markdown: string): string {
   plainText = plainText.replace(/_{2}(.*?)_{2}/g, '$1');
   plainText = plainText.replace(/_(.*?)_/g, '$1');
   
-  // Remove links but keep the text
-  plainText = plainText.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
+  // Remove links but keep the text and any trailing punctuation
+  plainText = plainText.replace(/\[([^\]]+)\](?:\([^)]+\))([.,!?;:])?/g, '$1$2');
   
   // Remove image syntax
   plainText = plainText.replace(/!\[([^\]]*)\]\([^)]+\)/g, '');
   
-  // Convert bullet points to simple text
+  // Convert bullet points to simple text (preserving punctuation)
   plainText = plainText.replace(/^\s*[-*+]\s+(.+)$/gm, '• $1');
   
-  // Convert numbered lists to simple text
+  // Convert numbered lists to simple text (preserving punctuation)
   plainText = plainText.replace(/^\s*\d+\.\s+(.+)$/gm, '$1');
   
-  // Remove blockquotes
+  // Remove blockquotes but preserve punctuation
   plainText = plainText.replace(/^\s*>\s+(.+)$/gm, '$1');
   
   // Remove horizontal rules
   plainText = plainText.replace(/^\s*[-*_]{3,}\s*$/gm, '');
   
-  // Remove HTML tags
-  plainText = plainText.replace(/<[^>]*>/g, '');
+  // Remove HTML tags but preserve punctuation
+  plainText = plainText.replace(/<[^>]*>([.,!?;:]*)/g, '$1');
   
-  // Fix multiple consecutive spaces
-  plainText = plainText.replace(/\s+/g, ' ');
+  // Fix multiple consecutive spaces (be careful not to remove spaces after punctuation)
+  plainText = plainText.replace(/([^.,!?;:])\s{2,}/g, '$1 ');
+  
+  // Ensure spaces after punctuation
+  plainText = plainText.replace(/([.,!?;:])([a-zA-Z])/g, '$1 $2');
   
   // Fix multiple consecutive line breaks
-  plainText = plainText.replace(/\n+/g, '\n');
+  plainText = plainText.replace(/\n{2,}/g, '\n');
   
   return plainText.trim();
 }
