@@ -159,7 +159,7 @@ export default function ToolMarketDrawer({
                     <div className="flex justify-between items-center">
                       <div className="flex flex-start items-center flex-grow">
                         <div
-                          className="text-base font-bold market-card-title"
+                          className="text-base font-bold text-gray-900 dark:text-white market-card-title"
                           dangerouslySetInnerHTML={{
                             __html: highlight(
                               server.name || server.key,
