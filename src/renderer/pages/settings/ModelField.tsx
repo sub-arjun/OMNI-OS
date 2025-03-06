@@ -78,10 +78,22 @@ export default function ModelField({
 
   const onInput = (evt: any) => {
     setAPI({ model: evt.target.value });
+    
+    // For Ollama, store the model in a dedicated key for persistence
+    if (provider.name === 'Ollama') {
+      console.log(`Saving Ollama model directly: ${evt.target.value}`);
+      window.electron.store.set('settings.ollama.currentModel', evt.target.value);
+    }
   };
 
   const setModel = (_model: string) => {
     setAPI({ model: _model });
+    
+    // For Ollama, store the model in a dedicated key for persistence
+    if (provider.name === 'Ollama') {
+      console.log(`Saving Ollama model directly from picker: ${_model}`);
+      window.electron.store.set('settings.ollama.currentModel', _model);
+    }
   };
 
   const setToolSetting = (
@@ -98,207 +110,222 @@ export default function ModelField({
           <OllamaModelPicker baseUrl={baseUrl} onConfirm={setModel} />
         </div>
       ),
-    [provider],
+    [provider, baseUrl],
   );
 
   return (
-    <div className="flex justify-start items-center my-3.5 gap-1">
-      <div className="w-72">
-        <div className="flex justify-start items-center mb-1.5 w-full">
-          <Label htmlFor="model">{t('Common.Model')}</Label>
-          <TooltipIcon tip={t(provider.chat.docs?.model || '')} />
-        </div>
-        <div className="w-full">
-          {provider.name === 'OMNI' ? (
-            <div className="flex flex-row justify-start items-center gap-1 w-full">
-              <span className="latin">OMNI AI</span>
-              <Tooltip
-                content="OMNI automatically selects the best model for your query"
-                relationship="label"
-              >
-                <Button
-                  icon={<Info16Regular />}
-                  size="small"
-                  appearance="subtle"
-                />
-              </Tooltip>
-            </div>
-          ) : models.length > 0 ? (
-            models.length === 1 ? (
-              <div className="flex flex-row justify-start items-center gap-1 w-full">
-                <OnlineStatusIndicator
-                  provider={provider.name}
-                  providerDisplayName={provider.displayName}
-                  model={models[0].name}
-                  withTooltip
-                />
-                <ReasoningStatusIndicator
-                  provider={provider.name}
-                  providerDisplayName={provider.displayName}
-                  model={models[0].name}
-                  withTooltip
-                />
-                <FastResponseStatusIndicator
-                  provider={provider.name}
-                  providerDisplayName={provider.displayName}
-                  model={models[0].name}
-                  withTooltip
-                />
-                <ToolStatusIndicator
-                  provider={provider.name}
-                  providerDisplayName={provider.displayName}
-                  model={models[0].name}
-                  withTooltip
-                />
-                <UncensoredStatusIndicator
-                  provider={provider.name}
-                  providerDisplayName={provider.displayName}
-                  model={models[0].name}
-                  withTooltip
-                />
-                <MuricaStatusIndicator
-                  provider={provider.name}
-                  providerDisplayName={provider.displayName}
-                  model={models[0].name}
-                  withTooltip
-                />
-                <ArjunsFavoriteStatusIndicator
-                  provider={provider.name}
-                  providerDisplayName={provider.displayName}
-                  model={models[0].name}
-                  withTooltip
-                />
-                <LongContextStatusIndicator
-                  model={models[0].name}
-                  provider={provider.name}
-                  providerDisplayName={provider.displayName}
-                  withTooltip={true}
-                />
-                <span className="latin">{models[0].label}</span>
-                {models[0].description && (
-                  <Tooltip
-                    content={models[0].description as string}
-                    relationship="label"
-                  >
-                    <Button
-                      icon={<Info16Regular />}
-                      size="small"
-                      appearance="subtle"
-                    />
-                  </Tooltip>
-                )}
+    // Only show the model field if the provider is not OMNI
+    provider.name !== 'OMNI' ? (
+      <div className="flex justify-start items-center my-3.5 gap-1">
+        <div className="w-72">
+          <div className="flex justify-start items-center mb-1.5 w-full">
+            <Label htmlFor="model">{t('Common.Model')}</Label>
+            <TooltipIcon tip={t(provider.chat.docs?.model || '')} />
+          </div>
+          
+          {/* Special handling for Ollama/OMNI Edge */}
+          {provider.name === 'Ollama' ? (
+            <div className="w-full mb-2">
+              <div className="flex flex-col w-full gap-2">
+                <div className="text-sm mb-1 dark:text-white">
+                  {t('Common.Model')}: <span className="font-medium">{model || t('Common.None')}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Input
+                    className="w-full"
+                    value={model}
+                    onChange={onInput}
+                    placeholder={t('Common.EnterModelName')}
+                  />
+                  <OllamaModelPicker baseUrl={baseUrl} onConfirm={setModel} />
+                </div>
+                <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  {t('Common.ClickChooseModels')}
+                </div>
               </div>
-            ) : (
-              <Dropdown
-                aria-labelledby="model"
-                className="w-full"
-                value={curModelLabel}
-                selectedOptions={[model]}
-                onOptionSelect={onOptionSelect}
-              >
-                {models.map((model: IChatModel) => (
-                  <Option
-                    key={model.name as string}
-                    text={model.label as string}
-                    value={model.name as string}
-                  >
-                    <div className="flex justify-start items-baseline latin">
-                      <div className="flex justify-start items-baseline gap-1">
-                        <OnlineStatusIndicator
-                          provider={provider.name}
-                          providerDisplayName={provider.displayName}
-                          model={model.name}
-                          withTooltip
-                        />
-                        <ReasoningStatusIndicator
-                          provider={provider.name}
-                          providerDisplayName={provider.displayName}
-                          model={model.name}
-                          withTooltip
-                        />
-                        <FastResponseStatusIndicator
-                          provider={provider.name}
-                          providerDisplayName={provider.displayName}
-                          model={model.name}
-                          withTooltip
-                        />
-                        <ToolStatusIndicator
-                          provider={provider.name}
-                          providerDisplayName={provider.displayName}
-                          model={model.name}
-                          withTooltip
-                        />
-                        <UncensoredStatusIndicator
-                          provider={provider.name}
-                          providerDisplayName={provider.displayName}
-                          model={model.name}
-                          withTooltip
-                        />
-                        <MuricaStatusIndicator
-                          provider={provider.name}
-                          providerDisplayName={provider.displayName}
-                          model={model.name}
-                          withTooltip
-                        />
-                        <ArjunsFavoriteStatusIndicator
-                          provider={provider.name}
-                          providerDisplayName={provider.displayName}
-                          model={model.name}
-                          withTooltip
-                        />
-                        <LongContextStatusIndicator
-                          model={model.name}
-                          provider={provider.name}
-                          providerDisplayName={provider.displayName}
-                          withTooltip={true}
-                        />
-                        <span className="latin">{model.label as string}</span>
-                      </div>
-                      {model.description && (
-                        <Tooltip
-                          content={model.description as string}
-                          relationship="label"
-                        >
-                          <Button
-                            icon={<Info16Regular />}
-                            size="small"
-                            appearance="subtle"
-                          />
-                        </Tooltip>
-                      )}
-                    </div>
-                  </Option>
-                ))}
-              </Dropdown>
-            )
+            </div>
           ) : (
-            <div className="flex flex-grow justify-start items-center gap-1 relative">
-              {provider.chat.options.modelCustomizable && (
-                <Input
-                  value={model || ''}
-                  placeholder={t(
-                    provider.chat.placeholders?.deploymentId || '',
-                  )}
-                  onInput={onInput}
-                  className="w-full"
-                />
-              )}
-
-              {renderOllamaModelPicker()}
+            // Standard model selection for other providers
+            <div className="w-full">
+              {models.length > 0 ? (
+                models.length === 1 ? (
+                  <div className="flex flex-row justify-start items-center gap-1 w-full">
+                    <OnlineStatusIndicator
+                      provider={provider.name}
+                      providerDisplayName={provider.displayName}
+                      model={models[0].name}
+                      withTooltip
+                    />
+                    <ReasoningStatusIndicator
+                      provider={provider.name}
+                      providerDisplayName={provider.displayName}
+                      model={models[0].name}
+                      withTooltip
+                    />
+                    <FastResponseStatusIndicator
+                      provider={provider.name}
+                      providerDisplayName={provider.displayName}
+                      model={models[0].name}
+                      withTooltip
+                    />
+                    <ToolStatusIndicator
+                      provider={provider.name}
+                      providerDisplayName={provider.displayName}
+                      model={models[0].name}
+                      withTooltip
+                    />
+                    <UncensoredStatusIndicator
+                      provider={provider.name}
+                      providerDisplayName={provider.displayName}
+                      model={models[0].name}
+                      withTooltip
+                    />
+                    <MuricaStatusIndicator
+                      provider={provider.name}
+                      providerDisplayName={provider.displayName}
+                      model={models[0].name}
+                      withTooltip
+                    />
+                    <ArjunsFavoriteStatusIndicator
+                      provider={provider.name}
+                      providerDisplayName={provider.displayName}
+                      model={models[0].name}
+                      withTooltip
+                    />
+                    <LongContextStatusIndicator
+                      model={models[0].name}
+                      provider={provider.name}
+                      providerDisplayName={provider.displayName}
+                      withTooltip={true}
+                    />
+                    <span className="latin">{models[0].label}</span>
+                    {models[0].description && (
+                      <Tooltip
+                        content={models[0].description as string}
+                        relationship="label"
+                      >
+                        <Button
+                          icon={<Info16Regular />}
+                          size="small"
+                          appearance="subtle"
+                        />
+                      </Tooltip>
+                    )}
+                  </div>
+                ) : (
+                  <Dropdown
+                    aria-labelledby="model"
+                    className="w-full"
+                    value={curModelLabel}
+                    selectedOptions={[model]}
+                    onOptionSelect={onOptionSelect}
+                  >
+                    {models.map((model: IChatModel) => (
+                      <Option
+                        key={model.name as string}
+                        text={model.label as string}
+                        value={model.name as string}
+                      >
+                        <div className="flex justify-start items-baseline latin">
+                          <div className="flex justify-start items-baseline gap-1">
+                            <OnlineStatusIndicator
+                              provider={provider.name}
+                              providerDisplayName={provider.displayName}
+                              model={model.name}
+                              withTooltip
+                            />
+                            <ReasoningStatusIndicator
+                              provider={provider.name}
+                              providerDisplayName={provider.displayName}
+                              model={model.name}
+                              withTooltip
+                            />
+                            <FastResponseStatusIndicator
+                              provider={provider.name}
+                              providerDisplayName={provider.displayName}
+                              model={model.name}
+                              withTooltip
+                            />
+                            <ToolStatusIndicator
+                              provider={provider.name}
+                              providerDisplayName={provider.displayName}
+                              model={model.name}
+                              withTooltip
+                            />
+                            <UncensoredStatusIndicator
+                              provider={provider.name}
+                              providerDisplayName={provider.displayName}
+                              model={model.name}
+                              withTooltip
+                            />
+                            <MuricaStatusIndicator
+                              provider={provider.name}
+                              providerDisplayName={provider.displayName}
+                              model={model.name}
+                              withTooltip
+                            />
+                            <ArjunsFavoriteStatusIndicator
+                              provider={provider.name}
+                              providerDisplayName={provider.displayName}
+                              model={model.name}
+                              withTooltip
+                            />
+                            <LongContextStatusIndicator
+                              model={model.name}
+                              provider={provider.name}
+                              providerDisplayName={provider.displayName}
+                              withTooltip={true}
+                            />
+                            <span className="latin">{model.label}</span>
+                            {model.description && (
+                              <Tooltip
+                                content={model.description as string}
+                                relationship="label"
+                              >
+                                <Button
+                                  icon={<Info16Regular />}
+                                  size="small"
+                                  appearance="subtle"
+                                />
+                              </Tooltip>
+                            )}
+                          </div>
+                        </div>
+                      </Option>
+                    ))}
+                  </Dropdown>
+                )
+              ) : provider.chat.options.modelCustomizable ? (
+                <div className="relative w-full">
+                  <Input
+                    className="w-full"
+                    value={model}
+                    onChange={onInput}
+                    placeholder={t('Common.EnterModelName')}
+                  />
+                </div>
+              ) : null}
             </div>
           )}
         </div>
+        {provider.chat.options.modelCustomizable &&
+          model &&
+          provider.chat.models[model]?.toolEnabled && (
+            <div className="ml-4">
+              <div className="flex justify-start items-center mb-1.5">
+                <Label htmlFor="enableTool">{t('Settings.EnableTool')}</Label>
+                <TooltipIcon tip={t('Settings.EnableToolTip')} />
+              </div>
+              <Switch
+                checked={toolEnabled}
+                onChange={setToolSetting}
+                label={t('Settings.EnableTool')}
+                labelPosition="after"
+              />
+            </div>
+          )}
       </div>
-      <div>
-        <div className="flex justify-start items-center">
-          <Label>{t('Common.Tools')}</Label>
-          <TooltipIcon tip={t('Common.SupportToolsTip')} />
-        </div>
-        <div className="flex justify-start items-center gap-1 -mb-1.5">
-          <Switch checked={toolEnabled} onChange={setToolSetting} />
-        </div>
-      </div>
-    </div>
+    ) : null
   );
 }
 

@@ -111,7 +111,9 @@ export default abstract class NextCharService {
 
   protected getModelName() {
     const model = this.context.getModel();
-    return this.modelMapping[model.name] || model.name;
+    const mappedName = this.modelMapping[model.name] || model.name;
+    console.log(`Model selection - Original: ${model.name}, Mapped: ${mappedName}, Provider: ${this.provider.name}`);
+    return mappedName;
   }
 
   public onComplete(callback: (result: any) => Promise<void>) {

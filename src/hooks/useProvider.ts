@@ -13,6 +13,10 @@ export default function useProvider() {
       (acc: { [key: string]: IServiceProvider }, cur: IServiceProvider) => {
         // Only allow OMNI and Ollama providers to be shown in the frontend
         if (cur.name === 'OMNI' || cur.name === 'Ollama') {
+          // Ensure Ollama has the correct displayName
+          if (cur.name === 'Ollama') {
+            cur.displayName = 'OMNI Edge';
+          }
           acc[cur.name] = cur;
         }
         return acc;
@@ -22,25 +26,109 @@ export default function useProvider() {
   }
 
   function getProvider(providerName: ProviderType): IServiceProvider {
+    // Map OMNI Edge to Ollama if needed
+    const lookupName = String(providerName) === 'OMNI Edge' ? 'Ollama' as ProviderType : providerName;
+    
     // Return the actual requested provider
-    return providers[providerName];
+    const provider = providers[lookupName];
+    
+    // If provider doesn't exist, log error but DON'T provide a fallback
+    // This allows the system to handle missing providers in a more visible way
+    if (!provider) {
+      console.error(`Provider not found: ${providerName}`);
+      // For safety, return a minimal valid provider structure without changing the requested name
+      return {
+        name: providerName,
+        displayName: providerName,
+        apiBase: '',
+        currency: 'USD',
+        chat: {
+          apiSchema: ['base', 'model'],
+          docs: {},
+          placeholders: { base: '' },
+          presencePenalty: { min: -2, max: 2, default: 0 },
+          topP: { min: 0, max: 1, default: 1 },
+          temperature: { min: 0, max: 2, default: 0.9 },
+          options: { modelCustomizable: true },
+          models: {
+            'Default Model': {
+              name: 'default',
+              label: 'Default Model',
+              contextWindow: 4000,
+              maxTokens: 2000,
+              defaultMaxTokens: 2000,
+              inputPrice: 0,
+              outputPrice: 0,
+              isDefault: true,
+              group: 'Default'
+            }
+          }
+        },
+        options: {
+          apiBaseCustomizable: true,
+          apiKeyCustomizable: false,
+        }
+      } as unknown as IServiceProvider;
+    }
+    
+    return provider;
   }
 
   function getDefaultChatModel(providerName: ProviderType): IChatModel {
-    // Get all models for the provider
-    const models = getChatModels(providerName);
-    
-    if (models.length === 0) {
-      return {} as IChatModel;
+    try {
+      // Get all models for the provider
+      const models = getChatModels(providerName);
+      
+      if (!models || models.length === 0) {
+        // Return a minimal valid model object if no models are found
+        return {
+          name: 'default',
+          label: 'Default Model',
+          contextWindow: 8192,
+          maxTokens: 4000,
+          defaultMaxTokens: 4000,
+          inputPrice: 0,
+          outputPrice: 0,
+          isDefault: true,
+          group: 'Open Source'
+        } as IChatModel;
+      }
+      
+      // Find a model marked as default, or use the first one
+      const defaultModel = models.find((m: IChatModel) => m.isDefault);
+      return defaultModel || models[0];
+    } catch (error) {
+      console.error(`Error getting default chat model for ${providerName}:`, error);
+      // Return a minimal valid model object on error
+      return {
+        name: 'default',
+        label: 'Default Model',
+        contextWindow: 8192,
+        maxTokens: 4000,
+        defaultMaxTokens: 4000,
+        inputPrice: 0,
+        outputPrice: 0,
+        isDefault: true,
+        group: 'Open Source'
+      } as IChatModel;
     }
-    
-    // Find a model marked as default, or use the first one
-    const defaultModel = models.find((m: IChatModel) => m.isDefault);
-    return defaultModel || models[0];
   }
 
   function getChatModels(providerName: ProviderType): IChatModel[] {
     const provider = getProvider(providerName);
+    
+    // Handle case where provider is undefined
+    if (!provider) {
+      console.error(`Provider not found: ${providerName}`);
+      return [];
+    }
+    
+    // Handle case where provider doesn't have chat property or models
+    if (!provider.chat || !provider.chat.models) {
+      console.error(`Provider ${providerName} is missing chat or models configuration`);
+      return [];
+    }
+    
     return Object.keys(provider.chat.models).map((modelKey) => {
       const model = provider.chat.models[modelKey];
       model.label = modelKey;

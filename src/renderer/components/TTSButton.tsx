@@ -10,6 +10,8 @@ import { useTranslation } from 'react-i18next';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { textToSpeech } from '../../utils/util';
 import useToast from '../../hooks/useToast';
+import useProvider from '../../hooks/useProvider';
+import useSettingsStore from '../../stores/useSettingsStore';
 
 // Create bundled icons for speaker
 const SpeakerIcon = bundleIcon(Speaker224Filled, Speaker224Regular);
@@ -68,6 +70,12 @@ export default function TTSButton({
   const { t } = useTranslation();
   const { notifyError, notifyInfo } = useToast();
   
+  // Get current provider to check if we're using OMNI Edge
+  const { api } = useSettingsStore.getState();
+  const { getProvider } = useProvider();
+  const currentProvider = getProvider(api.provider);
+  const isOllamaProvider = currentProvider.name === 'Ollama';
+  
   // State to track loading and playing status
   const [isLoading, setIsLoading] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -113,6 +121,12 @@ export default function TTSButton({
   }, []);
   
   const togglePlay = async () => {
+    // If Ollama provider, show not supported message and return
+    if (isOllamaProvider) {
+      notifyInfo(t('Common.NotSupported.TTS.OllamaProvider', 'Text-to-speech is not supported with OMNI Edge'));
+      return;
+    }
+    
     // If currently playing, stop playback
     if (isPlaying) {
       if (audioElementRef.current) {
@@ -203,7 +217,7 @@ export default function TTSButton({
 
   return (
     <div className="relative">
-      <Tooltip content={isPlaying ? t('Common.StopSpeech') : t('Common.PlaySpeech')} relationship="label">
+      <Tooltip content={isOllamaProvider ? t('Common.NotSupported.TTS', 'Text-to-speech not supported') : (isPlaying ? t('Common.StopSpeech') : t('Common.PlaySpeech'))} relationship="label">
         <Button
           data-tts-id={id}
           data-playing={isPlaying ? 'true' : 'false'}
@@ -211,8 +225,8 @@ export default function TTSButton({
           icon={isLoading ? <Spinner size="tiny" /> : (isPlaying ? <MuteIcon /> : <SpeakerIcon />)}
           appearance="subtle"
           onClick={togglePlay}
-          disabled={isLoading}
-          aria-label={isPlaying ? t('Common.StopSpeech') : t('Common.PlaySpeech')}
+          disabled={isLoading || isOllamaProvider}
+          aria-label={isOllamaProvider ? t('Common.NotSupported.TTS') : (isPlaying ? t('Common.StopSpeech') : t('Common.PlaySpeech'))}
         />
       </Tooltip>
       {renderWaveform()}

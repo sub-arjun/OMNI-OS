@@ -4,6 +4,7 @@ import {
   IPromptDef,
 } from 'intellichat/types';
 import { isArray, isNull } from 'lodash';
+import useSettingsStore from '../stores/useSettingsStore';
 
 export function date2unix(date: Date) {
   return Math.floor(date.getTime() / 1000);
@@ -565,11 +566,26 @@ export function markdownToPlainText(markdown: string): string {
   return plainText.trim();
 }
 
-export async function textToSpeech(text: string): Promise<string> {
-  try {
-    // Convert markdown to plain text before sending to TTS
-    const plainText = markdownToPlainText(text);
+export async function textToSpeech(markdown: string): Promise<string> {
+  // Check if current provider is Ollama (OMNI Edge)
+  const { api } = window.electron?.store?.get('settings') || {};
+  if (api?.provider === 'Ollama' || api?.provider === 'OMNI Edge') {
+    throw new Error('Text-to-speech is not supported with OMNI Edge');
+  }
+
+  // Convert markdown to plain text
+  const text = markdown
+    .replace(/```[\s\S]*?```/g, '')  // Remove code blocks
+    .replace(/`([^`]+)`/g, '$1')     // Remove inline code
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')  // Replace links with just the text
+    .replace(/#+\s(.*)/g, '$1')      // Remove heading markers
+    .replace(/(\*\*|__)(.*?)\1/g, '$2')  // Remove bold
+    .replace(/(\*|_)(.*?)\1/g, '$2') // Remove italic
+    .replace(/\n+/g, ' ')            // Replace newlines with spaces
+    .replace(/\s+/g, ' ')            // Replace multiple spaces with single space
+    .trim();                          // Trim spaces from start and end
     
+  try {
     const response = await fetch('https://api.replicate.com/v1/predictions', {
       method: 'POST',
       headers: {
@@ -580,7 +596,7 @@ export async function textToSpeech(text: string): Promise<string> {
       body: JSON.stringify({
         version: "f559560eb822dc509045f3921a1921234918b91739db4bf3daab2169b71c7a13",
         input: {
-          text: plainText,
+          text: text,
           speed: 1,
           voice: "af_bella"
         }

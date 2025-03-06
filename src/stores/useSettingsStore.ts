@@ -90,12 +90,44 @@ const useSettingsStore = create<ISettingStore>((set, get) => ({
         deploymentId,
         model,
       } as IAPISettings;
-      const { apiSchema } = getProvider(provider).chat;
-      window.electron.store.set('settings.api.activeProvider', provider);
-      window.electron.store.set(
-        `settings.api.providers.${provider}`,
-        pick(newAPI, [...apiSchema, 'provider']),
-      );
+      
+      try {
+        // Map OMNI Edge to Ollama for provider lookup
+        const providerLookupKey = String(provider) === 'OMNI Edge' ? 'Ollama' : provider;
+        
+        // Debug logs for Ollama model persistence
+        if (providerLookupKey === 'Ollama') {
+          console.log(`Setting Ollama model to: ${model}`);
+        }
+        
+        const providerObj = getProvider(providerLookupKey);
+        // Safely access the apiSchema with fallback
+        const apiSchema = providerObj?.chat?.apiSchema || ['base', 'model', 'provider'];
+        
+        // Ensure we're storing the complete config including model for Ollama
+        window.electron.store.set('settings.api.activeProvider', provider);
+        
+        const configToStore = pick(newAPI, [...apiSchema, 'provider']);
+        console.log(`Storing config for ${providerLookupKey}:`, configToStore);
+        
+        window.electron.store.set(
+          `settings.api.providers.${providerLookupKey}`,
+          configToStore
+        );
+        
+        // Special handling to ensure Ollama model name is preserved correctly
+        if (providerLookupKey === 'Ollama' && model) {
+          window.electron.store.set(
+            `settings.api.providers.${providerLookupKey}.model`, 
+            model
+          );
+        }
+      } catch (error) {
+        console.error('Error in setAPI:', error);
+        // Just set the activeProvider without trying to save provider-specific settings
+        window.electron.store.set('settings.api.activeProvider', provider);
+      }
+      
       return { api: newAPI };
     });
   },

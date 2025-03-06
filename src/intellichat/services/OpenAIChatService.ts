@@ -219,12 +219,17 @@ export default class OpenAIChatService
     message: IChatRequestMessage[],
   ): Promise<IChatRequestPayload> {
     const modelName = this.getModelName();
+    console.log(`OpenAIChatService.makePayload - Model name: ${modelName}, Provider: ${this.provider.name}`);
+    
     const payload: IChatRequestPayload = {
       model: modelName,
       messages: await this.makeMessages(message),
       temperature: this.context.getTemperature(),
       stream: true,
     };
+    
+    console.log(`OpenAIChatService.makePayload - Initial payload model: ${payload.model}`);
+    
     if (this.context.isToolEnabled()) {
       const tools = await window.electron.mcp.listTools();
       if (tools) {

@@ -222,7 +222,10 @@ export default function ModelCtrl({
                   withTooltip={true}
                 />
               </div>
-              <span className="text-gray-700 dark:text-gray-200">OMNI /</span>
+              <span className="text-gray-700 dark:text-gray-200">
+                {providerName === 'Ollama' ? 'OMNI Edge' : providerName}
+                {providerName !== 'Ollama' && ' /'}
+              </span>
               <span className="font-medium text-gray-900 dark:text-white">AUTO</span>
               <span className="text-gray-700 dark:text-gray-200"> 🪄</span>
             </div>
@@ -277,7 +280,9 @@ export default function ModelCtrl({
                 </div>
               </div>
               <div className="flex-shrink overflow-hidden whitespace-nowrap text-ellipsis min-w-12">
-                <span className="text-gray-700 dark:text-gray-200">{providerName} /</span>
+                <span className="text-gray-700 dark:text-gray-200">
+                  {providerName === 'Ollama' ? 'OMNI Edge' : providerName} /
+                </span>
                 <span className="font-medium text-gray-900 dark:text-white">{activeModel.label}</span>
                 {modelMapping[activeModel.label || ''] && (
                   <span className="text-gray-500 dark:text-gray-300">
@@ -327,6 +332,10 @@ export default function ModelCtrl({
           }} 
           className="dark:text-white force-white-text"
         >
+          <div className="px-3 pt-2 text-xl font-semibold text-gray-700 dark:text-white">
+            {providerName === 'OMNI' ? 'OMNI AI' : providerName === 'Ollama' ? 'OMNI Edge' : providerName}
+          </div>
+          
           {autoModel && (
             <div className="px-2 py-2 mb-2">
               <div style={{ display: 'flex', flexDirection: 'column', width: '100%', marginBottom: '8px' }}>
@@ -348,15 +357,20 @@ export default function ModelCtrl({
                     />
                     <span style={{ fontSize: '1rem', fontWeight: 500, textAlign: 'center', color: 'var(--text-color, inherit)' }} className="dark:text-white" data-dark-mode-text="true">&nbsp;&nbsp;✨ AUTO ✨</span>
                   </div>
+                  <GreenSwitch
+                    checked={autoEnabled}
+                    onChange={(ev, { checked }) => {
+                      setAutoEnabled(checked);
+                    }}
+                  />
                 </div>
-                <div style={{ paddingLeft: '4px' }}>
-                  <span style={{ 
-                    fontSize: '0.95rem', 
-                    fontWeight: 500, 
-                    color: 'var(--text-color, #1f2937)',
-                  }} 
-                  className="text-gray-800 dark:text-white"
-                  data-dark-mode-text="true">Automatically selects the best advanced AI model for your task</span>
+                <div className="mb-2">
+                  <div style={{ fontSize: '0.95rem', fontWeight: 600, color: 'var(--text-color, inherit)' }} className="dark:text-white" data-dark-mode-text="true">
+                    Automatically selects the best advanced AI model for your task
+                  </div>
+                  <div className="text-xs text-gray-500 dark:text-white">
+                    <span className="opacity-80">Powered by {providerName === 'Ollama' ? 'OMNI Edge' : providerName}</span>
+                  </div>
                 </div>
                 <div style={{ paddingLeft: '4px', marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   <span style={{ 
@@ -386,35 +400,41 @@ export default function ModelCtrl({
               </div>
               
               <div className="border-t border-gray-200 dark:border-gray-700 my-4"></div>
-              <div className="px-1 text-sm text-gray-700 dark:text-gray-200">
-                <p className="text-gray-800 dark:text-white font-bold text-base mb-3" style={{ color: 'var(--text-color, #1f2937)' }} data-dark-mode-text="true">Use the specialized model buttons for specific tasks:</p>
-                <div className="grid grid-cols-1 gap-3">
-                  <div className="flex items-start p-2 rounded-md bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-                    <span className="text-purple-500 dark:text-purple-300 text-lg mr-2">🔍</span>
-                    <div>
-                      <div className="font-medium text-gray-800 dark:text-white" data-dark-mode-text="true">DeepSearch</div>
-                      <div className="text-xs text-gray-600 dark:text-gray-300">For internet research & factual inquiries</div>
-                    </div>
-                  </div>
-                  <div className="flex items-start p-2 rounded-md bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-                    <span className="text-rose-500 dark:text-rose-300 text-lg mr-2">💭</span>
-                    <div>
-                      <div className="font-medium text-gray-800 dark:text-white" data-dark-mode-text="true">DeepThought</div>
-                      <div className="text-xs text-gray-600 dark:text-gray-300">For complex reasoning & analysis</div>
-                    </div>
-                  </div>
-                  <div className="flex items-start p-2 rounded-md bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-                    <span className="text-orange-500 dark:text-orange-300 text-lg mr-2">⚡</span>
-                    <div>
-                      <div className="font-medium text-gray-800 dark:text-white" data-dark-mode-text="true">Flash</div>
-                      <div className="text-xs text-gray-600 dark:text-gray-300">For speed and processing long documents</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
               
-              {/* Additional divider line before secure hosting section */}
-              <div className="border-t border-gray-200 dark:border-gray-700 my-3"></div>
+              {/* Only show specialized model section for non-Ollama providers */}
+              {providerName !== 'Ollama' && (
+                <>
+                  <div className="px-1 text-sm text-gray-700 dark:text-gray-200">
+                    <p className="text-gray-800 dark:text-white font-bold text-base mb-3" style={{ color: 'var(--text-color, #1f2937)' }} data-dark-mode-text="true">Use the specialized model buttons for specific tasks:</p>
+                    <div className="grid grid-cols-1 gap-3">
+                      <div className="flex items-start p-2 rounded-md bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                        <span className="text-purple-500 dark:text-purple-300 text-lg mr-2">🔍</span>
+                        <div>
+                          <div className="font-medium text-gray-800 dark:text-white" data-dark-mode-text="true">DeepSearch</div>
+                          <div className="text-xs text-gray-600 dark:text-gray-300">For internet research & factual inquiries</div>
+                        </div>
+                      </div>
+                      <div className="flex items-start p-2 rounded-md bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                        <span className="text-rose-500 dark:text-rose-300 text-lg mr-2">💭</span>
+                        <div>
+                          <div className="font-medium text-gray-800 dark:text-white" data-dark-mode-text="true">DeepThought</div>
+                          <div className="text-xs text-gray-600 dark:text-gray-300">For complex reasoning & analysis</div>
+                        </div>
+                      </div>
+                      <div className="flex items-start p-2 rounded-md bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                        <span className="text-orange-500 dark:text-orange-300 text-lg mr-2">⚡</span>
+                        <div>
+                          <div className="font-medium text-gray-800 dark:text-white" data-dark-mode-text="true">Flash</div>
+                          <div className="text-xs text-gray-600 dark:text-gray-300">For speed and processing long documents</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Additional divider line before secure hosting section */}
+                  <div className="border-t border-gray-200 dark:border-gray-700 my-3"></div>
+                </>
+              )}
               
               {/* Secure Hosting Section */}
               <div className="p-3 bg-green-50 dark:bg-green-900/30 rounded-md border border-green-200 dark:border-green-500">
@@ -452,26 +472,31 @@ export default function ModelCtrl({
               withTooltip={true}
             />
           </div>
-          <span className="text-gray-700 dark:text-gray-200">OMNI /</span>
+          <span className="text-gray-700 dark:text-gray-200">
+            {providerName === 'Ollama' ? 'OMNI Edge' : providerName}
+            {providerName !== 'Ollama' && ' /'}
+          </span>
           <span className="font-medium text-gray-900 dark:text-white">AUTO</span>
           <span className="text-gray-700 dark:text-gray-200"> 🪄</span>
-          <Button 
-            size="small" 
-            appearance="subtle"
-            style={{ 
-              marginLeft: '4px',
-              padding: '2px 6px',
-              fontSize: '0.7rem',
-              background: 'rgba(37, 99, 235, 0.1)',
-              color: '#2563eb',
-              borderRadius: '4px',
-              height: '20px',
-              minWidth: 'auto'
-            }}
-            className="hover:bg-blue-100 dark:hover:bg-blue-900/30 dark:bg-blue-900/40 dark:text-white"
-          >
-            Learn
-          </Button>
+          {providerName !== 'Ollama' && (
+            <Button 
+              size="small" 
+              appearance="subtle"
+              style={{ 
+                marginLeft: '4px',
+                padding: '2px 6px',
+                fontSize: '0.7rem',
+                background: 'rgba(37, 99, 235, 0.1)',
+                color: '#2563eb',
+                borderRadius: '4px',
+                height: '20px',
+                minWidth: 'auto'
+              }}
+              className="hover:bg-blue-100 dark:hover:bg-blue-900/30 dark:bg-blue-900/40 dark:text-white"
+            >
+              Learn
+            </Button>
+          )}
         </div>
       ) : (
         <span className="flex justify-start items-center gap-1">
@@ -521,30 +546,37 @@ export default function ModelCtrl({
               withTooltip={true}
             />
           </div>
-          <span className="text-gray-700 dark:text-gray-200">{providerName} /</span>
-          <span className="font-medium text-gray-900 dark:text-white">{activeModel.label}</span>
-          {modelMapping[activeModel.label || ''] && (
+          <span className="text-gray-700 dark:text-gray-200">
+            {providerName === 'Ollama' ? 'OMNI Edge' : providerName}
+            {providerName !== 'Ollama' && ' /'}
+          </span>
+          {providerName !== 'Ollama' && (
+            <span className="font-medium text-gray-900 dark:text-white">{activeModel.label}</span>
+          )}
+          {providerName !== 'Ollama' && modelMapping[activeModel.label || ''] && (
             <span className="text-gray-500 dark:text-gray-300">
               ‣{modelMapping[activeModel.label || '']}
             </span>
           )}
-          <Button 
-            size="small" 
-            appearance="subtle"
-            style={{ 
-              marginLeft: '4px',
-              padding: '2px 6px',
-              fontSize: '0.7rem',
-              background: 'rgba(37, 99, 235, 0.1)',
-              color: '#2563eb',
-              borderRadius: '4px',
-              height: '20px',
-              minWidth: 'auto'
-            }}
-            className="hover:bg-blue-100 dark:hover:bg-blue-900/30 dark:bg-blue-900/40 dark:text-white"
-          >
-            Learn
-          </Button>
+          {providerName !== 'Ollama' && (
+            <Button 
+              size="small" 
+              appearance="subtle"
+              style={{ 
+                marginLeft: '4px',
+                padding: '2px 6px',
+                fontSize: '0.7rem',
+                background: 'rgba(37, 99, 235, 0.1)',
+                color: '#2563eb',
+                borderRadius: '4px',
+                height: '20px',
+                minWidth: 'auto'
+              }}
+              className="hover:bg-blue-100 dark:hover:bg-blue-900/30 dark:bg-blue-900/40 dark:text-white"
+            >
+              Learn
+            </Button>
+          )}
         </span>
       )}
     </Text>

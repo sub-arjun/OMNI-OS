@@ -33,6 +33,10 @@ export const providers: { [key: string]: IServiceProvider } = {
 };
 
 export function getProvider(providerName: ProviderType): IServiceProvider {
+  // Handle OMNI Edge as an alias for Ollama
+  if (String(providerName) === 'OMNI Edge') {
+    return providers['Ollama'];
+  }
   return providers[providerName];
 }
 

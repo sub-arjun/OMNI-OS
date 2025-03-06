@@ -39,9 +39,66 @@ export default function useChatContext(): IChatContext {
     const getModel = () => {
       const { api } = useSettingsStore.getState();
       const defaultModel = { name: api.model, label: api.model } as IChatModel;
+      
+      // For Ollama, use the model name from our dedicated storage
       if (api.provider === 'Ollama') {
-        return defaultModel;
+        // Check our dedicated storage first
+        const ollamaModel = window.electron?.store?.get('settings.ollama.currentModel', null);
+        
+        if (ollamaModel) {
+          console.log(`Using Ollama model from dedicated storage: ${ollamaModel}`);
+          return {
+            name: ollamaModel,
+            label: ollamaModel,
+            contextWindow: 8192,
+            maxTokens: 4000,
+            defaultMaxTokens: 4000,
+            inputPrice: 0,
+            outputPrice: 0,
+            isDefault: true,
+            group: 'Open Source'
+          } as IChatModel;
+        }
+        
+        // Make sure we have a valid model name
+        if (!api.model || api.model.trim() === '' || api.model === 'default') {
+          console.warn('No model specified for Ollama, using default');
+          const defaultOllamaModel = 'llama3';
+          // Store the default in our dedicated storage
+          window.electron.store.set('settings.ollama.currentModel', defaultOllamaModel);
+          return { 
+            name: defaultOllamaModel,
+            label: 'Llama 3',
+            contextWindow: 8192,
+            maxTokens: 4000,
+            defaultMaxTokens: 4000,
+            inputPrice: 0,
+            outputPrice: 0,
+            isDefault: true,
+            group: 'Open Source'
+          } as IChatModel;
+        }
+        
+        // Save to dedicated storage
+        window.electron.store.set('settings.ollama.currentModel', api.model);
+        
+        // Log for debugging
+        console.log(`Using Ollama model from API settings: ${api.model}`);
+        
+        // Use the model name from settings
+        return {
+          name: api.model,
+          label: api.model,
+          contextWindow: 8192,
+          maxTokens: 4000,
+          defaultMaxTokens: 4000,
+          inputPrice: 0,
+          outputPrice: 0,
+          isDefault: true,
+          group: 'Open Source'
+        } as IChatModel;
       }
+      
       let model = getChatModel(api.provider, api.model) || defaultModel;
       if (api.provider === 'Azure') {
         return model;

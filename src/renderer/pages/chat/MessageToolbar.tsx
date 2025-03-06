@@ -19,6 +19,8 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import useBookmarkStore from 'stores/useBookmarkStore';
 import useChatStore from 'stores/useChatStore';
+import useSettingsStore from 'stores/useSettingsStore';
+import useProvider from 'hooks/useProvider';
 import { IBookmark } from 'types/bookmark';
 import { fmtDateTime, unix2date } from 'utils/util';
 import useToast from 'hooks/useToast';
@@ -38,6 +40,13 @@ export default function MessageToolbar({ message }: { message: IChatMessage }) {
   const createBookmark = useBookmarkStore((state) => state.createBookmark);
   const deleteBookmark = useBookmarkStore((state) => state.deleteBookmark);
   const { notifySuccess } = useToast();
+  
+  // Get current provider to check if we're using OMNI Edge
+  const { api } = useSettingsStore.getState();
+  const { getProvider } = useProvider();
+  const currentProvider = getProvider(api.provider);
+  const isOllamaProvider = currentProvider.name === 'Ollama';
+  
   const bookmark = async () => {
     const bookmark = await createBookmark({
       msgId: message.id,
@@ -73,8 +82,8 @@ export default function MessageToolbar({ message }: { message: IChatMessage }) {
   return !message.isActive && (
     <div className="message-toolbar p-0.5 rounded-md flex justify-between items-center mb-5">
       <div className="flex justify-start items-center gap-3">
-        {/* Only show TTS button for assistant messages */}
-        {isAssistantMessage && (
+        {/* Only show TTS button for assistant messages and when not using Ollama/OMNI Edge */}
+        {isAssistantMessage && !isOllamaProvider && (
           <TTSButton 
             message={message.reply} 
             id={`tts-${message.id}`} 

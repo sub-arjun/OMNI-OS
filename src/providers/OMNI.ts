@@ -6,7 +6,7 @@ export default {
   apiKey: 'sk-or-...',  // Add a placeholder API key that will be overridden
   currency: 'USD',
   isPremium: false,
-  description: 'Secure provider powered by top American AI models',
+  description: 'Secure provider powered by Advanced AI models',
   options: {
     apiBaseCustomizable: false, // NEVER allow customizing the API base
     apiKeyCustomizable: true, // Allow users to enter their OpenRouter API key

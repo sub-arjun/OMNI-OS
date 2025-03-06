@@ -1,13 +1,16 @@
-import { IServiceProvider } from './types';
+import { ChatModelGroup, IServiceProvider } from './types';
+
 export default {
   name: 'Ollama',
   displayName: 'OMNI Edge',
-  description: 'Run AI models locally on your device for maximum privacy',
+  description: 'Run AI models On Premise on your device for maximum privacy',
   apiBase: 'http://127.0.0.1:11434',
   currency: 'USD',
   options: {
     apiBaseCustomizable: true,
   },
+  // Store the current model name for persistence
+  currentModel: window.electron?.store?.get('settings.ollama.currentModel', 'llama3') || 'llama3',
   chat: {
     apiSchema: ['base', 'model'],
     docs: {
@@ -18,7 +21,8 @@ export default {
       topP: 'An alternative to sampling with temperature, called nucleus sampling, where the model considers the results of the tokens with topP probability mass.',
     },
     placeholders: {
-      base: ' http://127.0.0.1:11434',
+      base: 'http://127.0.0.1:11434',
+      model: 'llama3', // Add a specific model placeholder
     },
     presencePenalty: { min: -2, max: 2, default: 0 },
     topP: { min: 0, max: 1, default: 1 },
@@ -27,12 +31,14 @@ export default {
     options: {
       modelCustomizable: true,
     },
-    models: {},
+    // Empty models object - will be populated from the Ollama server
+    models: {}
   },
   embedding: {
     apiSchema: ['base', 'model'],
     placeholders: {
-      base: ' http://127.0.0.1:11434',
+      base: 'http://127.0.0.1:11434',
+      model: 'nomic-embed-text', // Common embedding model for Ollama
     },
     options: {
       modelCustomizable: true,

@@ -31,40 +31,99 @@ export default function APISettings() {
   useEffect(() => {
     const provider = getProvider(api.provider);
     setProvider(provider);
+    
+    // Special handling for Ollama to initialize with the dedicated storage value
+    if (provider.name === 'Ollama') {
+      const ollamaModel = window.electron?.store?.get('settings.ollama.currentModel', null);
+      if (ollamaModel && ollamaModel !== api.model) {
+        console.log(`Initializing Ollama API with model from dedicated storage: ${ollamaModel}`);
+        // Update the API config with the model from dedicated storage
+        setAPI({ model: ollamaModel });
+        // Skip the provider change to avoid resetting the model
+        return;
+      }
+    }
+    
     onAPIProviderChange(null, { optionValue: provider.name });
   }, [api.provider, session]);
 
   const onAPIProviderChange = (ev: any, data: any) => {
-    const $provider = getProvider(data.optionValue);
-    const defaultModel = getDefaultChatModel(data.optionValue);
-    const apiConfig = window.electron.store.get(
-      `settings.api.providers.${data.optionValue}`,
-      {
-        provider: $provider.name,
-        base: $provider.apiBase,
-        model: defaultModel.name || '',
-        key: '',
+    try {
+      if (!data || !data.optionValue) {
+        console.error('No provider option value provided');
+        return;
       }
-    );
+      
+      console.log(`Attempting to switch to provider: ${data.optionValue}`);
+      
+      // Special handling for OMNI Edge
+      const providerKey = data.optionValue === 'OMNI Edge' ? 'Ollama' : data.optionValue;
+      console.log(`Looking up provider with key: ${providerKey}`);
+      
+      const $provider = getProvider(providerKey);
+      console.log(`Provider data:`, $provider);
+      
+      const defaultModel = getDefaultChatModel(providerKey);
+      console.log(`Default model for ${data.optionValue}:`, defaultModel);
+      
+      const apiConfig = window.electron.store.get(
+        `settings.api.providers.${providerKey}`,
+        {
+          provider: data.optionValue,  // Keep the display name
+          base: $provider.apiBase || '',
+          model: defaultModel?.name || '',
+          key: '',
+        }
+      );
+      console.log(`API config before updates:`, apiConfig);
 
-    // Always ensure the API base URL is set correctly when switching providers
-    // Force the correct API base for OMNI provider
-    if (data.optionValue === 'OMNI') {
-      apiConfig.base = $provider.apiBase; // Always use the provider's API base
-    } else {
-      apiConfig.base = $provider.apiBase;
-    }
+      if (data.optionValue === 'OMNI') {
+        apiConfig.base = $provider.apiBase || 'https://openrouter.ai'; 
+      } else if (data.optionValue === 'OMNI Edge' || data.optionValue === 'Ollama') {
+        apiConfig.base = $provider.apiBase || 'http://127.0.0.1:11434';
+        
+        // Check for saved Ollama model in dedicated storage
+        const savedOllamaModel = window.electron.store.get('settings.ollama.currentModel', null);
+        
+        // Ensure a valid model is set for Ollama
+        if (savedOllamaModel) {
+          console.log(`Using saved Ollama model from dedicated storage: ${savedOllamaModel}`);
+          apiConfig.model = savedOllamaModel;
+        } else if (!apiConfig.model || apiConfig.model === 'default' || apiConfig.model === 'local') {
+          console.log('Setting a proper default model for Ollama');
+          const defaultOllamaModel = 'llama3';
+          apiConfig.model = defaultOllamaModel;
+          // Save to dedicated storage
+          window.electron.store.set('settings.ollama.currentModel', defaultOllamaModel);
+        } else {
+          // Save current model to dedicated storage
+          window.electron.store.set('settings.ollama.currentModel', apiConfig.model);
+        }
+      } else {
+        apiConfig.base = $provider.apiBase || '';
+      }
 
-    if ($provider.isPremium) {
-      apiConfig.key = '';
+      if ($provider.isPremium) {
+        apiConfig.key = '';
+      }
+      
+      if (
+        $provider.chat && 
+        $provider.chat.models && 
+        Object.keys($provider.chat.models).length &&
+        !$provider.chat.models[apiConfig.model]
+      ) {
+        apiConfig.model = defaultModel?.name || '';
+      }
+      
+      console.log(`Final API config to be set:`, apiConfig);
+      setAPI(apiConfig);
+      console.log(`Provider switched to: ${data.optionValue}`);
+    } catch (error) {
+      console.error('Error in onAPIProviderChange:', error);
+      // Do NOT fallback to OMNI, instead maintain current state
+      // This allows users to actually switch to their desired provider
     }
-    if (
-      Object.keys($provider.chat.models).length &&
-      !$provider.chat.models[apiConfig.model]
-    ) {
-      apiConfig.model = defaultModel.name || '';
-    }
-    setAPI(apiConfig);
   };
 
   const onAPIBaseChange = (
@@ -111,20 +170,25 @@ export default function APISettings() {
               selectedOptions={[api.provider]}
               onOptionSelect={onAPIProviderChange}
             >
-              {Object.values(providers).map((provider: IServiceProvider) => (
-                <Option key={provider.name} text={provider.displayName || provider.name}>
-                  <div className="flex justify-between w-full gap-2 latin">
-                    {provider.displayName || provider.name}
-                    {provider.isPremium ? (
-                      <div className="flex justify-start items-center gap-1 text-xs">
-                        <Premium16Regular className="text-purple-600" />
-                      </div>
-                    ) : (
-                      ''
-                    )}
-                  </div>
-                </Option>
-              ))}
+              {Object.values(providers).map((provider: IServiceProvider) => {
+                // Use displayName for Ollama provider to show as "OMNI Edge"
+                const displayText = provider.displayName || provider.name;
+                
+                return (
+                  <Option key={provider.name} text={displayText}>
+                    <div className="flex justify-between w-full gap-2 latin">
+                      {displayText}
+                      {provider.isPremium ? (
+                        <div className="flex justify-start items-center gap-1 text-xs">
+                          <Premium16Regular className="text-purple-600" />
+                        </div>
+                      ) : (
+                        ''
+                      )}
+                    </div>
+                  </Option>
+                );
+              })}
             </Dropdown>
           </div>
         </div>
@@ -202,7 +266,7 @@ export default function APISettings() {
             {provider.description}
           </div>
         )}
-        <ModelMappingButton />
+        {provider.name !== 'OMNI' && <ModelMappingButton />}
       </div>
     </div>
   );
