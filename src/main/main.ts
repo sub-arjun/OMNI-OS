@@ -515,25 +515,24 @@ const createWindow = async () => {
       throw new Error('"mainWindow" is not defined');
     }
     
+    // Always set windowMaximized to true to ensure it starts maximized
+    store.set('windowMaximized', true);
+    
     // Show the window first
     mainWindow.show();
     
-    // Check if window was previously maximized
-    const wasMaximized = store.get('windowMaximized', true);
-    if (wasMaximized) {
-      // Set normal window size first so unmaximize works properly
-      const primaryDisplay = screen.getPrimaryDisplay();
-      const { width, height } = primaryDisplay.workAreaSize;
-      mainWindow.setBounds({ 
-        x: Math.floor(width * 0.1), 
-        y: Math.floor(height * 0.1), 
-        width: Math.floor(width * 0.8), 
-        height: Math.floor(height * 0.8) 
-      });
-      
-      // Now maximize the window
-      mainWindow.maximize();
-    }
+    // Always maximize the window regardless of previous state
+    const primaryDisplay = screen.getPrimaryDisplay();
+    const { width, height } = primaryDisplay.workAreaSize;
+    mainWindow.setBounds({ 
+      x: Math.floor(width * 0.1), 
+      y: Math.floor(height * 0.1), 
+      width: Math.floor(width * 0.8), 
+      height: Math.floor(height * 0.8) 
+    });
+    
+    // Now maximize the window
+    mainWindow.maximize();
     
     const fixPath = (await import('fix-path')).default;
     fixPath();

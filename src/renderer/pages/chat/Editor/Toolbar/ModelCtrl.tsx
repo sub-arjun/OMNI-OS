@@ -361,9 +361,15 @@ export default function ModelCtrl({
               borderRadius: '4px',
               height: '20px',
               minWidth: 'auto',
-              marginLeft: '6px'
+              marginLeft: '6px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '2px',
+              backgroundColor: 'rgba(59, 130, 246, 0.75)',
+              color: 'white'
             }}
-            className="bg-blue-600 hover:bg-blue-700 text-white dark:bg-blue-700 dark:hover:bg-blue-800"
+            className="hover:bg-blue-700 text-white"
           >
             Learn
           </Button>
@@ -415,12 +421,6 @@ export default function ModelCtrl({
                     />
                     <span style={{ fontSize: '1rem', fontWeight: 500, textAlign: 'center' }} className="text-gray-800 dark:text-white">&nbsp;&nbsp;✨ AUTO ✨</span>
                   </div>
-                  <GreenSwitch
-                    checked={autoEnabled}
-                    onChange={(ev, { checked }) => {
-                      setAutoEnabled(checked);
-                    }}
-                  />
                 </div>
                 <div className="mb-2">
                   <div 
@@ -554,9 +554,15 @@ export default function ModelCtrl({
                 borderRadius: '4px',
                 height: '20px',
                 minWidth: 'auto',
-                marginLeft: '6px'
+                marginLeft: '6px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '2px',
+                backgroundColor: 'rgba(59, 130, 246, 0.75)',
+                color: 'white'
               }}
-              className="bg-blue-600 hover:bg-blue-700 text-white dark:bg-blue-700 dark:hover:bg-blue-800"
+              className="hover:bg-blue-700 text-white"
             >
               Learn
             </Button>
@@ -632,9 +638,15 @@ export default function ModelCtrl({
                 borderRadius: '4px',
                 height: '20px',
                 minWidth: 'auto',
-                marginLeft: '6px'
+                marginLeft: '6px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '2px',
+                backgroundColor: 'rgba(59, 130, 246, 0.75)',
+                color: 'white'
               }}
-              className="bg-blue-600 hover:bg-blue-700 text-white dark:bg-blue-700 dark:hover:bg-blue-800"
+              className="hover:bg-blue-700 text-white"
             >
               Learn
             </Button>
