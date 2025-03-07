@@ -8,22 +8,31 @@ interface IPromptMarketStore {
   prompts: IPromptDef[];
   loading: boolean;
   error: string | null;
-  fetchPrompts: () => Promise<void>;
+  updatedAt: number;
+  fetchPrompts: (force?: boolean) => Promise<void>;
 }
 
 const usePromptMarketStore = create<IPromptMarketStore>((set, get) => ({
   prompts: [],
   loading: false,
   error: null,
-  fetchPrompts: async () => {
-    // Don't fetch if we already have prompts and not forcing a refresh
-    if (get().prompts.length > 0) {
+  updatedAt: 0,
+  fetchPrompts: async (force = false) => {
+    // Check if we need to refresh (if it's been more than an hour or force is true)
+    const currentTime = Date.now();
+    const lastUpdate = get().updatedAt;
+    const hourInMs = 60 * 60 * 1000;
+    
+    // Don't fetch if we already have prompts and not forcing a refresh and less than an hour has passed
+    if (get().prompts.length > 0 && !force && (currentTime - lastUpdate) < hourInMs) {
       return;
     }
     
     set({ loading: true, error: null });
     try {
-      const res = await fetch(PROMPT_MARKET_URL);
+      const res = await fetch(PROMPT_MARKET_URL, {
+        cache: 'no-store',
+      });
       if (!res.ok) {
         throw new Error(`Failed to fetch prompts: ${res.statusText}`);
       }
@@ -46,7 +55,8 @@ const usePromptMarketStore = create<IPromptMarketStore>((set, get) => ({
       
       set({ 
         prompts: validPrompts,
-        loading: false 
+        loading: false,
+        updatedAt: currentTime 
       });
     } catch (error) {
       console.error('Error fetching prompts:', error);

@@ -9,14 +9,8 @@ import {
   Button,
   makeStyles,
   Textarea,
-  TabList,
-  Tab,
   Text
 } from '@fluentui/react-components';
-import { 
-  ArrowDownload24Regular,
-  ArrowUpload24Regular
-} from '@fluentui/react-icons';
 import { useTranslation } from 'react-i18next';
 
 const useStyles = makeStyles({
@@ -32,22 +26,6 @@ const useStyles = makeStyles({
   errorMessage: {
     color: 'var(--colorStatusDangerForeground1)',
     marginTop: '8px'
-  },
-  uploadArea: {
-    border: '2px dashed #ccc',
-    borderRadius: '4px',
-    padding: '20px',
-    textAlign: 'center',
-    cursor: 'pointer',
-    marginBottom: '10px',
-    minHeight: '200px',
-    display: 'flex',
-    flexDirection: 'column',
-    justifyContent: 'center',
-    alignItems: 'center'
-  },
-  fileInput: {
-    display: 'none'
   }
 });
 
@@ -60,67 +38,34 @@ interface ImportPromptDialogProps {
 const ImportPromptDialog = ({ open, setOpen, onImport }: ImportPromptDialogProps) => {
   const styles = useStyles();
   const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState('paste');
   const [jsonText, setJsonText] = useState('');
   const [error, setError] = useState('');
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-
-  const handleTabChange = (tab: string) => {
-    setActiveTab(tab);
-    setError('');
-  };
 
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setJsonText(e.target.value);
     setError('');
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      setSelectedFile(e.target.files[0]);
-      setError('');
-    }
-  };
-
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      setSelectedFile(e.dataTransfer.files[0]);
-      setError('');
-    }
-  };
-
   const handleImport = async () => {
     try {
-      let inputData;
-      
-      if (activeTab === 'paste') {
-        if (!jsonText.trim()) {
-          setError(t('Common.ImportError'));
-          return;
-        }
-        
-        // Handle the case where the input might be multiple JSON objects separated by commas
-        let textToProcess = jsonText.trim();
-        
-        // Check if the text starts with [ and ends with ], which would indicate it's already an array
-        if (!(textToProcess.startsWith('[') && textToProcess.endsWith(']'))) {
-          // If it's not an array, check if it might be comma-separated objects
-          // Wrap in array brackets if it contains multiple objects (contains '{' followed by '},{')
-          if (textToProcess.includes('},{')) {
-            textToProcess = '[' + textToProcess + ']';
-          }
-        }
-        
-        inputData = JSON.parse(textToProcess);
-      } else {
-        if (!selectedFile) {
-          setError(t('Common.ImportError'));
-          return;
-        }
-        const text = await selectedFile.text();
-        inputData = JSON.parse(text);
+      if (!jsonText.trim()) {
+        setError(t('Common.ImportError'));
+        return;
       }
+      
+      // Handle the case where the input might be multiple JSON objects separated by commas
+      let textToProcess = jsonText.trim();
+      
+      // Check if the text starts with [ and ends with ], which would indicate it's already an array
+      if (!(textToProcess.startsWith('[') && textToProcess.endsWith(']'))) {
+        // If it's not an array, check if it might be comma-separated objects
+        // Wrap in array brackets if it contains multiple objects (contains '{' followed by '},{')
+        if (textToProcess.includes('},{')) {
+          textToProcess = '[' + textToProcess + ']';
+        }
+      }
+      
+      const inputData = JSON.parse(textToProcess);
       
       // Convert to array if it's a single object
       const promptsArray = Array.isArray(inputData) ? inputData : [inputData];
@@ -190,7 +135,6 @@ const ImportPromptDialog = ({ open, setOpen, onImport }: ImportPromptDialogProps
       onImport(normalizedPrompts);
       setOpen(false);
       setJsonText('');
-      setSelectedFile(null);
     } catch (error) {
       console.error('Import error:', error);
       setError(t('Common.ImportError'));
@@ -204,42 +148,13 @@ const ImportPromptDialog = ({ open, setOpen, onImport }: ImportPromptDialogProps
           <DialogTitle>{t('Common.Import')}</DialogTitle>
           <DialogContent>
             <div>
-              <TabList selectedValue={activeTab} onTabSelect={(event, data) => handleTabChange(data.value as string)}>
-                <Tab value="paste">{t('Common.Paste')}</Tab>
-                <Tab value="upload">{t('Common.Upload')}</Tab>
-              </TabList>
               <div className={styles.tabContent}>
-                {activeTab === 'paste' ? (
-                  <Textarea
-                    className={styles.textArea}
-                    placeholder={t('Common.PasteJsonHere')}
-                    value={jsonText}
-                    onChange={handleTextChange}
-                  />
-                ) : (
-                  <>
-                    <input 
-                      type="file" 
-                      id="fileInput" 
-                      className={styles.fileInput} 
-                      accept=".json" 
-                      onChange={handleFileChange} 
-                    />
-                    <div 
-                      className={styles.uploadArea} 
-                      onClick={() => document.getElementById('fileInput')?.click()}
-                      onDragOver={(e) => e.preventDefault()}
-                      onDrop={handleDrop}
-                    >
-                      <ArrowUpload24Regular />
-                      <Text>
-                        {selectedFile 
-                          ? selectedFile.name 
-                          : t('Common.DropFileHere')}
-                      </Text>
-                    </div>
-                  </>
-                )}
+                <Textarea
+                  className={styles.textArea}
+                  placeholder={t('Common.PasteJsonHere')}
+                  value={jsonText}
+                  onChange={handleTextChange}
+                />
                 {error && <Text className={styles.errorMessage}>{error}</Text>}
               </div>
             </div>
