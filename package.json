@@ -178,7 +178,7 @@
     "markdown-it-mathjax3": "^4.3.2",
     "mini-css-extract-plugin": "^2.7.6",
     "mousetrap": "^1.6.5",
-    "node-abi": "^3.65.0",
+    "node-abi": "^3.74.0",
     "officeparser": "^5.1.1",
     "pdf-parse": "^1.1.1",
     "postcss": "^8.4.24",
@@ -257,7 +257,8 @@
       "!**/source/**",
       "!**/node_modules/@xenova/transformers/dist/**",
       "**/node_modules/@xenova/transformers/src/**",
-      "**/node_modules/textract/lib/extractors/**"
+      "**/node_modules/textract/lib/extractors/**",
+      ""
     ],
     "afterPack": ".erb/scripts/remove-useless.js",
     "afterSign": ".erb/scripts/notarize.js",

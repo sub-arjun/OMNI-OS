@@ -120,7 +120,7 @@ class AppUpdater {
 
       dialog.showMessageBox(dialogOpts).then((returnValue) => {
         if (returnValue.response === 0) {
-          shell.openExternal('https://5ire.app');
+          shell.openExternal('https://becomeomni.com');
         }
       });
       logging.captureException(message);

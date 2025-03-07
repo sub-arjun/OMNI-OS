@@ -1,12 +1,12 @@
 {
-  "name": "5ire",
-  "version": "0.9.7",
-  "description": "A Sleek Desktop AI Assistant & MCP Client",
+  "name": "OMNI",
+  "version": "1.0.0",
+  "description": "A Secure Desktop AI Assistant for industrial enterprises",
   "license": "Apache-2.0",
   "author": {
-    "name": "Ironben",
-    "email": "support@5ire.app",
-    "url": "https://5ire.app"
+    "name": "Arjun",
+    "email": "arjun@latent-labs.ai",
+    "url": "https://becomeomni.com"
   },
   "main": "./dist/main/main.js",
   "scripts": {
