@@ -302,6 +302,7 @@ ${prompt}
                 id: k.id,
               })),
             ),
+            ...(result.citations && { citations: result.citations }),
           });
           useUsageStore.getState().create({
             provider: chatService.provider.name,

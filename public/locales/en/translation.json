@@ -316,5 +316,8 @@
   "Common.StopSpeech": "Stop reading",
   "Common.PlaySpeech": "Read aloud",
   "Common.Notification.GeneratingSpeech": "Generating speech...",
-  "Common.Error.AudioPlayback": "Error generating speech"
+  "Common.Error.AudioPlayback": "Error generating speech",
+  "Common.Citations": "Citations",
+  "Common.ReferencesInText": "References are provided in the text using numbered notation [1], [2], etc.",
+  "Common.Memory": "Memory"
 }

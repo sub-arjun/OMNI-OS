@@ -193,6 +193,7 @@ export default abstract class BaseReader implements IChatReader {
       currentTool: null as any,
       toolArguments: [] as string[],
       messageIndex: 0,
+      citations: [] as string[],
     };
 
     try {
@@ -210,6 +211,7 @@ export default abstract class BaseReader implements IChatReader {
         tool: state.currentTool,
         inputTokens: state.inputTokens,
         outputTokens: state.outputTokens,
+        citations: state.citations.length > 0 ? state.citations : undefined,
       };
     } catch (error) {
       console.error('Stream reading error:', error);
@@ -220,6 +222,7 @@ export default abstract class BaseReader implements IChatReader {
         tool: state.currentTool,
         inputTokens: state.inputTokens,
         outputTokens: state.outputTokens,
+        citations: state.citations.length > 0 ? state.citations : undefined,
       };
     }
   }
@@ -234,6 +237,7 @@ export default abstract class BaseReader implements IChatReader {
       currentTool: any;
       toolArguments: string[];
       messageIndex: number;
+      citations: string[];
     },
     callbacks: {
       onProgress: (chunk: string, reasoning?: string) => void;
@@ -301,6 +305,7 @@ export default abstract class BaseReader implements IChatReader {
       currentTool: any;
       toolArguments: string[];
       messageIndex: number;
+      citations: string[];
     },
     callbacks: {
       onProgress: (chunk: string, reasoning?: string) => void;
@@ -326,6 +331,17 @@ export default abstract class BaseReader implements IChatReader {
     }
 
     this.updateTokenCounts(response, state);
+
+    // Check for citations
+    if (response.citations && Array.isArray(response.citations)) {
+      // Add any new citations that aren't already in the state
+      response.citations.forEach(citation => {
+        if (!state.citations.includes(citation)) {
+          state.citations.push(citation);
+        }
+      });
+    }
+
     state.messageIndex++;
   }
 

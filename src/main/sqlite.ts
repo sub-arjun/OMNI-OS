@@ -217,6 +217,20 @@ function alertTableBookmarks() {
   }
 }
 
+// Add citations column to messages table
+function alertTableMessagesCitations() {
+  const columns = database.prepare(`PRAGMA table_info(messages)`).all();
+  const hasCitationsColumn = columns.some(
+    (column: any) => column.name === 'citations',
+  );
+  if (!hasCitationsColumn) {
+    database.prepare(`ALTER TABLE messages ADD COLUMN citations TEXT`).run();
+    logging.debug('Added [citations] column to [messages] table');
+  } else {
+    logging.debug('[citations] column already exists in [messages] table');
+  }
+}
+
 const initDatabase = database.transaction(() => {
   logging.debug('Init database...');
 
@@ -234,6 +248,8 @@ const initDatabase = database.transaction(() => {
   // v.0.9.7
   alertTableMessages();
   alertTableBookmarks();
+  // Add citations column
+  alertTableMessagesCitations();
   logging.info('Database initialized.');
 });
 

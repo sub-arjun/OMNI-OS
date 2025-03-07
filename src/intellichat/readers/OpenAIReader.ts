@@ -94,11 +94,18 @@ export default class OpenAIReader extends BaseReader implements IChatReader {
 
     const content = choice.delta?.content || '';
     
+    // Extract citations from Perplexity API responses
+    let citations = undefined;
+    if (data.citations && Array.isArray(data.citations)) {
+      citations = data.citations;
+    }
+    
     return {
       content: content,
       reasoning: reasoning,
       isEnd: isFinished,
       toolCalls: choice.delta?.tool_calls,
+      citations: citations,
     };
   }
 

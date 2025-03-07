@@ -10,6 +10,7 @@ export interface IReadResult {
   tool?: ITool | null;
   inputTokens?: number;
   outputTokens?: number;
+  citations?: string[];
 }
 export default interface IChatReader {
   read({

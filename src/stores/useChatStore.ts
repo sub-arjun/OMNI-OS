@@ -383,6 +383,12 @@ const useChatStore = create<IChatStore>((set, get) => ({
       ...message,
       createdAt: date2unix(new Date()),
     } as IChatMessage;
+    
+    // Convert citations array to JSON string if it exists
+    if (msg.citations && Array.isArray(msg.citations)) {
+      msg.citations = JSON.stringify(msg.citations) as any;
+    }
+    
     const columns = Object.keys(msg);
     await window.electron.db.run(
       `INSERT INTO messages (${columns.join(',')})
@@ -469,6 +475,11 @@ const useChatStore = create<IChatStore>((set, get) => ({
       stats.push('reasoning = ?');
       msg.reasoning = message.reasoning as string;
       params.push(msg.reasoning);
+    }
+    if (message.citations) {
+      stats.push('citations = ?');
+      msg.citations = message.citations;
+      params.push(JSON.stringify(msg.citations));
     }
     if (message.id && stats.length) {
       params.push(msg.id);

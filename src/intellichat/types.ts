@@ -13,6 +13,7 @@ export interface IChatResponseMessage {
   inputTokens?: number;
   outputTokens?: number;
   toolCalls?: any;
+  citations?: string[];
   error?: {
     code?: number;
     type?: string;
@@ -197,6 +198,7 @@ export interface IChatMessage {
   isActive: boolean | 0 | 1;
   citedFiles?: string;
   citedChunks?: string;
+  citations?: string[];
 }
 
 export interface IPromptDef {

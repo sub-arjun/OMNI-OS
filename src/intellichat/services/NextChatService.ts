@@ -423,6 +423,7 @@ export default abstract class NextCharService {
           reasoning,
           inputTokens: this.inputTokens,
           outputTokens: this.outputTokens,
+          citations: readResult.citations,
         });
         
         // Publish analytics data to Supabase

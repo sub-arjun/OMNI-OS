@@ -71,8 +71,42 @@ export default function MessageToolbar({ message }: { message: IChatMessage }) {
   };
 
   const copy = () => {
-    const content = `user: \n${message.prompt}\n\nassistant:\n${message.reply}`;
-    navigator.clipboard.writeText(content)
+    let content = `user: \n${message.prompt}\n\nassistant:\n${message.reply}`;
+    
+    // Add citations if they exist
+    try {
+      let citations = [];
+      if (message.citations) {
+        if (Array.isArray(message.citations)) {
+          citations = message.citations;
+        } else {
+          citations = JSON.parse(message.citations);
+        }
+      }
+      
+      // Add references section if citations exist
+      if (citations && citations.length > 0) {
+        content += '\n\n' + t('Common.Citations') + ':\n';
+        citations.forEach((citation: string, index: number) => {
+          content += `[${index + 1}] ${citation}\n`;
+        });
+      }
+      
+      // Add cited files if they exist
+      if (message.citedFiles) {
+        const files = JSON.parse(message.citedFiles || '[]');
+        if (files.length > 0) {
+          content += '\n' + t('Common.References') + ':\n';
+          files.forEach((file: string, index: number) => {
+            content += `[${index + 1}] ${file}\n`;
+          });
+        }
+      }
+    } catch (e) {
+      console.error('Error formatting citations for copy:', e);
+    }
+    
+    navigator.clipboard.writeText(content);
     notifySuccess(t('Common.Notification.Copied'));
   };
 
