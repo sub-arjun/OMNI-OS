@@ -322,7 +322,7 @@ export default function Message({ message }: { message: IChatMessage }) {
                   className="mb-1 overflow-hidden text-ellipsis transition-all duration-200 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-md p-2"
                 >
                   <div className="flex items-start">
-                    <span className="flex-shrink-0 inline-flex items-center justify-center h-6 w-6 rounded-full bg-amber-100 dark:bg-amber-200 text-black dark:text-black mr-2 text-xs font-bold">
+                    <span className="flex-shrink-0 inline-flex items-center justify-center h-6 w-6 rounded-full bg-amber-100/60 dark:bg-amber-200/60 text-black dark:text-black mr-2 text-xs font-bold">
                       {idx + 1}
                     </span>
                     <span className="text-sm text-gray-700 dark:text-gray-300 flex-grow">
@@ -353,7 +353,7 @@ export default function Message({ message }: { message: IChatMessage }) {
                   className="mb-1 overflow-hidden text-ellipsis transition-all duration-200 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-md p-2"
                 >
                   <div className="flex items-start">
-                    <span className="flex-shrink-0 inline-flex items-center justify-center h-6 w-6 rounded-full bg-blue-100 dark:bg-blue-200 text-black dark:text-black mr-2 text-xs font-bold">
+                    <span className="flex-shrink-0 inline-flex items-center justify-center h-6 w-6 rounded-full bg-blue-100/60 dark:bg-blue-200/60 text-black dark:text-black mr-2 text-xs font-bold">
                       {idx + 1}
                     </span>
                     <a 
