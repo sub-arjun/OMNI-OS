@@ -131,6 +131,9 @@ function createTableKnowledgeCollections() {
      "favorite" integer(1),
      "createdAt" integer NOT NULL,
      "updatedAt" integer NOT NULL,
+     "type" text,
+     "indexName" text,
+     "namespace" text,
      PRIMARY KEY (id));`,
     )
     .run();
@@ -231,6 +234,44 @@ function alertTableMessagesCitations() {
   }
 }
 
+// Add alter table functions for OMNIBase columns
+function alterTableKnowledgeCollectionsAddOMNIBase() {
+  try {
+    // Check if type column exists
+    const columns = database
+      .prepare('PRAGMA table_info(knowledge_collections)')
+      .all();
+    
+    const columnNames = columns.map((col: any) => col.name);
+    
+    if (!columnNames.includes('type')) {
+      database
+        .prepare(
+          `ALTER TABLE knowledge_collections ADD COLUMN type text;`
+        )
+        .run();
+    }
+    
+    if (!columnNames.includes('indexName')) {
+      database
+        .prepare(
+          `ALTER TABLE knowledge_collections ADD COLUMN indexName text;`
+        )
+        .run();
+    }
+    
+    if (!columnNames.includes('namespace')) {
+      database
+        .prepare(
+          `ALTER TABLE knowledge_collections ADD COLUMN namespace text;`
+        )
+        .run();
+    }
+  } catch (error) {
+    console.error('Error altering knowledge_collections table:', error);
+  }
+}
+
 const initDatabase = database.transaction(() => {
   logging.debug('Init database...');
 
@@ -250,6 +291,8 @@ const initDatabase = database.transaction(() => {
   alertTableBookmarks();
   // Add citations column
   alertTableMessagesCitations();
+  // Add OMNIBase columns
+  alterTableKnowledgeCollectionsAddOMNIBase();
   logging.info('Database initialized.');
 });
 
@@ -269,7 +312,36 @@ ipcMain.handle('db-all', (event, data) => {
 ipcMain.handle('db-run', (_, data) => {
   const { sql, params } = data;
   logging.debug('db-run', sql, params);
+  
   try {
+    // Check if this is an INSERT operation for knowledge_files
+    if (sql.trim().toUpperCase().startsWith('INSERT INTO KNOWLEDGE_FILES') && 
+        params && 
+        params.length > 0) {
+      
+      // Extract the ID from params (should be the first parameter for knowledge_files insertions)
+      const fileId = params[0];
+      
+      // First check if a record with this ID already exists
+      if (fileId) {
+        try {
+          const existingRecord = database
+            .prepare('SELECT id FROM knowledge_files WHERE id = ?')
+            .get(fileId);
+            
+          if (existingRecord) {
+            logging.debug(`Prevented duplicate insertion - file with ID ${fileId} already exists`);
+            // Return true to simulate successful operation since the record exists
+            return true;
+          }
+        } catch (checkErr) {
+          // If the check fails, proceed with normal insertion
+          logging.debug(`Error checking for existing file: ${checkErr}`);
+        }
+      }
+    }
+    
+    // Proceed with normal operation
     database.prepare(sql).run(params);
     return true;
   } catch (err: any) {
@@ -280,17 +352,56 @@ ipcMain.handle('db-run', (_, data) => {
 
 ipcMain.handle('db-transaction', (_, data: any[]) => {
   logging.debug('db-transaction', JSON.stringify(data, null, 2));
-  const tasks: { statement: Statement; params: any[] }[] = [];
+  const tasks: { statement: Statement; params: any[]; skip?: boolean }[] = [];
+  
+  // Process each task and identify knowledge_files insertions
   for (const { sql, params } of data) {
+    const isKnowledgeFileInsert = sql.trim().toUpperCase().startsWith('INSERT INTO KNOWLEDGE_FILES');
+    let shouldSkip = false;
+    
+    // Check if we need to skip this operation due to existing record
+    if (isKnowledgeFileInsert && params && params.length > 0) {
+      // For knowledge_files inserts, check if record already exists
+      let fileId;
+      
+      // Extract file ID based on parameter structure
+      if (isOneDimensionalArray(params) && params.length > 0) {
+        fileId = params[0]; // First param is ID in our schema
+      } else if (Array.isArray(params) && params.length > 0 && Array.isArray(params[0]) && params[0].length > 0) {
+        fileId = params[0][0]; // For batch inserts, first param of first batch is ID
+      }
+      
+      if (fileId) {
+        try {
+          const existingRecord = database
+            .prepare('SELECT id FROM knowledge_files WHERE id = ?')
+            .get(fileId);
+            
+          if (existingRecord) {
+            logging.debug(`Skipping transaction operation - file with ID ${fileId} already exists`);
+            shouldSkip = true;
+          }
+        } catch (checkErr) {
+          logging.debug(`Error checking for existing file in transaction: ${checkErr}`);
+          // Continue with operation if check fails
+        }
+      }
+    }
+    
     tasks.push({
       statement: database.prepare(sql),
       params,
+      skip: shouldSkip
     });
   }
+  
   return new Promise((resolve) => {
     try {
       database.transaction(() => {
-        for (const { statement, params } of tasks) {
+        for (const { statement, params, skip } of tasks) {
+          // Skip operations marked to be skipped
+          if (skip) continue;
+          
           if (isOneDimensionalArray(params)) {
             statement.run(params);
           } else {

@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import useNav from 'hooks/useNav';
 import useBookmarkStore from 'stores/useBookmarkStore';
 import { IBookmark } from 'types/bookmark';
+import useToast from 'hooks/useToast';
 
 export default function BookmarkNav({ collapsed }: { collapsed: boolean }) {
   const { t } = useTranslation();
@@ -12,10 +13,40 @@ export default function BookmarkNav({ collapsed }: { collapsed: boolean }) {
   const favorites = useBookmarkStore((state) => state.favorites);
   const loadFavorites = useBookmarkStore((state) => state.loadFavorites);
   const navigate = useNav();
+  const { notifyInfo } = useToast();
 
   useEffect(() => {
     loadFavorites({ limit: 100, offset: 0 });
   }, [loadFavorites]);
+
+  const navigateToOriginalMessage = async (bookmark: IBookmark) => {
+    if (bookmark && bookmark.msgId) {
+      try {
+        // Get the message to find its chatId
+        const result = await window.electron.db.get(
+          `SELECT chatId FROM messages WHERE id = ?`,
+          [bookmark.msgId]
+        );
+        
+        if (result && typeof result === 'object' && 'chatId' in result) {
+          navigate(`/chats/${result.chatId}/${bookmark.msgId}`);
+        } else {
+          notifyInfo(t('Common.Notification.OriginalMessageNotAvailable'));
+          // Fallback to bookmark detail if original message not found
+          navigate(`/bookmarks/${bookmark.id}`);
+        }
+      } catch (error) {
+        console.error("Error finding original message:", error);
+        notifyInfo(t('Common.Notification.OriginalMessageNotAvailable'));
+        // Fallback to bookmark detail if original message not found
+        navigate(`/bookmarks/${bookmark.id}`);
+      }
+    } else {
+      notifyInfo(t('Common.Notification.OriginalMessageNotAvailable'));
+      // Fallback to bookmark detail if original message not found
+      navigate(`/bookmarks/${bookmark.id}`);
+    }
+  };
 
   const renderIconWithTooltip = (
     isActiveBookmark: boolean,
@@ -52,7 +83,7 @@ export default function BookmarkNav({ collapsed }: { collapsed: boolean }) {
               )}
               appearance="subtle"
               className="w-full justify-start"
-              onClick={() => navigate(`/bookmarks/${bookmark.id}`)}
+              onClick={() => navigateToOriginalMessage(bookmark)}
             >
               {collapsed ? null : (
                 <div className="text-sm truncate ...">{bookmark.prompt}</div>

@@ -1,8 +1,8 @@
 {
   "name": "OMNI",
   "productName": "OMNI",
-  "version": "1.0.1",
-  "description": "A Sleek Desktop AI Assistant & MCP Client",
+  "version": "1.0.2",
+  "description": "A Secure Desktop AI Assistant & MCP Client for industrial enterprises",
   "main": "src/main/main.ts",
   "repository": "https://github.com/sub-arjun/OMNI-OS.git",
   "author": {
@@ -80,8 +80,9 @@
   },
   "dependencies": {
     "@lancedb/lancedb": "^0.14.1",
+    "@llamaindex/cloud": "^3.0.9",
+    "@pinecone-database/pinecone": "^5.1.1",
     "image-size": "^2.0.0",
-    "mammoth": "^1.9.0",
     "marker": "^0.1.2",
     "mermaid": "^11.4.1",
     "sanitize-html": "^2.14.0",
@@ -221,6 +222,7 @@
   "build": {
     "productName": "OMNI",
     "appId": "app.omni.desktop",
+    "artifactName": "${productName}.Setup.${version}.${ext}",
     "compression": "maximum",
     "asar": true,
     "asarUnpack": [

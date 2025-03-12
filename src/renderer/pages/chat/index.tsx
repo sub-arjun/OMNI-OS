@@ -220,18 +220,76 @@ export default function Chat() {
       let files: ICollectionFile[] = [];
       let actualPrompt = prompt;
       const chatCollections = await listChatCollections($chatId);
+      
       if (chatCollections.length) {
+        debug(`Chat ${$chatId} has ${chatCollections.length} knowledge collections attached`);
+        
+        // Log whether any OMNIBase collections are included
+        const omnibaseCollections = chatCollections.filter(c => 
+          c.type === 'omnibase' || (c.id && c.id.toString().startsWith('omnibase:'))
+        );
+        
+        if (omnibaseCollections.length > 0) {
+          debug(`Chat includes ${omnibaseCollections.length} OMNIBase collections: ${
+            omnibaseCollections.map(c => c.name).join(', ')
+          }`);
+        }
+        
+        debug(`Searching knowledge collections for: "${prompt.substring(0, 100)}${prompt.length > 100 ? '...' : ''}"`);
+        
         const knowledgeString = await window.electron.knowledge.search(
           chatCollections.map((c) => c.id),
           prompt,
         );
+        
         knowledgeChunks = JSON.parse(knowledgeString);
+        debug(`Knowledge search returned ${knowledgeChunks.length} chunks`);
         useKnowledgeStore.getState().cacheChunks(knowledgeChunks);
-        const filesId = [
-          ...new Set<string>(knowledgeChunks.map((k: any) => k.fileId)),
-        ];
-        files = await useKnowledgeStore.getState().getFiles(filesId);
-        actualPrompt = `
+        
+        // Check if there are actual chunks to include
+        if (knowledgeChunks && knowledgeChunks.length > 0) {
+          const filesId = [
+            ...new Set<string>(knowledgeChunks.map((k: any) => k.fileId)),
+          ];
+          
+          // For OMNIBase chunks, the fileId might be 'omnibase-external'
+          const localFileIds = filesId.filter(id => id !== 'omnibase-external');
+          
+          if (localFileIds.length > 0) {
+            files = await useKnowledgeStore.getState().getFiles(localFileIds);
+            debug(`Retrieved ${files.length} file references`);
+          }
+          
+          // Format knowledge chunks for prompt
+          const formattedChunks = knowledgeChunks.map((k: any, idx: number) => {
+            // For OMNIBase entries, the fileId might be 'external'
+            const isOmnibase = k.fileId === 'omnibase-external' || (k.collectionId && k.collectionId.toString().startsWith('omnibase:'));
+            
+            // For OMNIBase entries, use a default name
+            const file = files.find((f) => f.id === k.fileId);
+            const fileName = file?.name || (isOmnibase ? 'OMNIBase' : 'Unknown Source');
+            
+            // Make sure content is never empty
+            let content = k.content || '';
+            if (!content.trim()) {
+              debug(`Warning: Empty content for knowledge chunk ${idx + 1}`);
+              content = `[No content available for chunk ${idx + 1}]`;
+            }
+            
+            // Log the content for debugging
+            debug(`Chunk ${idx + 1} content: ${content.substring(0, 100)}${content.length > 100 ? '...' : ''}`);
+            
+            return {
+              seqNo: idx + 1,
+              file: fileName,
+              id: k.id,
+              content: content,
+            };
+          });
+          
+          debug(`Formatted ${formattedChunks.length} knowledge chunks for RAG`);
+          
+          actualPrompt = `
 # Context #
 Please read carefully and use the following context information in JSON format to answer questions.
 The context format is {"seqNo": number, "id": "id", "file":"fileName", "content": "content"}.
@@ -244,18 +302,12 @@ The answer should be:
 "According to the information provided, apples are a common fruit [(1)](citation#432939KFD83242 'Fruit Encyclopedia')."
 ---------------------------------------------------
 Ensure that the context information is accurately referenced, and label it as [(<seqNo>)](citation#<id> '<file>') when a piece of information is actually used.
-${JSON.stringify(
-  knowledgeChunks.map((k: any, idx: number) => ({
-    seqNo: idx + 1,
-    file: files.find((f) => f.id === k.fileId)?.name,
-    id: k.id,
-    content: k.content,
-  })),
-)}
+${JSON.stringify(formattedChunks)}
 
 # Objective #
 ${prompt}
 `;
+        }
       }
 
       const onChatComplete = async (result: IChatResponseMessage) => {
@@ -334,7 +386,7 @@ ${prompt}
       await chatService.chat([
         {
           role: 'user',
-          content: actualPrompt,
+          content: typeof actualPrompt === 'string' ? actualPrompt : [actualPrompt],
         },
       ]);
       window.electron.ingestEvent([{ app: 'chat' }, { model: model.label }]);

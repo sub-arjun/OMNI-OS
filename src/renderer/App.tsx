@@ -8,6 +8,13 @@ import { useTranslation } from 'react-i18next';
 import useKnowledgeStore from 'stores/useKnowledgeStore';
 import useMCPStore from 'stores/useMCPStore';
 import Mousetrap from 'mousetrap';
+import './i18n';
+import { createRoot } from 'react-dom/client';
+import { StrictMode } from 'react';
+import { initSuppressResizeObserverErrors } from '../utils/suppressResizeObserverErrors';
+
+// Apply ResizeObserver suppression immediately, before anything else
+initSuppressResizeObserverErrors();
 
 import './App.scss';
 import './fluentui.scss';
@@ -20,6 +27,9 @@ const debug = Debug('OMNI:App');
 
 logging.init();
 
+// We've already called initSuppressResizeObserverErrors above,
+// so this is just to ensure it's always initialized
+
 export default function App() {
   const loadAuthData = useAuthStore((state) => state.load);
   const setSession = useAuthStore((state) => state.setSession);
@@ -30,6 +40,9 @@ export default function App() {
   const { createFile } = useKnowledgeStore();
 
   useEffect(() => {
+    // Apply suppression again in case our component mounts after some errors occurred
+    initSuppressResizeObserverErrors();
+    
     loadAuthData();
     Mousetrap.prototype.stopCallback = () => {
       return false;
@@ -82,5 +95,6 @@ export default function App() {
       subscription.unsubscribe();
     };
   }, [loadAuthData, onAuthStateChange]);
+
   return <FluentApp />;
 }

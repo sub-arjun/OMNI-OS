@@ -237,9 +237,20 @@ ipcMain.handle(
   },
 );
 
+declare global {
+  namespace NodeJS {
+    interface Global {
+      knowledgeImports?: Map<string, Promise<any>>;
+    }
+  }
+}
+
+// Create a global map to track imports
+const knowledgeImports = new Map<string, Promise<any>>();
+
 ipcMain.handle(
   'import-knowledge-file',
-  (
+  async (
     _,
     {
       file,
@@ -255,21 +266,183 @@ ipcMain.handle(
       collectionId: string;
     },
   ) => {
-    Knowledge.importFile({
-      file,
-      collectionId,
-      onProgress: (filePath: string, total: number, done: number) => {
-        mainWindow?.webContents.send(
-          'knowledge-import-progress',
-          filePath,
-          total,
-          done,
+    try {
+      // Extract file extension from the file name if type is not properly set
+      if (!file.type || file.type === '') {
+        const fileNameParts = file.name.split('.');
+        if (fileNameParts.length > 1) {
+          file.type = fileNameParts[fileNameParts.length - 1].toLowerCase();
+        }
+      }
+
+      // Log file details for debugging
+      logging.debug(`Importing file: ${file.name}, type: ${file.type}, path: ${file.path}`);
+      
+      // Check if a file with this ID already exists in the database
+      let existingFile = null;
+      try {
+        // We'll use a direct import-only check for speed
+        const db = Knowledge.getDb();
+        
+        if (db) {
+          // Also check if a file with the same name already exists in this collection
+          const existingByName = db.get(
+            `SELECT * FROM knowledge_files WHERE collectionId = ? AND name = ?`,
+            [collectionId, file.name]
+          );
+          
+          if (existingByName) {
+            logging.debug(`File with name "${file.name}" already exists in collection ${collectionId}, returning existing record`);
+            
+            // Notify about success with the existing file
+            if (mainWindow) {
+              mainWindow.webContents.send('knowledge-import-success', {
+                collectionId,
+                file: {
+                  id: existingByName.id,
+                  name: existingByName.name,
+                  path: file.path,
+                  size: existingByName.size,
+                  type: file.type
+                },
+                numOfChunks: existingByName.numOfChunks || 0,
+              });
+            }
+            
+            db.close();
+            return { 
+              success: true,
+              existing: true
+            };
+          }
+          
+          // Check specifically for the ID
+          existingFile = db.get(
+            `SELECT * FROM knowledge_files WHERE id = ?`,
+            file.id
+          );
+          db.close();
+        }
+      } catch (dbError) {
+        logging.error('Error checking for existing file in database:', dbError);
+        // We'll continue even if this check fails - it's just an optimization
+      }
+      
+      if (existingFile) {
+        logging.debug(`File with ID ${file.id} already exists in database, skipping import process`);
+        
+        // Still notify the renderer about the "success" so it can continue with UI updates
+        if (mainWindow) {
+          mainWindow.webContents.send('knowledge-import-success', {
+            collectionId,
+            file: {
+              id: file.id,
+              name: file.name,
+              path: file.path,
+              size: existingFile.size,
+              type: file.type
+            },
+            numOfChunks: existingFile.numOfChunks || 0,
+          });
+        }
+        
+        return { 
+          success: true,
+          existing: true
+        };
+      }
+      
+      // Create a unique key for the file+collection combination to avoid duplicate processing
+      const fileKey = `${collectionId}:${file.path}`;
+      
+      // Check if this file is already being imported
+      if (knowledgeImports.has(fileKey)) {
+        logging.debug(`File "${file.path}" is already being imported, waiting for completion`);
+        
+        try {
+          // Wait for the existing import to finish and use its result
+          const result = await knowledgeImports.get(fileKey);
+          return result;
+        } catch (error: any) {
+          logging.error(`Error waiting for existing import: ${error.message}`);
+          // Continue with a new import as the previous one may have failed
+        }
+      }
+      
+      // Create a promise for this import operation
+      const importPromise = (async () => {
+        try {
+          // If we got here, the file doesn't exist yet, proceed with normal import
+          await Knowledge.importFile({
+            file,
+            collectionId,
+            onProgress: (filePath: string, total: number, done: number) => {
+              mainWindow?.webContents.send(
+                'knowledge-import-progress',
+                filePath,
+                total,
+                done,
+              );
+            },
+            onSuccess: (data: any) => {
+              // Only emit the success event once
+              if (mainWindow) {
+                mainWindow.webContents.send('knowledge-import-success', data);
+              }
+            },
+          });
+          
+          return { success: true };
+        } catch (error: any) {
+          logging.error(`Error importing file: ${error.message}`);
+          return { 
+            success: false, 
+            error: error.message || 'Unknown error during file import'
+          };
+        } finally {
+          // Always remove from the tracking map when done
+          knowledgeImports.delete(fileKey);
+        }
+      })();
+      
+      // Store the promise for this import
+      knowledgeImports.set(fileKey, importPromise);
+      
+      // Execute the import and return result
+      const result = await importPromise;
+      
+      // Handle error case separately to show dialog
+      if (!result.success) {
+        logging.error(`Error in import-knowledge-file handler:`, result.error);
+        logging.captureException(new Error(result.error));
+        
+        // Show error dialog to user
+        if (mainWindow) {
+          dialog.showErrorBox(
+            'Import Failed',
+            `Failed to import file "${file.name}": ${result.error}`
+          );
+        }
+      }
+      
+      return result;
+    } catch (error: any) {
+      logging.error(`Error in import-knowledge-file handler:`, error);
+      logging.captureException(error);
+      
+      // Show error dialog to user
+      if (mainWindow) {
+        dialog.showErrorBox(
+          'Import Failed',
+          `Failed to import file "${file.name}": ${error.message}`
         );
-      },
-      onSuccess: (data: any) => {
-        mainWindow?.webContents.send('knowledge-import-success', data);
-      },
-    });
+      }
+      
+      return { 
+        success: false, 
+        error: error.message || 'Unknown error during file import'
+      };
+    }
   },
 );
 
@@ -374,21 +547,60 @@ ipcMain.handle('select-image-with-base64', async () => {
 ipcMain.handle(
   'search-knowledge',
   async (_, collectionIds: string[], query: string) => {
-    const result = await Knowledge.search(collectionIds, query, { limit: 4 });
+    const result = await Knowledge.search(collectionIds, query, { limit: 8 });
     return JSON.stringify(result);
   },
 );
 ipcMain.handle('remove-knowledge-file', async (_, fileId: string) => {
-  return await Knowledge.remove({ fileId });
+  try {
+    logging.debug(`Removing knowledge file: ${fileId}`);
+    const result = await Knowledge.remove({ fileId });
+    
+    if (!result) {
+      logging.error(`Failed to remove knowledge file: ${fileId}`);
+    } else {
+      logging.debug(`Successfully removed knowledge file: ${fileId}`);
+    }
+    
+    return result;
+  } catch (error: any) {
+    logging.error(`Error removing knowledge file: ${fileId}`, error);
+    logging.captureException(error);
+    return false;
+  }
 });
 ipcMain.handle(
   'remove-knowledge-collection',
   async (_, collectionId: string) => {
-    return await Knowledge.remove({ collectionId });
+    try {
+      logging.debug(`Removing knowledge collection: ${collectionId}`);
+      const result = await Knowledge.remove({ collectionId });
+      
+      if (!result) {
+        logging.error(`Failed to remove knowledge collection: ${collectionId}`);
+      } else {
+        logging.debug(`Successfully removed knowledge collection: ${collectionId}`);
+      }
+      
+      return result;
+    } catch (error: any) {
+      logging.error(`Error removing knowledge collection: ${collectionId}`, error);
+      logging.captureException(error);
+      return false;
+    }
   },
 );
 ipcMain.handle('get-knowledge-chunk', async (_, chunkId: string) => {
   return await Knowledge.getChunk(chunkId);
+});
+ipcMain.handle('close-knowledge-database', async () => {
+  return await Knowledge.close();
+});
+ipcMain.handle('test-omnibase-connection', async (_, indexName: string, namespace?: string) => {
+  return await Knowledge.testOmniBaseConnection(indexName, namespace);
+});
+ipcMain.handle('create-omnibase-collection', async (_, name: string, indexName: string, namespace?: string) => {
+  return await Knowledge.createOmniBaseCollection(name, indexName, namespace);
 });
 ipcMain.handle('download', (_, fileName: string, url: string) => {
   downloader.download(fileName, url);

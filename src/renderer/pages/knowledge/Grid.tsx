@@ -39,6 +39,8 @@ import {
   Info16Regular,
   MoreHorizontalFilled,
   MoreHorizontalRegular,
+  CloudFilled,
+  CloudRegular,
 } from '@fluentui/react-icons';
 import ConfirmDialog from 'renderer/components/ConfirmDialog';
 import useNav from 'hooks/useNav';
@@ -57,7 +59,7 @@ const DocumentFolderIcon = bundleIcon(
   DocumentFolderFilled,
   DocumentFolderRegular,
 );
-
+const CloudIcon = bundleIcon(CloudFilled, CloudRegular);
 const MoreHorizontalIcon = bundleIcon(
   MoreHorizontalFilled,
   MoreHorizontalRegular,
@@ -126,6 +128,9 @@ export default function Grid({ collections }: { collections: any[] }) {
     updatedAt: UpdatedCell;
     numOfFiles: number;
     pinedAt: number | null;
+    type?: 'local' | 'omnibase';
+    indexName?: string;
+    namespace?: string;
   };
 
   const columns: TableColumnDefinition<Item>[] = [
@@ -142,6 +147,7 @@ export default function Grid({ collections }: { collections: any[] }) {
           <TableCell>
             <TableCellLayout truncate>
               <div className="flex flex-start items-center gap-1">
+                {isOmnibaseCollection(item) && <CloudIcon className="text-blue-500" />}
                 <div className="-mt-0.5">{item.name}</div>
                 {item.memo && (
                   <Tooltip
@@ -161,30 +167,47 @@ export default function Grid({ collections }: { collections: any[] }) {
               </div>
             </TableCellLayout>
             <TableCellActions>
-              <Tooltip content={t('Knowledge.Action.ManageFiles')} relationship="label">
-                <Button 
-                  icon={<DocumentFolderIcon />} 
-                  appearance="subtle"
-                  onClick={() => {
-                    setActiveCollection(item);
-                    setFileDrawerOpen(true);
-                  }}
-                />
-              </Tooltip>
+              {!isOmnibaseCollection(item) && (
+                <Tooltip content={t('Knowledge.Action.ManageFiles')} relationship="label">
+                  <Button 
+                    icon={<DocumentFolderIcon />} 
+                    appearance="subtle"
+                    onClick={() => {
+                      setActiveCollection(item);
+                      setFileDrawerOpen(true);
+                    }}
+                  />
+                </Tooltip>
+              )}
+              {isOmnibaseCollection(item) && (
+                <Tooltip content={t('Knowledge.OmniBaseInfo')} relationship="label">
+                  <Button 
+                    icon={<CloudIcon />} 
+                    appearance="subtle"
+                    onClick={() => {
+                      notifySuccess(
+                        `${t('Knowledge.OmniBaseDetails')}: ${item.indexName}${item.namespace ? ` (${t('Knowledge.Namespace')}: ${item.namespace})` : ''}`
+                      );
+                    }}
+                  />
+                </Tooltip>
+              )}
               <Menu>
                 <MenuTrigger disableButtonEnhancement>
                   <Button icon={<MoreHorizontalIcon />} appearance="subtle" />
                 </MenuTrigger>
                 <MenuPopover>
                   <MenuList>
-                    <MenuItem
-                      icon={<EditIcon />}
-                      onClick={() =>
-                        navigate(`/knowledge/collection-form/${item.id}`)
-                      }
-                    >
-                      {t('Common.Edit')}
-                    </MenuItem>
+                    {!isOmnibaseCollection(item) && (
+                      <MenuItem
+                        icon={<EditIcon />}
+                        onClick={() =>
+                          navigate(`/knowledge/collection-form/${item.id}`)
+                        }
+                      >
+                        {t('Common.Edit')}
+                      </MenuItem>
+                    )}
                     <MenuItem
                       icon={<DeleteIcon />}
                       onClick={() => {
@@ -239,6 +262,17 @@ export default function Grid({ collections }: { collections: any[] }) {
         return t('Common.NumberOfFiles');
       },
       renderCell: (item) => {
+        if (isOmnibaseCollection(item)) {
+          return (
+            <TableCellLayout>
+              <div className="flex items-center gap-1">
+                <CloudIcon className="text-blue-500" />
+                <span className="text-xs text-gray-500">{t('Knowledge.OmniBase')}</span>
+              </div>
+            </TableCellLayout>
+          );
+        }
+        
         return (
           <TableCellLayout>
             <span className="latin">{item.numOfFiles}</span>
@@ -255,6 +289,11 @@ export default function Grid({ collections }: { collections: any[] }) {
   );
   const { targetDocument } = useFluent();
   const scrollbarWidth = useScrollbarWidth({ targetDocument });
+
+  // Helper to check if a collection is an OMNIBase collection
+  const isOmnibaseCollection = (collection: Item) => {
+    return collection.type === 'omnibase' || (collection.id && collection.id.startsWith('omnibase:'));
+  };
 
   return (
     <div className="w-full">

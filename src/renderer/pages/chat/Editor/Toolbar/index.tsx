@@ -11,6 +11,7 @@ import ImgCtrl from './ImgCtrl';
 import StreamCtrl from './StreamCtrl';
 import KnowledgeCtrl from './KnowledgeCtrl';
 import CtxNumCtrl from './CtxNumCtrl';
+import SpeechCtrl from './SpeechCtrl';
 
 export default function EditorToolbar({
   onConfirm,
@@ -33,9 +34,10 @@ export default function EditorToolbar({
         size="small"
         className="flex items-center gap-3 ml-2 editor-toolbar"
       >
+        {/* Section 1: Model selector */}
         <ModelCtrl ctx={ctx} chat={chat} />
         
-        {/* Only show Deep Search, Deep Thought, and Flash buttons for non-Ollama providers */}
+        {/* Section 2: Model toggles (Deep Search, etc.) */}
         {!isOllamaProvider && (
           <>
             <div className="flex items-center gap-2 border-l border-gray-300 dark:border-gray-700 pl-2">
@@ -47,16 +49,31 @@ export default function EditorToolbar({
           </>
         )}
         
+        {/* Section 3: Speech and Image controls (moved before prompts) */}
+        <div className="flex items-center gap-2">
+          <SpeechCtrl ctx={ctx} chat={chat} />
+          {hasVisionSupport && <ImgCtrl ctx={ctx} chat={chat} />}
+        </div>
+        
+        {/* Divider after speech and image controls */}
+        <div className="border-l border-gray-300 dark:border-gray-700 h-6"></div>
+        
+        {/* Section 4: Prompts and Knowledge */}
         <PromptCtrl ctx={ctx} chat={chat} />
         <KnowledgeCtrl ctx={ctx} chat={chat} />
-        {hasVisionSupport && <ImgCtrl ctx={ctx} chat={chat} />}
-        <MaxTokensCtrl ctx={ctx} chat={chat} onConfirm={onConfirm} />
-        <TemperatureCtrl ctx={ctx} chat={chat} />
-        <CtxNumCtrl ctx={ctx} chat={chat} />
-
-        {provider.chat.options.streamCustomizable && (
-          <StreamCtrl ctx={ctx} chat={chat} />
-        )}
+        
+        {/* Divider between sections */}
+        <div className="border-l border-gray-300 dark:border-gray-700 h-6"></div>
+        
+        {/* Section 5: Model parameters */}
+        <div className="flex items-center gap-2">
+          <MaxTokensCtrl ctx={ctx} chat={chat} onConfirm={onConfirm} />
+          <TemperatureCtrl ctx={ctx} chat={chat} />
+          <CtxNumCtrl ctx={ctx} chat={chat} />
+          {provider.chat.options.streamCustomizable && (
+            <StreamCtrl ctx={ctx} chat={chat} />
+          )}
+        </div>
       </Toolbar>
     </div>
   );

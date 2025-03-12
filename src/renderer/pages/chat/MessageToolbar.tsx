@@ -26,6 +26,7 @@ import { fmtDateTime, unix2date } from 'utils/util';
 import useToast from 'hooks/useToast';
 import { IChatMessage } from 'intellichat/types';
 import TTSButton from 'renderer/components/TTSButton';
+import ClickAwayListener from 'renderer/components/ClickAwayListener';
 
 const DeleteIcon = bundleIcon(Delete16Filled, Delete16Regular);
 const CopyIcon = bundleIcon(Copy16Filled, Copy16Regular);
@@ -110,6 +111,13 @@ export default function MessageToolbar({ message }: { message: IChatMessage }) {
     notifySuccess(t('Common.Notification.Copied'));
   };
 
+  // Handle click away from delete popover
+  const handleClickAway = () => {
+    if (delPopoverOpen) {
+      setDelPopoverOpen(false);
+    }
+  };
+
   // Determine if message is from the assistant
   const isAssistantMessage = message.reply && !message.isActive;
 
@@ -150,43 +158,45 @@ export default function MessageToolbar({ message }: { message: IChatMessage }) {
           </Tooltip>
         )}
         <Button size="small" icon={<CopyIcon />} appearance="subtle" onClick={copy} />
-        <Popover withArrow open={delPopoverOpen}>
-          <PopoverTrigger disableButtonEnhancement>
-            <Button
-              size="small"
-              icon={<DeleteIcon />}
-              appearance="subtle"
-              onClick={() => setDelPopoverOpen(true)}
-            />
-          </PopoverTrigger>
-          <PopoverSurface>
-            <div>
-              <div className="p-2 mb-2 text-center">
-                {t('Common.DeleteConfirmation')}
+        <ClickAwayListener onClickAway={handleClickAway} active={delPopoverOpen}>
+          <Popover withArrow open={delPopoverOpen}>
+            <PopoverTrigger disableButtonEnhancement>
+              <Button
+                size="small"
+                icon={<DeleteIcon />}
+                appearance="subtle"
+                onClick={() => setDelPopoverOpen(true)}
+              />
+            </PopoverTrigger>
+            <PopoverSurface>
+              <div>
+                <div className="p-2 mb-2 text-center">
+                  {t('Common.DeleteConfirmation')}
+                </div>
+                <div className="flex justify-evenly gap-5 items-center">
+                  <Button
+                    size="small"
+                    appearance="subtle"
+                    onClick={() => setDelPopoverOpen(false)}
+                  >
+                    {t('Common.Cancel')}
+                  </Button>
+                  <Button
+                    size="small"
+                    appearance="primary"
+                    onClick={() => {
+                      deleteMessage(message.id);
+                      setDelPopoverOpen(false);
+                      notifySuccess(t('Message.Notification.Deleted'));
+                    }}
+                  >
+                    {t('Common.Yes')}
+                  </Button>
+                </div>
               </div>
-              <div className="flex justify-evenly gap-5 items-center">
-                <Button
-                  size="small"
-                  appearance="subtle"
-                  onClick={() => setDelPopoverOpen(false)}
-                >
-                  {t('Common.Cancel')}
-                </Button>
-                <Button
-                  size="small"
-                  appearance="primary"
-                  onClick={() => {
-                    deleteMessage(message.id);
-                    setDelPopoverOpen(false);
-                    notifySuccess(t('Message.Notification.Deleted'));
-                  }}
-                >
-                  {t('Common.Yes')}
-                </Button>
-              </div>
-            </div>
-          </PopoverSurface>
-        </Popover>
+            </PopoverSurface>
+          </Popover>
+        </ClickAwayListener>
       </div>
       <div className="mr-2.5">
         <div className="flex justify-start items-center gap-5">

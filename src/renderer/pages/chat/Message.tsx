@@ -80,7 +80,16 @@ export default function Message({ message }: { message: IChatMessage }) {
         if (chunk) {
           showCitation(chunk.content);
         } else {
-          notifyInfo(t('Knowledge.Notification.CitationNotFound'));
+          // Check if this is an OMNIBase citation based on collection ID
+          const isOmniBase = citedChunks.some((i: any) => 
+            i.collectionId && i.collectionId.toString().startsWith('omnibase:')
+          );
+          
+          if (isOmniBase) {
+            notifyInfo(t('Knowledge.Notification.CitationNotFound'));
+          } else {
+            notifyInfo("The citation was not found and may have been deleted");
+          }
         }
       }
     },
@@ -219,7 +228,7 @@ export default function Message({ message }: { message: IChatMessage }) {
             {reasoning.trim() ? (
               <div className="think">
                 <div className="think-header" onClick={toggleThink}>
-                  <span className="font-bold text-gray-400 ">{thinkTitle}</span>
+                  <span className={`font-bold text-gray-400 ${fontSize === 'large' ? 'text-base' : ''}`}>{thinkTitle}</span>
                   <div className="text-gray-400 -mb-0.5">
                     {isReasoningShow ? (
                       <ChevronUp16Regular />
@@ -233,6 +242,7 @@ export default function Message({ message }: { message: IChatMessage }) {
                   style={{ display: isReasoningShow ? 'block' : 'none' }}
                 >
                   <div
+                    className={fontSize === 'large' ? 'font-lg' : ''}
                     dangerouslySetInnerHTML={{
                       __html: render(
                         `${

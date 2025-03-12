@@ -34,6 +34,7 @@ import DetailDialog from './DetailDialog';
 import InstallDialog from './InstallDialog';
 import MarketDrawer from './MarketDrawer';
 import ImportMCPConfigDialog from 'renderer/components/ImportMCPConfigDialog';
+import useMCPServerMarketStore from 'stores/useMCPServerMarketStore';
 
 const BuildingShopIcon = bundleIcon(BuildingShopFilled, BuildingShopRegular);
 
@@ -112,6 +113,7 @@ export default function Tools() {
   const styles = useStyles();
   const { t } = useTranslation();
   const { loadConfig, config, isLoading, addServer, updateServer, deleteServer, activateServer, deactivateServer } = useMCPStore();
+  const { fetchServers } = useMCPServerMarketStore();
   const { notifySuccess, notifyError } = useToast();
   const [loading, setLoading] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -153,9 +155,12 @@ export default function Tools() {
   }, []);
 
   const installServer = useCallback((server: IMCPServer) => {
-    setEditingServer(server);
-    setInstalling(true);
-  }, []);
+    // Force refresh from marketplace to ensure we have the latest version with parameters
+    fetchServers(true).then(() => {
+      setEditingServer(server);
+      setInstalling(true);
+    });
+  }, [fetchServers]);
 
   const inspectServer = useCallback((server: IMCPServer) => {
     setDetailServer(server);

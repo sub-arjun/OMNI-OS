@@ -1,4 +1,5 @@
 /* eslint-disable react/no-danger */
+import { useTranslation } from 'react-i18next';
 import {
   Button,
   Divider,
@@ -8,33 +9,39 @@ import {
   Text,
 } from '@fluentui/react-components';
 import {
-  bundleIcon,
   ArrowLeft16Filled,
   ArrowLeft16Regular,
-  Delete16Filled,
-  Delete16Regular,
-  Heart16Regular,
-  Heart16Filled,
-  HeartOff16Regular,
-  HeartOff16Filled,
+  bundleIcon,
   ChevronDown16Regular,
   ChevronUp16Regular,
+  Delete16Filled,
+  Delete16Regular,
+  Edit16Regular,
+  Edit16Filled,
+  ChatBubblesQuestion16Regular,
+  ChatBubblesQuestion16Filled,
+  Star16Filled,
+  Star16Regular,
 } from '@fluentui/react-icons';
 import useMarkdown from 'hooks/useMarkdown';
 import useToast from 'hooks/useToast';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useTranslation } from 'react-i18next';
-import { useNavigate, useParams } from 'react-router-dom';
+import {
+  useNavigate,
+  useParams,
+} from 'react-router-dom';
 import useBookmarkStore from 'stores/useBookmarkStore';
 import useKnowledgeStore from 'stores/useKnowledgeStore';
+import CitationDialog from '../chat/CitationDialog';
+import useSettingsStore from 'stores/useSettingsStore';
 import { IBookmark } from 'types/bookmark';
 import { fmtDateTime, unix2date } from 'utils/util';
-import CitationDialog from '../chat/CitationDialog';
 
 const ArrowLeftIcon = bundleIcon(ArrowLeft16Filled, ArrowLeft16Regular);
 const DeleteIcon = bundleIcon(Delete16Filled, Delete16Regular);
-const FavoriteIcon = bundleIcon(Heart16Filled, Heart16Regular);
-const UnfavoriteIcon = bundleIcon(HeartOff16Filled, HeartOff16Regular);
+const ChatIcon = bundleIcon(ChatBubblesQuestion16Filled, ChatBubblesQuestion16Regular);
+const FavoriteIcon = bundleIcon(Star16Filled, Star16Regular);
+const UnfavoriteIcon = bundleIcon(Star16Regular, Star16Filled);
 
 export default function Bookmark() {
   const { t } = useTranslation();
@@ -51,6 +58,9 @@ export default function Bookmark() {
   const { showCitation } = useKnowledgeStore();
   const { notifyInfo } = useToast();
   const bookmarks = useBookmarkStore((state) => state.bookmarks);
+  const { notifySuccess } = useToast();
+  const { render } = useMarkdown();
+  const fontSize = useSettingsStore((state) => state.fontSize);
 
   useEffect(() => {
     setUpdated(false);
@@ -71,7 +81,6 @@ export default function Bookmark() {
     [id],
   );
 
-
   const citedFiles = useMemo(
     () => JSON.parse(bookmark?.citedFiles || '[]'),
     [bookmark],
@@ -82,20 +91,28 @@ export default function Bookmark() {
     setIsThinkShow(!isThinkShow);
   }, [isThinkShow]);
 
-  const { notifySuccess } = useToast();
-
   const onCitationClick = async (event: any) => {
     const url = new URL(event.target?.href);
     if (url.pathname === '/citation' || url.protocol.startsWith('file:')) {
       event.preventDefault();
       const chunkId = url.hash.replace('#', '');
-      const chunk = JSON.parse(bookmark.citedChunks || '[]').find(
+      const chunks = JSON.parse(bookmark.citedChunks || '[]');
+      const chunk = chunks.find(
         (chunk: any) => chunk.id === chunkId,
       );
       if (chunk) {
         showCitation(chunk.content);
       } else {
-        notifyInfo(t('Knowledge.Notification.CitationNotFound'));
+        // Check if this is an OMNIBase citation based on collection ID
+        const isOmniBase = chunks.some((i: any) => 
+          i.collectionId && i.collectionId.toString().startsWith('omnibase:')
+        );
+        
+        if (isOmniBase) {
+          notifyInfo(t('Knowledge.Notification.CitationNotFound'));
+        } else {
+          notifyInfo("The citation was not found and may have been deleted");
+        }
       }
     }
   };
@@ -104,6 +121,29 @@ export default function Bookmark() {
     await deleteBookmark(bookmark.id);
     navigate(-1);
     notifySuccess(t('Bookmarks.Notification.Removed'));
+  };
+
+  const navigateToOriginalMessage = async () => {
+    if (bookmark && bookmark.msgId) {
+      try {
+        // Get the message to find its chatId
+        const result = await window.electron.db.get(
+          `SELECT chatId FROM messages WHERE id = ?`,
+          [bookmark.msgId]
+        );
+        
+        if (result && typeof result === 'object' && 'chatId' in result) {
+          navigate(`/chats/${result.chatId}/${bookmark.msgId}`);
+        } else {
+          notifyInfo(t('Common.Notification.OriginalMessageNotAvailable'));
+        }
+      } catch (error) {
+        console.error("Error finding original message:", error);
+        notifyInfo(t('Common.Notification.OriginalMessageNotAvailable'));
+      }
+    } else {
+      notifyInfo(t('Common.Notification.OriginalMessageNotAvailable'));
+    }
   };
 
   const addToFavorites = async () => {
@@ -119,8 +159,6 @@ export default function Bookmark() {
     loadFavorites({ limit: 100, offset: 0 });
     notifySuccess(t('Bookmarks.Notification.RemovedFavarites'));
   };
-
-  const { render } = useMarkdown();
 
   return (
     <div className="page h-full">
@@ -154,6 +192,16 @@ export default function Bookmark() {
                 onClick={addToFavorites}
               >
                 {t('Common.Action.Favor')}
+              </Button>
+            )}
+            {bookmark?.msgId && (
+              <Button
+                size="small"
+                icon={<ChatIcon />}
+                appearance="subtle"
+                onClick={navigateToOriginalMessage}
+              >
+                {t('View in Chat')}
               </Button>
             )}
             <Popover withArrow open={delPopoverOpen}>
@@ -211,7 +259,7 @@ export default function Bookmark() {
         <div className="mr-5">
           <div className="mx-auto">
             <div
-              className="bg-brand-surface-2 rounded px-1.5 py-2.5"
+              className={`bg-brand-surface-2 rounded px-1.5 py-2.5 ${fontSize === 'large' ? 'font-lg' : ''}`}
               dangerouslySetInnerHTML={{
                 __html: render(bookmark.prompt || ''),
               }}
@@ -220,7 +268,7 @@ export default function Bookmark() {
               {bookmark.reasoning?.trim() ? (
                 <div className="think">
                   <div className="think-header" onClick={toggleThink}>
-                    <span className="font-bold text-gray-400 ">
+                    <span className={`font-bold text-gray-400 ${fontSize === 'large' ? 'text-base' : ''}`}>
                       {t('Reasoning.Thought')}
                     </span>
                     <div className="text-gray-400 -mb-0.5">
@@ -236,6 +284,7 @@ export default function Bookmark() {
                     style={{ display: isThinkShow ? 'block' : 'none' }}
                   >
                     <div
+                      className={fontSize === 'large' ? 'font-lg' : ''}
                       dangerouslySetInnerHTML={{
                         __html: render(bookmark.reasoning || ''),
                       }}
@@ -244,7 +293,7 @@ export default function Bookmark() {
                 </div>
               ) : null}
               <div
-                className="mr-5 leading-7"
+                className={`mr-5 leading-7 ${fontSize === 'large' ? 'font-lg' : ''}`}
                 dangerouslySetInnerHTML={{
                   __html: render(bookmark.reply || ''),
                 }}

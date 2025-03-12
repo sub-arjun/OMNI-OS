@@ -154,7 +154,7 @@ const useBookmarkStore = create<IBookmarkStore>((set, get) => ({
   },
   getBookmark: async (id: string) => {
     const bookmark = (await window.electron.db.get(
-      `SELECT id, prompt, reply, reasoning, model, temperature, memo, favorite, citedFiles, citedChunks, createdAt WHERE id = ?`,
+      `SELECT id, msgId, prompt, reply, reasoning, model, temperature, memo, favorite, citedFiles, citedChunks, createdAt FROM bookmarks WHERE id = ?`,
       [id],
     )) as IBookmark;
     return bookmark;
@@ -170,7 +170,7 @@ const useBookmarkStore = create<IBookmarkStore>((set, get) => ({
     keyword?: string;
     favorite?: boolean;
   }) => {
-    let sql = `SELECT id, prompt, reply, reasoning, model, temperature, memo, favorite, citedFiles, citedChunks, createdAt FROM bookmarks`;
+    let sql = `SELECT id, msgId, prompt, reply, reasoning, model, temperature, memo, favorite, citedFiles, citedChunks, createdAt FROM bookmarks`;
     const whereClauses = [];
     const params: any[] = [];
     if (!isNil(favorite)) {

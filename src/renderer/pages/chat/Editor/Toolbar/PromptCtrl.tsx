@@ -26,6 +26,7 @@ import { isNil, pick } from 'lodash';
 import PromptVariableDialog from '../PromptVariableDialog';
 import { IChat, IChatContext, IPrompt } from 'intellichat/types';
 import useChatStore from 'stores/useChatStore';
+import ClickAwayListener from 'renderer/components/ClickAwayListener';
 
 const PromptIcon = bundleIcon(Prompt20Filled, Prompt20Regular);
 
@@ -62,6 +63,13 @@ export default function PromptCtrl({
   const closeDialog = () => {
     setOpen(false);
     Mousetrap.unbind('esc');
+  };
+
+  // Handle click away from dialog
+  const handleClickAway = () => {
+    if (open) {
+      closeDialog();
+    }
   };
 
   const prompts = useMemo(() => {
@@ -156,120 +164,122 @@ export default function PromptCtrl({
 
   return (
     <>
-      <Dialog open={open} onOpenChange={() => setPromptPickerOpen(false)}>
-        <DialogTrigger disableButtonEnhancement>
-          <Button
-            size="small"
-            title="Mod+Shift+2"
-            aria-label={t('Common.Prompts')}
-            appearance="subtle"
-            style={{ borderColor: 'transparent', boxShadow: 'none' }}
-            className="flex justify-start items-center text-color-secondary gap-1"
-            onClick={openDialog}
-            icon={<PromptIcon className="flex-shrink-0" />}
-          >
-            {(chat.prompt as IPrompt)?.name && (
-              <span
-                className={`flex-shrink overflow-hidden whitespace-nowrap text-ellipsis ${
-                  (chat.prompt as IPrompt)?.name ? 'min-w-8' : 'w-0'
-                } `}
-              >
-                {(chat.prompt as IPrompt)?.name}
-              </span>
-            )}
-          </Button>
-        </DialogTrigger>
-        <DialogSurface>
-          <DialogBody>
-            <DialogTitle
-              action={
-                <DialogTrigger action="close">
-                  <Button
-                    appearance="subtle"
-                    aria-label="close"
-                    onClick={closeDialog}
-                    icon={<Dismiss24Regular />}
-                  />
-                </DialogTrigger>
-              }
+      <ClickAwayListener onClickAway={handleClickAway} active={open}>
+        <Dialog open={open} onOpenChange={() => setPromptPickerOpen(false)}>
+          <DialogTrigger disableButtonEnhancement>
+            <Button
+              size="small"
+              title="Mod+Shift+2"
+              aria-label={t('Common.Prompts')}
+              appearance="subtle"
+              style={{ borderColor: 'transparent', boxShadow: 'none' }}
+              className="flex justify-start items-center text-color-secondary gap-1"
+              onClick={openDialog}
+              icon={<PromptIcon className="flex-shrink-0" />}
             >
-              {t('Common.Prompt')}
-            </DialogTitle>
-            <DialogContent>
-              {isNil(chat.prompt) || promptPickerOpen ? (
-                <div>
-                  <div className="mb-2.5">
-                    <Input
-                      id="prompt-search"
-                      contentBefore={<Search20Regular />}
-                      placeholder={t('Common.Search')}
-                      className="w-full"
-                      value={keyword}
-                      onChange={(e, data) => {
-                        setKeyword(data.value);
-                      }}
+              {(chat.prompt as IPrompt)?.name && (
+                <span
+                  className={`flex-shrink overflow-hidden whitespace-nowrap text-ellipsis ${
+                    (chat.prompt as IPrompt)?.name ? 'min-w-8' : 'w-0'
+                  } `}
+                >
+                  {(chat.prompt as IPrompt)?.name}
+                </span>
+              )}
+            </Button>
+          </DialogTrigger>
+          <DialogSurface>
+            <DialogBody>
+              <DialogTitle
+                action={
+                  <DialogTrigger action="close">
+                    <Button
+                      appearance="subtle"
+                      aria-label="close"
+                      onClick={closeDialog}
+                      icon={<Dismiss24Regular />}
                     />
-                  </div>
+                  </DialogTrigger>
+                }
+              >
+                {t('Common.Prompt')}
+              </DialogTitle>
+              <DialogContent>
+                {isNil(chat.prompt) || promptPickerOpen ? (
                   <div>
-                    {prompts.map((prompt: IPrompt) => {
-                      return (
-                        <Button
-                          className="w-full justify-start my-1.5"
-                          appearance="subtle"
-                          key={prompt.id}
-                          onClick={() => applyPrompt(prompt.id)}
-                        >
+                    <div className="mb-2.5">
+                      <Input
+                        id="prompt-search"
+                        contentBefore={<Search20Regular />}
+                        placeholder={t('Common.Search')}
+                        className="w-full"
+                        value={keyword}
+                        onChange={(e, data) => {
+                          setKeyword(data.value);
+                        }}
+                      />
+                    </div>
+                    <div>
+                      {prompts.map((prompt: IPrompt) => {
+                        return (
+                          <Button
+                            className="w-full justify-start my-1.5"
+                            appearance="subtle"
+                            key={prompt.id}
+                            onClick={() => applyPrompt(prompt.id)}
+                          >
+                            <span
+                              dangerouslySetInnerHTML={{
+                                __html: highlight(prompt.name, keyword),
+                              }}
+                            />
+                          </Button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="pb-4">
+                    <div className="text-lg font-medium">
+                      {(chat.prompt as IPrompt)?.name || ''}
+                    </div>
+                    {(chat.prompt as IPrompt)?.systemMessage ? (
+                      <div>
+                        <div>
+                          <span className="mr-1">
+                            {t('Common.SystemMessage')}:{' '}
+                          </span>
                           <span
+                            className="leading-6"
                             dangerouslySetInnerHTML={{
-                              __html: highlight(prompt.name, keyword),
+                              __html: (chat.prompt as IPrompt).systemMessage,
                             }}
                           />
-                        </Button>
-                      );
-                    })}
-                  </div>
-                </div>
-              ) : (
-                <div className="pb-4">
-                  <div className="text-lg font-medium">
-                    {(chat.prompt as IPrompt)?.name || ''}
-                  </div>
-                  {(chat.prompt as IPrompt)?.systemMessage ? (
-                    <div>
-                      <div>
-                        <span className="mr-1">
-                          {t('Common.SystemMessage')}:{' '}
-                        </span>
-                        <span
-                          className="leading-6"
-                          dangerouslySetInnerHTML={{
-                            __html: (chat.prompt as IPrompt).systemMessage,
-                          }}
-                        />
+                        </div>
                       </div>
-                    </div>
-                  ) : null}
-                </div>
-              )}
-            </DialogContent>
-            {isNil(chat.prompt) || promptPickerOpen ? null : (
-              <DialogActions>
-                <DialogTrigger disableButtonEnhancement>
-                  <Button appearance="secondary" onClick={removePrompt}>
-                    {t('Common.Delete')}
+                    ) : null}
+                  </div>
+                )}
+              </DialogContent>
+              {isNil(chat.prompt) || promptPickerOpen ? null : (
+                <DialogActions>
+                  <DialogTrigger disableButtonEnhancement>
+                    <Button appearance="secondary" onClick={removePrompt}>
+                      {t('Common.Delete')}
+                    </Button>
+                  </DialogTrigger>
+                  <Button
+                    appearance="primary"
+                    onClick={() => setPromptPickerOpen(true)}
+                  >
+                    {t('Common.Change')}
                   </Button>
-                </DialogTrigger>
-                <Button
-                  appearance="primary"
-                  onClick={() => setPromptPickerOpen(true)}
-                >
-                  {t('Common.Change')}
-                </Button>
-              </DialogActions>
-            )}
-          </DialogBody>
-        </DialogSurface>
-      </Dialog>
+                </DialogActions>
+              )}
+            </DialogBody>
+          </DialogSurface>
+        </Dialog>
+      </ClickAwayListener>
       <PromptVariableDialog
         open={variableDialogOpen}
         systemVariables={systemVariables}

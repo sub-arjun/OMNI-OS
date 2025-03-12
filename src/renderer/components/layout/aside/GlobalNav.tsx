@@ -16,6 +16,8 @@ import {
   Wand24Regular,
   ReceiptSparkles24Regular,
   ReceiptSparkles24Filled,
+  Megaphone24Regular,
+  Megaphone24Filled,
 } from '@fluentui/react-icons';
 import { useTranslation } from 'react-i18next';
 import useNav from 'hooks/useNav';
@@ -40,6 +42,9 @@ const KnowledgeIcon = bundleIcon(Library24Filled, Library24Regular);
 const WandIcon = bundleIcon(Wand24Filled, Wand24Regular);
 const PromptsIcon = bundleIcon(ReceiptSparkles24Filled, ReceiptSparkles24Regular);
 
+// Export FeedbackIcon for use in AppSidebar
+export const FeedbackIcon = bundleIcon(Megaphone24Filled, Megaphone24Regular);
+
 const IS_ASSISTANTS_ENABLED = false;
 
 export default function GlobalNav({ collapsed }: { collapsed: boolean }) {
@@ -60,6 +65,10 @@ export default function GlobalNav({ collapsed }: { collapsed: boolean }) {
     Mousetrap.bind('alt+3', () => navigate('/bookmarks'));
     Mousetrap.bind('mod+n', () => navigate(`/chats/${tempChatId}`));
     Mousetrap.bind('mod+p', () => navigate('/prompts'));
+    Mousetrap.bind('alt+f', () => {
+      window.electron?.openExternal?.('https://omni-os.canny.io/omni');
+      return false; // Prevent default and stop propagation
+    });
     if (numOfActiveServers === 0) {
       loadConfig(true);
     }
@@ -69,6 +78,7 @@ export default function GlobalNav({ collapsed }: { collapsed: boolean }) {
       Mousetrap.unbind('alt+3');
       Mousetrap.unbind('mod+n');
       Mousetrap.unbind('mod+p');
+      Mousetrap.unbind('alt+f');
     };
   }, []);
 

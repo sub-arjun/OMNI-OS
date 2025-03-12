@@ -655,3 +655,423 @@ async function pollForResult(predictionId: string): Promise<string> {
   
   throw new Error('TTS generation timed out');
 }
+
+// Speech to text functionality
+export async function speechToText(audioBase64: string, signal?: AbortSignal): Promise<string> {
+  // Check if current provider is Ollama (OMNI Edge)
+  const { api } = window.electron?.store?.get('settings') || {};
+  if (api?.provider === 'Ollama' || api?.provider === 'OMNI Edge') {
+    throw new Error('Speech-to-text is not supported with OMNI Edge');
+  }
+
+  try {
+    // Create a data URL from the base64 audio
+    const audioUrl = `data:audio/wav;base64,${audioBase64}`;
+    
+    const response = await fetch('https://api.replicate.com/v1/predictions', {
+      method: 'POST',
+      headers: {
+        'Authorization': '',
+        'Content-Type': 'application/json',
+        'Prefer': 'wait'
+      },
+      body: JSON.stringify({
+        version: "3ab86df6c8f54c11309d4d1f930ac292bad43ace52d10c80d87eb258b3c9f79c",
+        input: {
+          task: "transcribe",
+          audio: audioUrl,
+          language: "None",
+          timestamp: "chunk",
+          batch_size: 64,
+          diarise_audio: false
+        }
+      }),
+      signal // Pass the abort signal to the fetch request
+    });
+    
+    const data = await response.json();
+    
+    if (data.error) {
+      throw new Error(data.error);
+    }
+    
+    // If prediction is still processing, poll for result
+    if (data.status === 'processing') {
+      return await pollForSttResult(data.id, signal);
+    }
+    
+    // Parse and return the transcribed text
+    const text = extractTextFromSttResponse(data.output);
+    
+    // Additional validation to prevent empty results
+    if (!text || typeof text !== 'string' || text.trim() === '') {
+      throw new Error('No speech detected or transcription failed');
+    }
+    
+    return text;
+  } catch (error: any) {
+    // Re-throw AbortError to be caught by the caller
+    if (error.name === 'AbortError') {
+      throw error;
+    }
+    
+    console.error('Error in speech-to-text:', error);
+    throw new Error(error.message || 'Failed to transcribe audio');
+  }
+}
+
+// Helper function to poll for STT result
+async function pollForSttResult(predictionId: string, signal?: AbortSignal): Promise<string> {
+  const maxAttempts = 30; // Maximum polling attempts
+  const delay = 1000; // Delay between polls in ms
+  
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      // Check if the operation was aborted
+      if (signal?.aborted) {
+        throw new DOMException('STT operation aborted by user', 'AbortError');
+      }
+      
+      // Wait before polling
+      await new Promise(resolve => setTimeout(resolve, delay));
+      
+      // Check again after delay if the operation was aborted
+      if (signal?.aborted) {
+        throw new DOMException('STT operation aborted by user', 'AbortError');
+      }
+      
+      const response = await fetch(`https://api.replicate.com/v1/predictions/${predictionId}`, {
+        headers: {
+          'Authorization': '',
+          'Content-Type': 'application/json'
+        },
+        signal // Pass the abort signal to this fetch call as well
+      });
+      
+      const data = await response.json();
+      
+      if (data.status === 'succeeded') {
+        // Parse the transcribed text from the response
+        const text = extractTextFromSttResponse(data.output);
+        
+        // Additional validation to prevent empty results
+        if (!text || typeof text !== 'string' || text.trim() === '') {
+          throw new Error('No speech detected or transcription failed');
+        }
+        
+        return text;
+      } else if (data.status === 'failed') {
+        throw new Error(`STT generation failed: ${data.error || 'Unknown error'}`);
+      }
+      // Continue polling if still processing
+    } catch (error: any) {
+      // If this is an abort error, propagate it
+      if (error.name === 'AbortError') {
+        throw error;
+      }
+      
+      console.error('Error polling for STT result:', error);
+      throw error;
+    }
+  }
+  
+  throw new Error('STT generation timed out');
+}
+
+// Helper function to extract text from the API response
+function extractTextFromSttResponse(output: any): string {
+  try {
+    // If output is a string, try to parse it as JSON
+    if (typeof output === 'string') {
+      try {
+        const parsedOutput = JSON.parse(output);
+        // Check if it has the expected structure
+        if (parsedOutput.text) {
+          return parsedOutput.text;
+        }
+      } catch (e) {
+        // If parsing fails, return the string as is
+        return output;
+      }
+    }
+    
+    // If output is already an object with text property
+    if (output && typeof output === 'object' && output.text) {
+      return output.text;
+    }
+    
+    // If output has chunks array
+    if (output && Array.isArray(output.chunks) && output.chunks.length > 0) {
+      // Concatenate all chunk texts
+      return output.chunks.map((chunk: any) => chunk.text).join(' ');
+    }
+    
+    // If output is an array of chunks
+    if (Array.isArray(output)) {
+      if (output.length > 0 && output[0].text) {
+        // Array of chunks with text property
+        return output.map((chunk: any) => chunk.text).join(' ');
+      } else {
+        // Simple array of strings
+        return output.join(' ');
+      }
+    }
+    
+    // Fallback: stringify the output
+    return String(output);
+  } catch (e) {
+    console.error('Error extracting text from STT response:', e);
+    return String(output);
+  }
+}
+
+// Audio recording functionality
+export class AudioRecorder {
+  private stream: MediaStream | null = null;
+  private mediaRecorder: MediaRecorder | null = null;
+  private audioChunks: Blob[] = [];
+  private onDataAvailableCallback: ((data: Blob) => void) | null = null;
+  private onStopCallback: ((audioBlob: Blob) => void) | null = null;
+  
+  // Add a getter to access the stream
+  getStream(): MediaStream | null {
+    return this.stream;
+  }
+  
+  async start(): Promise<void> {
+    try {
+      this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      this.mediaRecorder = new MediaRecorder(this.stream);
+      this.audioChunks = [];
+      
+      this.mediaRecorder.addEventListener('dataavailable', (event) => {
+        if (event.data.size > 0) {
+          this.audioChunks.push(event.data);
+          if (this.onDataAvailableCallback) {
+            this.onDataAvailableCallback(event.data);
+          }
+        }
+      });
+      
+      this.mediaRecorder.addEventListener('stop', () => {
+        const audioBlob = new Blob(this.audioChunks, { type: 'audio/wav' });
+        if (this.onStopCallback) {
+          this.onStopCallback(audioBlob);
+        }
+        
+        // Stop all tracks
+        if (this.stream) {
+          this.stream.getTracks().forEach(track => track.stop());
+        }
+      });
+      
+      this.mediaRecorder.start();
+    } catch (error) {
+      console.error('Error starting audio recording:', error);
+      throw error;
+    }
+  }
+  
+  stop(): void {
+    if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
+      this.mediaRecorder.stop();
+    }
+  }
+  
+  onDataAvailable(callback: (data: Blob) => void): void {
+    this.onDataAvailableCallback = callback;
+  }
+  
+  onStop(callback: (audioBlob: Blob) => void): void {
+    this.onStopCallback = callback;
+  }
+  
+  isRecording(): boolean {
+    return this.mediaRecorder !== null && this.mediaRecorder.state === 'recording';
+  }
+}
+
+// Convert Blob to base64
+export function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      if (typeof reader.result === 'string') {
+        // Extract the base64 data from the data URL
+        const base64Data = reader.result.split(',')[1];
+        resolve(base64Data);
+      } else {
+        reject(new Error('Failed to convert blob to base64'));
+      }
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+// Helper function to create a waveform visualization
+export function createWaveformCanvas(
+  container: HTMLElement, 
+  stream: MediaStream
+): { canvas: HTMLCanvasElement, stop: () => void } {
+  const canvas = document.createElement('canvas');
+  const isEditor = container.id === 'editor';
+  
+  // Set size based on container
+  canvas.width = container.clientWidth;
+  canvas.height = isEditor ? container.clientHeight : 60;
+  
+  // Style the canvas
+  canvas.style.width = '100%';
+  canvas.style.height = isEditor ? '100%' : '60px';
+  canvas.style.position = isEditor ? 'absolute' : 'relative';
+  canvas.style.top = '0';
+  canvas.style.left = '0';
+  canvas.style.pointerEvents = 'none'; // Allow clicking through the canvas
+  canvas.style.zIndex = isEditor ? '5' : '1';
+  canvas.style.opacity = isEditor ? '0.7' : '1';
+  
+  // Append canvas to container
+  container.appendChild(canvas);
+  
+  // Set up audio context and analyzer
+  const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+  const analyser = audioContext.createAnalyser();
+  const source = audioContext.createMediaStreamSource(stream);
+  source.connect(analyser);
+  
+  // Configure analyser
+  analyser.fftSize = isEditor ? 512 : 256; // Higher resolution for editor
+  const bufferLength = analyser.frequencyBinCount;
+  const dataArray = new Uint8Array(bufferLength);
+  
+  // Get canvas drawing context
+  const ctx = canvas.getContext('2d')!;
+  
+  // Variables for animation
+  let animationId: number;
+  let lastUpdateTime = Date.now();
+  const animationSpeed = 0.05; // Controls animation speed
+  
+  // For waveform animation
+  const barHeights: number[] = Array(bufferLength).fill(0);
+  const targetHeights: number[] = Array(bufferLength).fill(0);
+  
+  // Generate gradient for waveform
+  let gradient: CanvasGradient;
+  
+  // Animation function
+  const draw = () => {
+    animationId = requestAnimationFrame(draw);
+    
+    // Get current audio data
+    analyser.getByteFrequencyData(dataArray);
+    
+    // Calculate delta time for smooth animations
+    const now = Date.now();
+    const deltaTime = (now - lastUpdateTime) * animationSpeed;
+    lastUpdateTime = now;
+    
+    // Clear canvas with different background based on container
+    if (isEditor) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    } else {
+      ctx.fillStyle = 'rgb(240, 240, 240)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+    
+    // Create gradient if not already created or if canvas size changed
+    gradient = ctx.createLinearGradient(0, canvas.height, 0, 0);
+    
+    if (isEditor) {
+      // Colorful gradient for editor view
+      gradient.addColorStop(0, 'rgba(59, 130, 246, 0.5)'); // Blue
+      gradient.addColorStop(0.5, 'rgba(167, 139, 250, 0.5)'); // Purple
+      gradient.addColorStop(1, 'rgba(239, 68, 68, 0.5)'); // Red
+    } else {
+      // Simpler gradient for small view
+      gradient.addColorStop(0, 'rgb(58, 130, 246)');
+      gradient.addColorStop(1, 'rgb(124, 58, 237)');
+    }
+    
+    // Calculate bar width based on container
+    const barWidth = isEditor 
+      ? (canvas.width / bufferLength) * 1.5 // Thicker bars for editor
+      : (canvas.width / bufferLength) * 2.5;
+    
+    let x = 0;
+    
+    // Draw bars
+    for (let i = 0; i < bufferLength; i++) {
+      // Smoothly update target heights
+      targetHeights[i] = dataArray[i] / (isEditor ? 1.5 : 4);
+      
+      // Smoothly animate current height toward target
+      barHeights[i] = barHeights[i] + (targetHeights[i] - barHeights[i]) * deltaTime;
+      
+      // Get bar height with slight randomness for visual interest
+      const jitter = isEditor ? Math.random() * 2 - 1 : 0;
+      const barHeight = Math.max(1, barHeights[i] + jitter);
+      
+      // Different drawing style based on container
+      if (isEditor) {
+        // Mirror effect for editor - draw from center
+        const middleY = canvas.height / 2;
+        
+        // Draw upper bar with gradient
+        ctx.fillStyle = gradient;
+        ctx.fillRect(
+          x, 
+          middleY - barHeight, 
+          barWidth, 
+          barHeight
+        );
+        
+        // Draw lower bar with gradient
+        ctx.fillRect(
+          x, 
+          middleY, 
+          barWidth, 
+          barHeight
+        );
+      } else {
+        // Standard bottom-up bars for small view
+        ctx.fillStyle = gradient;
+        ctx.fillRect(
+          x, 
+          canvas.height - barHeight, 
+          barWidth, 
+          barHeight
+        );
+      }
+      
+      x += barWidth + (isEditor ? 0 : 1);
+    }
+  };
+  
+  // Start animation
+  draw();
+  
+  // Return canvas and cleanup function
+  return { 
+    canvas,
+    stop: () => {
+      // Stop animation
+      cancelAnimationFrame(animationId);
+      
+      // Close audio context safely - check state first
+      if (audioContext.state !== 'closed') {
+        try {
+          audioContext.close();
+        } catch (error) {
+          console.warn('Error closing AudioContext:', error);
+        }
+      }
+      
+      // Remove canvas
+      if (container.contains(canvas)) {
+        container.removeChild(canvas);
+      }
+    }
+  };
+}

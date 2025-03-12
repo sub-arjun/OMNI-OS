@@ -1,9 +1,22 @@
 .bookmark-item{
   cursor:default;
+  height: 100%;
+  min-height: 180px;
+  transition: all 0.2s ease-in-out;
 }
 .bookmark-item:hover {
   --tw-bg-opacity: 0.6;
   border-color:rgba(var(--color-bg-surface-2), var(--tw-bg-opacity));
+  background-color: rgba(var(--color-hover), 0.1);
+}
+
+.bookmark-item button[title="Delete"] {
+  opacity: 0.4;
+  transition: opacity 0.2s ease-in-out;
+}
+
+.bookmark-item:hover button[title="Delete"] {
+  opacity: 1;
 }
 
 .bookmark-topbar {
@@ -12,4 +25,12 @@
 }
 [data-theme='dark'] .bookmark :not(.think):not(.think *) {
   color: #d6d6d6;
+}
+
+.bookmark-item .tag-model {
+  border-radius: 6px;
+  background-color: rgba(var(--color-accent), 0.2);
+  color: rgb(var(--color-accent));
+  font-size: 12px;
+  font-weight: 500;
 }

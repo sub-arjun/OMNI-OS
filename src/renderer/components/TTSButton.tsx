@@ -21,7 +21,7 @@ const MuteIcon = bundleIcon(SpeakerMute24Filled, SpeakerMute24Regular);
 let currentAudio: HTMLAudioElement | null = null;
 let currentButtonId: string | null = null;
 
-// CSS for the waveform animation
+// CSS for the waveform animation and button glow
 const waveformStyle = `
 .waveform-container {
   display: flex;
@@ -57,6 +57,26 @@ const waveformStyle = `
 @keyframes waveform-animation {
   0%, 100% { height: 3px; }
   50% { height: 10px; }
+}
+
+.tts-button-active {
+  background-color: rgba(255, 59, 48, 0.1) !important;
+  border-color: rgba(255, 59, 48, 0.3) !important;
+  animation: tts-pulse 2s infinite;
+  box-shadow: 0 0 8px rgba(255, 59, 48, 0.5);
+  color: rgb(255, 59, 48) !important;
+}
+
+@keyframes tts-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 59, 48, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 6px rgba(255, 59, 48, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 59, 48, 0);
+  }
 }
 `;
 
@@ -226,6 +246,7 @@ export default function TTSButton({
           appearance="subtle"
           onClick={togglePlay}
           disabled={isLoading || isOllamaProvider}
+          className={isPlaying ? 'tts-button-active' : ''}
           aria-label={isOllamaProvider ? t('Common.NotSupported.TTS') : (isPlaying ? t('Common.StopSpeech') : t('Common.PlaySpeech'))}
         />
       </Tooltip>

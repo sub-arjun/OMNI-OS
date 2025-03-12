@@ -30,10 +30,14 @@ export default function ToolInstallDialog(options: {
   const { t } = useTranslation();
   const { addServer } = useMCPStore();
   const args = useMemo(() => {
-    return mcpUtils.getParameters(server.args);
+    const extractedArgs = mcpUtils.getParameters(server.args);
+    console.log('Extracted arguments parameters:', extractedArgs, 'from:', server.args);
+    return extractedArgs;
   }, [server.args]);
   const env = useMemo(() => {
-    return mcpUtils.getParameters(Object.values(server.env || {}));
+    const extractedEnv = mcpUtils.getParameters(Object.values(server.env || {}));
+    console.log('Extracted environment parameters:', extractedEnv, 'from:', server.env);
+    return extractedEnv;
   }, [server.env]);
   const hasParams = useMemo(
     () => args.length > 0 || env.length > 0,

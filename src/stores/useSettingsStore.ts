@@ -16,8 +16,8 @@ const defaultLanguage = 'system';
 const defaultFontSize = 'base';
 
 const defaultAPI: IAPISettings = {
-  provider: 'OpenAI',
-  base: 'https://api.openai.com',
+  provider: 'OMNI',
+  base: 'https://openrouter.ai',
   key: '',
   model: '',
 };

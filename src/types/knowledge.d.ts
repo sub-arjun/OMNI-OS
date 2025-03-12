@@ -7,6 +7,9 @@ export interface ICollection {
   pinedAt?: number|null;
   createdAt: number;
   updatedAt: number;
+  type?: 'local' | 'omnibase'; // Type of collection - local (LanceDB) or omnibase (Pinecone)
+  indexName?: string; // For omnibase collections
+  namespace?: string; // For omnibase collections
 }
 
 export interface ICollectionFile {
@@ -24,4 +27,15 @@ export interface IKnowledgeChunk {
   collectionId: string;
   fileId: string;
   content: string;
+  score?: number; // Relevance score, used for ranking
+}
+
+export interface IOmniBaseConnection {
+  id: string;
+  name: string;
+  indexName: string;
+  namespace?: string;
+  isConnected: boolean;
+  createdAt: number;
+  updatedAt: number;
 }

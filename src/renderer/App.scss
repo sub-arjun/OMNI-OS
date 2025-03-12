@@ -398,7 +398,7 @@ mark {
   font-weight: inherit;
 }
 
-@media (prefers-color-scheme: dark) {
+.theme-dark {
   .tag-model {
     color: rgba(160, 238, 238, 1);
   }
@@ -417,7 +417,7 @@ mark {
   }
 }
 
-@media (prefers-color-scheme: light) {
+.theme-light {
   .tag-model {
     color: rgba(43, 192, 142, 1);
   }

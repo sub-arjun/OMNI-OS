@@ -1,6 +1,62 @@
 // Disable no-unused-vars, broken for spread args
 /* eslint no-unused-vars: off */
 
+// Early ResizeObserver error suppression
+// This runs before React loads and will suppress all ResizeObserver errors
+(() => {
+  // Store original error handlers
+  const originalConsoleError = console.error;
+  const originalConsoleWarn = console.warn;
+  
+  // Patterns to identify ResizeObserver-related errors
+  const resizeObserverPatterns = [
+    'ResizeObserver loop',
+    'ResizeObserver Loop',
+    'ResizeObserver completed with undelivered notifications',
+    'ResizeObserver error'
+  ];
+  
+  // Helper to check if a message relates to ResizeObserver
+  const isResizeObserverError = (msg: string): boolean => 
+    resizeObserverPatterns.some(pattern => msg && msg.includes(pattern));
+  
+  // Override console.error to filter out ResizeObserver errors
+  console.error = function(...args) {
+    if (args[0] && typeof args[0] === 'string' && isResizeObserverError(args[0])) {
+      return; // Suppress the error
+    }
+    originalConsoleError.apply(console, args);
+  };
+  
+  // Override console.warn to filter out ResizeObserver warnings
+  console.warn = function(...args) {
+    if (args[0] && typeof args[0] === 'string' && isResizeObserverError(args[0])) {
+      return; // Suppress the warning
+    }
+    originalConsoleWarn.apply(console, args);
+  };
+  
+  // Add global error handler
+  window.addEventListener('error', (event) => {
+    if (event.error && typeof event.error.message === 'string' && 
+        isResizeObserverError(event.error.message)) {
+      event.preventDefault();
+      event.stopPropagation();
+      return false;
+    }
+    return true;
+  }, true);
+  
+  // Add unhandled rejection handler
+  window.addEventListener('unhandledrejection', (event) => {
+    const message = event.reason?.message || String(event.reason);
+    if (isResizeObserverError(message)) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+  });
+})();
+
 import v8 from 'v8';
 import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron';
 // 设置文件描述符限制
@@ -155,7 +211,11 @@ const electronHandler = {
       ipcRenderer.invoke('remove-knowledge-collection', collectionId),
     getChunk: (id: string) => ipcRenderer.invoke('get-knowledge-chunk', id),
     close: () => ipcRenderer.invoke('close-knowledge-database'),
-  },
+    testOmniBaseConnection: (indexName: string, namespace?: string) =>
+      ipcRenderer.invoke('test-omnibase-connection', indexName, namespace),
+    createOmniBaseCollection: (name: string, indexName: string, namespace?: string) =>
+      ipcRenderer.invoke('create-omnibase-collection', name, indexName, namespace),
+  } as const,
   download: (fileName: string, url: string) =>
     ipcRenderer.invoke('download', fileName, url),
   cancelDownload: (fileName: string) =>

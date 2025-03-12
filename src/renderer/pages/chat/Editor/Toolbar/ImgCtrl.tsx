@@ -23,19 +23,24 @@ import {
   Dismiss24Regular,
   LinkSquare20Regular,
   ArrowUpload24Regular,
+  CameraRegular,
+  Camera24Regular,
+  Record24Regular,
 } from '@fluentui/react-icons';
 
 import { IChat, IChatContext } from 'intellichat/types';
-import { ChangeEvent, useEffect, useMemo, useState } from 'react';
+import { ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { isBlank } from 'utils/validators';
 import { isWebUri } from 'valid-url';
 import { insertAtCursor } from 'utils/util';
-import { IChatModelVision } from 'providers/types';
 import useChatStore from 'stores/useChatStore';
+import ClickAwayListener from 'renderer/components/ClickAwayListener';
+import React from 'react';
 
 const ImageAddIcon = bundleIcon(ImageAdd20Filled, ImageAdd20Regular);
 
+// Define styles outside the component
 const useStyles = makeStyles({
   uploadArea: {
     border: '2px dashed #ccc',
@@ -54,97 +59,263 @@ const useStyles = makeStyles({
     color: 'var(--colorStatusDangerForeground1)',
     marginTop: '8px'
   },
+  webcamContainer: {
+    position: 'relative',
+    width: '100%',
+    minHeight: '250px',
+    border: '1px solid #ccc',
+    borderRadius: '4px',
+    overflow: 'hidden',
+    marginBottom: '10px',
+  },
+  webcamVideo: {
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover',
+  },
+  webcamCapture: {
+    position: 'absolute',
+    bottom: '10px',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    zIndex: 10,
+    backgroundColor: 'var(--colorBrandBackground)',
+    color: 'white',
+    border: 'none',
+    borderRadius: '50%',
+    width: '48px',
+    height: '48px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    boxShadow: '0 2px 5px rgba(0, 0, 0, 0.3)',
+  },
+  webcamPreview: {
+    width: '100%',
+    height: 'auto',
+    borderRadius: '4px',
+    marginBottom: '10px',
+  }
 });
 
-export default function ImgCtrl({
-  ctx,
-  chat,
-}: {
+// Safe utility to stop media streams
+function stopMediaStream(stream: MediaStream | null) {
+  if (stream) {
+    stream.getTracks().forEach(track => {
+      if (track.readyState === 'live') {
+        track.stop();
+      }
+    });
+  }
+}
+
+// Define props type explicitly
+type ImgCtrlProps = {
   ctx: IChatContext;
   chat: IChat;
-}) {
-  const editStage = useChatStore((state) => state.editStage);
+};
+
+// Simple function component
+export default function ImgCtrl({ ctx, chat }: ImgCtrlProps) {
+  // Core hooks
   const { t } = useTranslation();
   const styles = useStyles();
-
-  const [imgType, setImgType] = useState<'url' | 'file'>('file');
-  const [imgURL, setImgURL] = useState<string>('');
-  const [imgName, setImgName] = useState<string>('');
-  const [imgBase64, setImgBase64] = useState<string>('');
-  const [errMsg, setErrMsg] = useState<string>('');
-  const [open, setOpen] = useState<boolean>(false);
+  const editStage = useChatStore((state) => state.editStage);
+  
+  // Get model
   const model = ctx.getModel();
-
-  const openDialog = () => {
-    setOpen(true);
-    setTimeout(
-      () =>
-        document
-          .querySelector<HTMLInputElement>(
-            imgType === 'url' ? '#image-url-input' : '#upload-area'
-          )
-          ?.focus(),
-      500
-    );
-    Mousetrap.bind('esc', closeDialog);
-  };
-
-  const closeDialog = () => {
-    setOpen(false);
-    Mousetrap.unbind('esc');
-  };
-
-  const vision = useMemo<IChatModelVision>(() => {
-    return model?.vision || { enabled: false };
-  }, [model]);
-
+  
+  // Core state
+  const [open, setOpen] = useState(false);
+  const [imgType, setImgType] = useState('file');
+  const [imgURL, setImgURL] = useState('');
+  const [imgBase64, setImgBase64] = useState('');
+  const [imgName, setImgName] = useState('');
+  const [errMsg, setErrMsg] = useState('');
+  const [webcamState, setWebcamState] = useState({
+    active: false,
+    hasPermission: true
+  });
+  
+  // Refs
+  const webcamRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const mountedRef = useRef(true);
+  
+  // Static values
+  const visionEnabled = !!model?.vision?.enabled;
+  
+  // Initialize component
   useEffect(() => {
-    Mousetrap.bind('mod+shift+7', openDialog);
-    if (vision.enabled) {
-      setImgType(vision.allowUrl && !vision.allowBase64 ? 'url' : 'file');
+    // Set mounted flag
+    mountedRef.current = true;
+    
+    // Setup keyboard shortcut
+    if (visionEnabled) {
+      Mousetrap.bind('mod+shift+7', () => setOpen(true));
+      
+      // Set initial image type based on model capabilities
+      const allowUrl = model?.vision?.allowUrl;
+      const allowBase64 = model?.vision?.allowBase64;
+      if (allowUrl && !allowBase64) {
+        setImgType('url');
+      } else {
+        setImgType('file');
+      }
     }
+    
+    // Clean up on unmount
     return () => {
+      mountedRef.current = false;
+      if (streamRef.current) {
+        stopMediaStream(streamRef.current);
+        streamRef.current = null;
+      }
       Mousetrap.unbind('mod+shift+7');
+      Mousetrap.unbind('esc');
     };
-  }, [vision]);
-
-  const isAddBtnDisabled = useMemo(() => {
-    return isBlank(imgURL) && isBlank(imgBase64);
-  }, [imgURL, imgBase64]);
-
-  const onImageUrlChange = (
-    ev: ChangeEvent<HTMLInputElement>,
-    data: InputOnChangeData
-  ) => {
-    setImgURL(data.value);
-  };
-
-  const handleSelectImage = async () => {
+  }, [visionEnabled, model?.vision]);
+  
+  // Handle dialog state
+  useEffect(() => {
+    if (open) {
+      Mousetrap.bind('esc', () => setOpen(false));
+    } else {
+      Mousetrap.unbind('esc');
+      // Stop webcam when dialog closes
+      stopWebcam();
+    }
+  }, [open]);
+  
+  // Handle webcam state
+  useEffect(() => {
+    if (open && imgType === 'webcam' && !imgBase64) {
+      startWebcam();
+    } else if (imgType !== 'webcam' || !open) {
+      stopWebcam();
+    }
+  }, [open, imgType, imgBase64]);
+  
+  // Start webcam safely
+  const startWebcam = useCallback(() => {
+    // Clean up any existing stream first
+    stopWebcam();
+    
+    if (!navigator.mediaDevices) {
+      setWebcamState(prev => ({ ...prev, hasPermission: false }));
+      setErrMsg(t('Webcam access is not available in this browser.'));
+      return;
+    }
+    
+    navigator.mediaDevices.getUserMedia({ 
+      video: { 
+        width: { ideal: 1280 },
+        height: { ideal: 720 }
+      }
+    }).then(stream => {
+      if (!mountedRef.current) {
+        stopMediaStream(stream);
+        return;
+      }
+      
+      if (webcamRef.current) {
+        webcamRef.current.srcObject = stream;
+        streamRef.current = stream;
+        setWebcamState({ active: true, hasPermission: true });
+        setErrMsg('');
+      } else {
+        stopMediaStream(stream);
+      }
+    }).catch(error => {
+      console.error('Error accessing webcam:', error);
+      if (mountedRef.current) {
+        setWebcamState(prev => ({ ...prev, hasPermission: false }));
+        setErrMsg(t('Could not access webcam. Please check permissions.'));
+      }
+    });
+  }, [t]);
+  
+  // Stop webcam safely
+  const stopWebcam = useCallback(() => {
+    if (webcamRef.current && webcamRef.current.srcObject) {
+      stopMediaStream(webcamRef.current.srcObject as MediaStream);
+      webcamRef.current.srcObject = null;
+    }
+    
+    if (streamRef.current) {
+      stopMediaStream(streamRef.current);
+      streamRef.current = null;
+    }
+    
+    if (mountedRef.current) {
+      setWebcamState(prev => ({ ...prev, active: false }));
+    }
+  }, []);
+  
+  // Capture image from webcam
+  const captureImage = useCallback(() => {
+    if (!webcamRef.current || !canvasRef.current || !webcamRef.current.videoWidth) {
+      return;
+    }
+    
+    const video = webcamRef.current;
+    const canvas = canvasRef.current;
+    
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    
+    try {
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const imageData = canvas.toDataURL('image/png');
+      
+      if (mountedRef.current) {
+        setImgBase64(imageData);
+        setImgName('webcam-capture.png');
+        setErrMsg('');
+        stopWebcam();
+      }
+    } catch (error) {
+      console.error('Error capturing image:', error);
+      if (mountedRef.current) {
+        setErrMsg(t('Failed to capture image from webcam.'));
+      }
+    }
+  }, [stopWebcam, t]);
+  
+  // Handle file selection
+  const handleSelectImage = useCallback(async () => {
     try {
       const dataString = await window.electron.selectImageWithBase64();
-      if (dataString) {
-        const file = JSON.parse(dataString);
-        if (file.name && file.base64) {
-          setImgName(file.name);
-          setImgBase64(file.base64);
-          setErrMsg('');
-        }
+      if (!dataString || !mountedRef.current) return;
+      
+      const file = JSON.parse(dataString);
+      if (file.name && file.base64) {
+        setImgName(file.name);
+        setImgBase64(file.base64);
+        setErrMsg('');
       }
     } catch (error) {
       console.error('Error selecting image:', error);
-      setErrMsg(t('Please input a valid image.'));
+      if (mountedRef.current) {
+        setErrMsg(t('Please input a valid image.'));
+      }
     }
-  };
-
-  const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    // Note: For security reasons, Electron doesn't allow direct file access from dropped files
-    // We'll prompt the user to use the file selector instead
-    setErrMsg(t('Please click to select an image file.'));
-  };
-
-  const Add = () => {
+  }, [t]);
+  
+  // Handle URL input change
+  const handleUrlChange = useCallback((ev: ChangeEvent<HTMLInputElement>, data: InputOnChangeData) => {
+    setImgURL(data.value);
+  }, []);
+  
+  // Add image to editor
+  const addImage = useCallback(() => {
     let url = null;
+    
     if (imgURL) {
       if (!isWebUri(imgURL) && !imgURL.startsWith('data:')) {
         setErrMsg(t('Please input a valid image URL or base64 string.'));
@@ -154,138 +325,230 @@ export default function ImgCtrl({
     } else if (imgBase64) {
       url = imgBase64;
     }
-    setErrMsg('');
+    
+    if (!url) return;
+    
     const editor = document.querySelector('#editor') as HTMLDivElement;
+    if (!editor) return;
+    
     editStage(chat.id, {
       input: insertAtCursor(
         editor,
         `<img src="${url}" style="width:260px; display:block;" />`
       ),
     });
+    
+    // Reset state
     setOpen(false);
     setImgURL('');
     setImgBase64('');
     setImgName('');
     editor.focus();
-  };
-
-  const renderImgUrlInput = () => {
-    return (
-      <Input
-        value={imgURL}
-        type="url"
-        contentBefore={<LinkSquare20Regular />}
-        id="image-url-input"
-        className="w-full"
-        onChange={onImageUrlChange}
-      />
-    );
-  };
-
-  const renderImgFileInput = () => {
-    return (
-      <div>
-        <div 
-          id="upload-area"
-          className={styles.uploadArea} 
-          onClick={handleSelectImage}
-          onDragOver={(e) => e.preventDefault()}
-          onDrop={handleDrop}
-          tabIndex={0}
-        >
-          <ArrowUpload24Regular />
-          <Text>
-            {imgName 
-              ? imgName 
-              : t('Common.SelectImage') + " - " + t('Common.Image') + " (jpg, png, jpeg)"}
-          </Text>
-        </div>
-        {errMsg && <Text className={styles.errorMessage}>{errMsg}</Text>}
+  }, [chat.id, editStage, imgBase64, imgURL, t]);
+  
+  // Cancel dialog
+  const handleCancel = useCallback(() => {
+    setOpen(false);
+    setImgURL('');
+    setImgBase64('');
+    setImgName('');
+    setErrMsg('');
+  }, []);
+  
+  // Change image type
+  const handleTypeChange = useCallback((_: any, data: any) => {
+    setImgType(data.value);
+    setErrMsg('');
+    setImgBase64('');
+  }, []);
+  
+  // Reset webcam
+  const handleRetakePhoto = useCallback(() => {
+    setImgBase64('');
+    startWebcam();
+  }, [startWebcam]);
+  
+  // Handle drag-drop prevention
+  const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setErrMsg(t('Please click to select an image file.'));
+  }, [t]);
+  
+  // Memoized add button state
+  const isAddBtnDisabled = useMemo(() => {
+    return isBlank(imgURL) && isBlank(imgBase64);
+  }, [imgURL, imgBase64]);
+  
+  // Memoized URL input
+  const urlInputElement = useMemo(() => (
+    <Input
+      value={imgURL}
+      type="url"
+      contentBefore={<LinkSquare20Regular />}
+      id="image-url-input"
+      className="w-full"
+      onChange={handleUrlChange}
+    />
+  ), [imgURL, handleUrlChange]);
+  
+  // Memoized file input
+  const fileInputElement = useMemo(() => (
+    <div>
+      <div 
+        id="upload-area"
+        className={styles.uploadArea} 
+        onClick={handleSelectImage}
+        onDragOver={(e) => e.preventDefault()}
+        onDrop={handleDrop}
+        tabIndex={0}
+      >
+        <ArrowUpload24Regular />
+        <Text>
+          {imgName 
+            ? imgName 
+            : t('Common.SelectImage') + " - " + t('Common.Image') + " (jpg, png, jpeg)"}
+        </Text>
       </div>
-    );
-  };
+      {errMsg && <Text className={styles.errorMessage}>{errMsg}</Text>}
+    </div>
+  ), [styles, handleSelectImage, handleDrop, imgName, errMsg, t]);
+  
+  // Memoized webcam input
+  const webcamInputElement = useMemo(() => (
+    <div>
+      {!imgBase64 ? (
+        <div className={styles.webcamContainer}>
+          {webcamState.hasPermission ? (
+            <>
+              <video 
+                ref={webcamRef}
+                className={styles.webcamVideo}
+                autoPlay
+                playsInline
+                muted
+              />
+              {webcamState.active && (
+                <button 
+                  className={styles.webcamCapture}
+                  onClick={captureImage}
+                  title={t('Capture Photo')}
+                >
+                  <Record24Regular />
+                </button>
+              )}
+            </>
+          ) : (
+            <div className="flex flex-col items-center justify-center h-full p-4">
+              <Camera24Regular className="mb-2 text-gray-400" />
+              <Text>{t('Please allow camera access to use this feature.')}</Text>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div>
+          <img 
+            src={imgBase64} 
+            alt="Captured" 
+            className={styles.webcamPreview} 
+          />
+          <Button 
+            appearance="secondary"
+            onClick={handleRetakePhoto}
+          >
+            {t('Take Another Photo')}
+          </Button>
+        </div>
+      )}
+      {errMsg && <Text className={styles.errorMessage}>{errMsg}</Text>}
+      
+      {/* Hidden canvas for image processing */}
+      <canvas ref={canvasRef} style={{ display: 'none' }} />
+    </div>
+  ), [styles, webcamState, imgBase64, captureImage, handleRetakePhoto, errMsg, t]);
+  
+  // Early return if vision is not enabled
+  if (!visionEnabled) {
+    return null;
+  }
+  
+  // Render the component
+  return (
+    <ClickAwayListener onClickAway={() => open && setOpen(false)} active={open}>
+      <Dialog open={open}>
+        <DialogTrigger disableButtonEnhancement>
+          <Button
+            aria-label={t('Common.Image')}
+            title="Mod+Shift+6"
+            size="small"
+            appearance="subtle"
+            iconPosition="before"
+            style={{ boxShadow: 'none', borderColor: 'transparent' }}
+            className="justify-start text-color-secondary"
+            onClick={() => setOpen(true)}
+            icon={<ImageAddIcon />}
+          ></Button>
+        </DialogTrigger>
+        <DialogSurface aria-labelledby="add image">
+          <DialogBody>
+            <DialogTitle
+              action={
+                <DialogTrigger action="close">
+                  <Button
+                    appearance="subtle"
+                    aria-label="close"
+                    onClick={() => setOpen(false)}
+                    icon={<Dismiss24Regular />}
+                  />
+                </DialogTrigger>
+              }
+            >
+              {t('Editor.Toolbar.AddImage')}
+            </DialogTitle>
+            <DialogContent>
+              <div className="w-full mb-5">
+                <Field>
+                  <RadioGroup
+                    layout="horizontal"
+                    value={imgType}
+                    onChange={handleTypeChange}
+                  >
+                    <Radio value="file" label="File" />
+                    <Radio value="url" label="URL" />
+                    <Radio value="webcam" label="Camera" />
+                  </RadioGroup>
+                </Field>
 
-  return vision.enabled ? (
-    <Dialog open={open}>
-      <DialogTrigger disableButtonEnhancement>
-        <Button
-          aria-label={t('Common.Image')}
-          title="Mod+Shift+6"
-          size="small"
-          appearance="subtle"
-          iconPosition="before"
-          style={{ boxShadow: 'none', borderColor: 'transparent' }}
-          className="justify-start text-color-secondary"
-          onClick={openDialog}
-          icon={<ImageAddIcon />}
-        ></Button>
-      </DialogTrigger>
-      <DialogSurface aria-labelledby="add image">
-        <DialogBody>
-          <DialogTitle
-            action={
-              <DialogTrigger action="close">
+                <div className="mt-2">
+                  <Field>
+                    {imgType === 'url' 
+                      ? urlInputElement
+                      : imgType === 'file' 
+                      ? fileInputElement
+                      : webcamInputElement}
+                  </Field>
+                </div>
+              </div>
+            </DialogContent>
+            <DialogActions>
+              <DialogTrigger disableButtonEnhancement>
                 <Button
                   appearance="subtle"
-                  aria-label="close"
-                  onClick={closeDialog}
-                  icon={<Dismiss24Regular />}
-                />
-              </DialogTrigger>
-            }
-          >
-            {t('Editor.Toolbar.AddImage')}
-          </DialogTitle>
-          <DialogContent>
-            <div className="w-full mb-5">
-              <Field>
-                <RadioGroup
-                  layout="horizontal"
-                  value={imgType}
-                  onChange={(_, data: any) => {
-                    setImgType(data.value);
-                    setErrMsg('');
-                  }}
+                  onClick={handleCancel}
                 >
-                  <Radio value="file" label="File" />
-                  <Radio value="url" label="URL" />
-                </RadioGroup>
-              </Field>
-
-              <div className="mt-2">
-                <Field>
-                  {imgType === 'url'
-                    ? renderImgUrlInput()
-                    : renderImgFileInput()}
-                </Field>
-              </div>
-            </div>
-          </DialogContent>
-          <DialogActions>
-            <DialogTrigger disableButtonEnhancement>
+                  {t('Common.Cancel')}
+                </Button>
+              </DialogTrigger>
               <Button
-                appearance="subtle"
-                onClick={() => {
-                  setOpen(false);
-                  setImgURL('');
-                  setImgBase64('');
-                  setImgName('');
-                  setErrMsg('');
-                }}
+                appearance="primary"
+                disabled={isAddBtnDisabled}
+                onClick={addImage}
               >
-                {t('Common.Cancel')}
+                {t('Add')}
               </Button>
-            </DialogTrigger>
-            <Button
-              appearance="primary"
-              disabled={isAddBtnDisabled}
-              onClick={Add}
-            >
-              {t('Add')}
-            </Button>
-          </DialogActions>
-        </DialogBody>
-      </DialogSurface>
-    </Dialog>
-  ) : null;
+            </DialogActions>
+          </DialogBody>
+        </DialogSurface>
+      </Dialog>
+    </ClickAwayListener>
+  );
 }

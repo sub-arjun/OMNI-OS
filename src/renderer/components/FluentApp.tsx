@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import Debug from 'debug';
-import { MemoryRouter as Router, Routes, Route } from 'react-router-dom';
+import { MemoryRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { captureException } from '../logging';
 import {
   FluentProvider,
@@ -17,7 +17,7 @@ import AppSidebar from './layout/aside/AppSidebar';
 import Chat from '../pages/chat';
 import Knowledge from '../pages/knowledge';
 import KnowledgeCollectionForm from '../pages/knowledge/CollectionForm';
-import Tools from '../pages/tool';
+import Tool from '../pages/tool';
 import Bookmarks from '../pages/bookmark';
 import Bookmark from '../pages/bookmark/Bookmark';
 import Usage from '../pages/usage';
@@ -33,52 +33,6 @@ import Empty from './Empty';
 import ProtectedRoute from './ProtectedRoute';
 import useAuthStore from 'stores/useAuthStore';
 import TrafficLights from './TrafficLights';
-
-// Coming Soon component for Analytics
-const ComingSoon = () => {
-  const { t } = useTranslation();
-  return (
-    <div className="page h-full">
-      <div className="page-top-bar">
-        <div className="absolute top-2.5 left-5 z-50">
-          <TrafficLights />
-        </div>
-      </div>
-      <div className="page-header flex items-center justify-between">
-        <div className="flex items-center justify-between w-full">
-          <h1 className="text-2xl flex-shrink-0 mr-6">{t('Common.Analytics')}</h1>
-        </div>
-      </div>
-      <div className="mt-2.5 pb-28 h-full -mr-5 overflow-y-auto flex flex-col items-center justify-center">
-        <Empty image="usage" text={t('Coming Soon')} />
-        <p className="text-gray-500 mt-4">This feature is currently under development.</p>
-      </div>
-    </div>
-  );
-};
-
-// Coming Soon component for Authentication features
-const ComingSoonAuth = () => {
-  const { t } = useTranslation();
-  return (
-    <div className="page h-full">
-      <div className="page-top-bar">
-        <div className="absolute top-2.5 left-5 z-50">
-          <TrafficLights />
-        </div>
-      </div>
-      <div className="page-header flex items-center justify-between">
-        <div className="flex items-center justify-between w-full">
-          <h1 className="text-2xl flex-shrink-0 mr-6">{t('Account.SignUp')}</h1>
-        </div>
-      </div>
-      <div className="mt-2.5 pb-28 h-full -mr-5 overflow-y-auto flex flex-col items-center justify-center">
-        <Empty image="usage" text={t('Coming Soon')} />
-        <p className="text-gray-500 mt-4">This feature is currently under development.</p>
-      </div>
-    </div>
-  );
-};
 
 const debug = Debug('OMNI-OS:components:FluentApp');
 
@@ -129,6 +83,52 @@ darkTheme.colorNeutralForegroundInvertedLink = '#FFFFFF';
 darkTheme.colorBrandForegroundLink = '#FFFFFF';
 darkTheme.colorNeutralForeground2Link = '#FFFFFF';
 
+// Coming Soon component for Analytics
+const ComingSoon = () => {
+  const { t } = useTranslation();
+  return (
+    <div className="page h-full">
+      <div className="page-top-bar">
+        <div className="absolute top-2.5 left-5 z-50">
+          <TrafficLights />
+        </div>
+      </div>
+      <div className="page-header flex items-center justify-between">
+        <div className="flex items-center justify-between w-full">
+          <h1 className="text-2xl flex-shrink-0 mr-6">{t('Common.Analytics')}</h1>
+        </div>
+      </div>
+      <div className="mt-2.5 pb-28 h-full -mr-5 overflow-y-auto flex flex-col items-center justify-center">
+        <Empty image="usage" text={t('Coming Soon')} />
+        <p className="text-gray-500 mt-4">This feature is currently under development.</p>
+      </div>
+    </div>
+  );
+};
+
+// Coming Soon component for Authentication features
+const ComingSoonAuth = () => {
+  const { t } = useTranslation();
+  return (
+    <div className="page h-full">
+      <div className="page-top-bar">
+        <div className="absolute top-2.5 left-5 z-50">
+          <TrafficLights />
+        </div>
+      </div>
+      <div className="page-header flex items-center justify-between">
+        <div className="flex items-center justify-between w-full">
+          <h1 className="text-2xl flex-shrink-0 mr-6">{t('Account.SignUp')}</h1>
+        </div>
+      </div>
+      <div className="mt-2.5 pb-28 h-full -mr-5 overflow-y-auto flex flex-col items-center justify-center">
+        <Empty image="usage" text={t('Coming Soon')} />
+        <p className="text-gray-500 mt-4">This feature is currently under development.</p>
+      </div>
+    </div>
+  );
+};
+
 export default function FluentApp() {
   const { i18n } = useTranslation();
   const themeSettings = useSettingsStore((state) => state.theme);
@@ -136,6 +136,34 @@ export default function FluentApp() {
   const language = useSettingsStore((state) => state.language);
   const setTheme = useAppearanceStore((state) => state.setTheme);
   const user = useAuthStore((state) => state.user);
+
+  // Define click handler outside useEffect to avoid recreation
+  const handleGlobalClickAway = (event: MouseEvent) => {
+    // Find all open popovers
+    const popovers = document.querySelectorAll('.fui-PopoverSurface');
+    
+    // Check if click is outside any popover
+    popovers.forEach((popover) => {
+      if (popover && !popover.contains(event.target as Node)) {
+        // Try to find a close button or trigger button and click it
+        const closeBtn = popover.querySelector('[aria-label="close"]');
+        if (closeBtn && closeBtn instanceof HTMLElement) {
+          closeBtn.click();
+        }
+      }
+    });
+  };
+
+  // Add global click-away handler for popovers
+  useEffect(() => {
+    // Add the event listener
+    document.addEventListener('mousedown', handleGlobalClickAway);
+    
+    // Return cleanup function
+    return () => {
+      document.removeEventListener('mousedown', handleGlobalClickAway);
+    };
+  }, []);
 
   useEffect(() => {
     window.electron.ipcRenderer.on('native-theme-change', (_theme: unknown) => {
@@ -178,6 +206,7 @@ export default function FluentApp() {
     <FluentProvider
       theme={theme === 'light' ? lightTheme : darkTheme}
       data-theme={theme}
+      className={`theme-${theme}`}
     >
       <Router>
         {user && <AppHeader />}
@@ -199,16 +228,17 @@ export default function FluentApp() {
                   path="/knowledge/collection-form/:id?"
                   element={<KnowledgeCollectionForm />}
                 />
-                <Route path="/tool" element={<Tools />} />
+                <Route path="/tool/:id?" element={<Tool />} />
                 <Route path="/apps/:key" element={<AppLoader />} />
                 <Route path="/bookmarks" element={<Bookmarks />} />
-                <Route path="/bookmarks/:id" element={<Bookmark />} />
+                <Route path="/bookmark/:id" element={<Bookmark />} />
+                <Route path="/usage" element={<Usage />} />
                 <Route path="/user/account" element={<Account />} />
-                <Route path="/usage" element={<ComingSoon />} />
                 <Route path="/prompts" element={<Prompts />} />
                 <Route path="/prompts/form/:id?" element={<PromptForm />} />
                 <Route path="/settings" element={<Settings />} />
               </Route>
+              <Route path="*" element={<Navigate to="/chats" replace />} />
             </Routes>
             <div
               id="portal"

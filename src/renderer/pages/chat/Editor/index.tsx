@@ -167,14 +167,40 @@ export default function Editor({
         suppressContentEditableWarning={true}
         id="editor"
         ref={editorRef}
-        className="w-full outline-0 pl-2.5 pr-2.5 pb-2.5 bg-brand-surface-1 flex-grow overflow-y-auto overflow-x-hidden"
+        className="w-full outline-0 pl-2.5 pr-2.5 pb-2.5 bg-brand-surface-1 flex-grow overflow-y-auto overflow-x-hidden relative"
         onKeyDown={onKeyDown}
         onFocus={restoreRange}
         onBlur={onBlur}
         onInput={onInput}
-        style={{ resize: 'none', whiteSpace: 'pre-wrap' }}
+        style={{ 
+          resize: 'none', 
+          whiteSpace: 'pre-wrap',
+          transition: 'all 0.3s ease' 
+        }}
       />
       <div className="h-12 flex-shrink-0" />
+      
+      {/* Add global styles for recording state */}
+      <style>
+        {`
+          #editor.recording-active {
+            background-color: rgba(239, 68, 68, 0.05);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            box-shadow: 0 0 10px rgba(239, 68, 68, 0.1) inset;
+          }
+          
+          .recording-overlay {
+            /* Allow pointer events for the stop button */
+            pointer-events: auto;
+          }
+          
+          /* Button will use its own animation defined in SpeechButton.tsx */
+          .recording-stop-button {
+            pointer-events: auto;
+            cursor: pointer;
+          }
+        `}
+      </style>
     </div>
   );
 }

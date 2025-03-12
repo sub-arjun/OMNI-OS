@@ -29,6 +29,23 @@ import { ICollectionFile } from 'types/knowledge';
 import { fileSize, paddingZero } from 'utils/util';
 import useNav from 'hooks/useNav';
 
+// Generate a UUID using the browser's crypto API
+function generateUUID() {
+  // Generate a random 128-bit value as 16 bytes
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  
+  // Format it as a UUID (version 4)
+  // Set the version bits
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;  // Version 4
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;  // Variant 1
+  
+  // Convert to hex strings
+  const hexValues = Array.from(bytes).map(b => b.toString(16).padStart(2, '0'));
+  
+  // Format as UUID with hyphens
+  return `kf_${hexValues.slice(0, 4).join('')}${hexValues.slice(4, 6).join('')}${hexValues.slice(6, 8).join('')}${hexValues.slice(8, 10).join('')}${hexValues.slice(10).join('')}`;
+}
 
 export default function FileDrawer({
   collection,
@@ -43,7 +60,7 @@ export default function FileDrawer({
   const navigate = useNav();
   const { notifyError, notifySuccess } = useToast();
   const getPalette = useAppearanceStore((state) => state.getPalette);
-  const { listFiles, deleteFile } = useKnowledgeStore();
+  const { listFiles, deleteFile, createFile } = useKnowledgeStore();
 
   const [files, setFiles] = useState<File[]>([]);
   const [fileList, setFileList] = useState<ICollectionFile[]>([]);
@@ -66,40 +83,243 @@ export default function FileDrawer({
     });
     setFiles([]);
     setProgresses({});
-    window.electron.ipcRenderer.on(
-      'knowledge-import-progress',
-      (filePath: unknown, total: unknown, done: unknown) => {
-        const percent = Math.ceil(((done as number) / (total as number)) * 100);
-        setProgresses((prev) => ({
-          ...prev,
-          [filePath as string]: percent,
-        }));
-      }
-    );
+    
+    // Listener for import progress
+    const progressHandler = (filePath: unknown, total: unknown, done: unknown) => {
+      const percent = Math.ceil(((done as number) / (total as number)) * 100);
+      setProgresses((prev) => ({
+        ...prev,
+        [filePath as string]: percent,
+      }));
+    };
+    
+    window.electron.ipcRenderer.on('knowledge-import-progress', progressHandler);
 
     listFiles(collection.id).then((files: any[]) => {
       setFileList(files);
     });
 
     return () => {
-      window.electron.ipcRenderer.unsubscribeAll('knowledge-import-progress');
+      window.electron.ipcRenderer.unsubscribe('knowledge-import-progress', progressHandler);
     };
   }, [collection]);
 
   const importFiles = async (files: File[]) => {
+    // Reset files
     setFiles(files);
+    
     const collectionId = collection.id;
-    for (const file of files) {
-      await window.electron.knowledge.importFile({
-        file: {
-          id: typeid('kf').toString(),
-          name: file.name,
-          path: file.path,
-          size: file.size,
-          type: file.type
-        },
-        collectionId,
-      });
+    
+    // Keep track of files that were processed successfully to avoid duplicates
+    const processedFiles = new Set<string>();
+    
+    // Also track file IDs to prevent duplicates
+    const usedFileIds = new Set<string>();
+    
+    // Reference to track successful imports
+    const importedCount = { value: 0 };
+    
+    // To prevent multiple simultaneous imports of the same file, store import promises
+    const pendingImports = new Map<string, Promise<any>>();
+    
+    // Track files already being created in the database to avoid duplicate operations
+    const filesBeingCreated = new Map<string, Promise<any>>();
+    
+    // Set up a listener for when files are successfully imported
+    const successHandler = async (event: any, data: any) => {
+      try {
+        // Create the file record in the database
+        if (data && data.file && data.collectionId) {
+          const fileId = data.file.id;
+          
+          // Check if we already processed this file ID
+          if (usedFileIds.has(fileId)) {
+            console.log(`Already processed file with ID ${fileId}, skipping database creation`);
+            return;
+          }
+          
+          // Check if this file is currently being created
+          if (filesBeingCreated.has(fileId)) {
+            console.log(`File creation for ${fileId} already in progress, waiting...`);
+            try {
+              // Wait for the existing creation to finish
+              await filesBeingCreated.get(fileId);
+              // Since it's already created, we don't need to do anything else
+              usedFileIds.add(fileId);
+              return;
+            } catch (err) {
+              console.error(`Error waiting for file creation: ${err}`);
+              // Continue with creation as the previous attempt may have failed
+            }
+          }
+          
+          // Add a small delay to avoid race conditions with multiple successive requests
+          await new Promise(resolve => setTimeout(resolve, 50));
+          
+          // Create a promise for the file creation process
+          const createPromise = (async () => {
+            try {
+              await createFile({
+                id: fileId,
+                collectionId: data.collectionId,
+                name: data.file.name,
+                size: data.file.size,
+                numOfChunks: data.numOfChunks || 0
+              });
+              
+              // Increment counter of successfully imported files
+              importedCount.value++;
+              
+              // Only update the file list after a successful file creation
+              const updatedFiles = await listFiles(collection.id);
+              setFileList(updatedFiles);
+              
+              // Only show success message for the first file to avoid flooding
+              if (importedCount.value === 1) {
+                notifySuccess(t('Knowledge.Notification.FileImported'));
+              }
+              
+              // Mark this file ID as used
+              usedFileIds.add(fileId);
+              
+              return true;
+            } catch (fileCreateError: any) {
+              console.error('Error creating file record:', fileCreateError);
+              
+              // Only show error if it's not a duplicate (those are handled gracefully)
+              if (!fileCreateError.message?.includes('UNIQUE constraint failed') && 
+                  !fileCreateError.message?.includes('already exists')) {
+                notifyError(`${t('Knowledge.Notification.ImportFailed')}: ${data.file.name}`);
+              } else {
+                // For duplicate errors, still refresh the file list as it might have been created
+                console.log(`Duplicate file detected: ${data.file.name}, but will still refresh file list`);
+                
+                // Count as success since the file exists
+                importedCount.value++;
+                
+                // Refresh file list to show the existing file
+                const updatedFiles = await listFiles(collection.id);
+                setFileList(updatedFiles);
+                
+                // Mark this file ID as used to prevent further attempts
+                usedFileIds.add(fileId);
+              }
+              
+              return false;
+            } finally {
+              // Remove from the map of files being created
+              filesBeingCreated.delete(fileId);
+            }
+          })();
+          
+          // Store the creation promise
+          filesBeingCreated.set(fileId, createPromise);
+          
+          // Await the creation
+          await createPromise;
+        }
+      } catch (err) {
+        console.error('Failed to process import success:', err);
+        // Only show error message if we haven't already imported files successfully
+        if (importedCount.value === 0) {
+          notifyError(t('Knowledge.Notification.ImportFailed'));
+        }
+      }
+    };
+    
+    try {
+      // First filter out duplicates by name+path combination
+      const uniqueFiles = files.filter((file, index, self) => 
+        index === self.findIndex(f => f.name === file.name && f.path === file.path)
+      );
+      
+      // Only proceed if we have files to import
+      if (uniqueFiles.length === 0) {
+        console.log('No unique files to import');
+        return;
+      }
+      
+      // Register listener for import success - ensure we register only once per import batch
+      window.electron.ipcRenderer.on('knowledge-import-success', successHandler);
+      
+      // Keep track of all import promises to wait for all to complete
+      const allImportPromises: Promise<any>[] = [];
+      
+      for (const file of uniqueFiles) {
+        // Skip already processed files with the same name and path
+        const fileKey = `${file.name}:${file.path}`;
+        if (processedFiles.has(fileKey)) {
+          continue;
+        }
+        
+        // Mark file as being processed to prevent duplicates
+        processedFiles.add(fileKey);
+        
+        try {
+          // Generate a truly unique ID using our UUID generator
+          const fileId = generateUUID();
+          
+          // Skip if this file ID is already being processed
+          if (pendingImports.has(fileId)) {
+            console.log(`Already importing file with ID ${fileId}, skipping duplicate import`);
+            continue;
+          }
+          
+          console.log(`Starting import for file ${file.name} with ID ${fileId}`);
+          
+          // Store the import promise to track concurrent imports
+          const importPromise = window.electron.knowledge.importFile({
+            file: {
+              id: fileId,
+              name: file.name,
+              path: file.path,
+              size: file.size,
+              type: file.type || file.name.split('.').pop()?.toLowerCase() || ''
+            },
+            collectionId,
+          });
+          
+          pendingImports.set(fileId, importPromise);
+          
+          // Add to all promises to track
+          allImportPromises.push(importPromise);
+          
+          // Execute the import and handle result
+          const result = await importPromise;
+          
+          // Check the result if it's an object with success property
+          if (result && typeof result === 'object') {
+            if (result.success === false) {
+              notifyError(`${t('Knowledge.Notification.ImportFailed')}: ${file.name} - ${result.error || t('Common.UnknownError')}`);
+            } else if (result.existing) {
+              console.log(`File already exists in database: ${file.name}`);
+              // File was already in the database, count as success
+              importedCount.value++;
+            }
+          }
+        } catch (error: any) {
+          console.error(`Error importing file:`, error);
+          // Don't show error for this file if we've already imported files successfully
+          if (importedCount.value === 0) {
+            notifyError(`${t('Knowledge.Notification.ImportFailed')}: ${file.name} - ${error.message || t('Common.UnknownError')}`);
+          }
+        }
+      }
+      
+      // Wait for all imports to complete
+      await Promise.allSettled(allImportPromises);
+      
+      // If we imported multiple files, show a summary notification
+      if (importedCount.value > 1) {
+        notifySuccess(t('Knowledge.Notification.FilesImported', { count: importedCount.value }));
+      }
+    } finally {
+      // Make sure to remove event listener after all files are processed, but with a longer delay
+      // to allow any pending success events to be processed
+      setTimeout(() => {
+        console.log('Removing knowledge-import-success event listener');
+        window.electron.ipcRenderer.unsubscribe('knowledge-import-success', successHandler);
+      }, 3000); // Use a longer timeout to ensure all events are processed
     }
   };
 

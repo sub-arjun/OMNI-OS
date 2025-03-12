@@ -31,57 +31,125 @@ interface ISearchResultItem {
 const extractMatchedSnippet = (msgs: IChatMessage[], keywords: string[]) => {
   const radius = 50;
   const extract = (text: string, words: string[]) => {
-    const indices = words
-      .map((word) => {
-        const pos = text.indexOf(word);
-        return {
+    if (!text) return ''; // Skip if text is empty or undefined
+    
+    // Convert text and words to lowercase for case-insensitive matching
+    const lowerText = text.toLowerCase();
+    const lowerWords = words.map(word => word.trim().toLowerCase()).filter(w => w !== '');
+    
+    if (lowerWords.length === 0) return '';
+    
+    // Find all occurrences of all words
+    const allMatches = [];
+    for (const word of lowerWords) {
+      let pos = 0;
+      while (pos < lowerText.length) {
+        const foundPos = lowerText.indexOf(word, pos);
+        if (foundPos === -1) break;
+        
+        allMatches.push({
           word,
-          pos,
-          left: Math.max(pos - radius, 0),
-          right: pos + word.length + radius,
-        };
-      })
-      .filter((i) => i.pos > -1)
-      .sort((a, b) => a.pos - b.pos);
-    const result = [];
-    for (let i = 0; i < indices.length; i += 1) {
-      const index = indices[i];
-      let { left } = index;
-      const afterStart = index.pos + index.word.length;
-      let join = '';
-      if (i > 0 && left < indices[i - 1].right) {
-        left = indices[i - 1].right;
-        join = '...';
+          pos: foundPos,
+          left: Math.max(foundPos - radius, 0),
+          right: foundPos + word.length + radius,
+          originalWord: word // Keep the original word for highlighting
+        });
+        
+        pos = foundPos + word.length;
       }
-      const snippet = `${text.substring(left, left + index.pos - left)}${
-        index.word
-      }${text.substring(afterStart, afterStart + radius)}`
-        .replace(/\r?\n|\r/g, '')
-        .replaceAll(index.word, `<mark>${index.word}</mark>`);
-      result.push(snippet);
-      result.push(join);
     }
-    return result.join('');
+    
+    // If no matches found, return empty string
+    if (allMatches.length === 0) return '';
+    
+    // Sort by position
+    allMatches.sort((a, b) => a.pos - b.pos);
+    
+    // Merge overlapping snippets
+    const mergedSegments = [];
+    let currentSegment = allMatches[0];
+    
+    for (let i = 1; i < allMatches.length; i++) {
+      const nextSegment = allMatches[i];
+      
+      // If segments overlap, merge them
+      if (nextSegment.left <= currentSegment.right) {
+        currentSegment.right = Math.max(currentSegment.right, nextSegment.right);
+      } else {
+        // No overlap, add current segment to results and start a new one
+        mergedSegments.push(currentSegment);
+        currentSegment = nextSegment;
+      }
+    }
+    
+    // Add the last segment
+    mergedSegments.push(currentSegment);
+    
+    // Extract snippets from each merged segment
+    const snippets = mergedSegments.map(segment => {
+      const start = segment.left;
+      const end = Math.min(segment.right, text.length);
+      let snippet = text.substring(start, end).replace(/\r?\n|\r/g, ' ');
+      
+      // Add ellipsis if we're not at the beginning/end of text
+      if (start > 0) snippet = '...' + snippet;
+      if (end < text.length) snippet = snippet + '...';
+      
+      return snippet;
+    });
+    
+    // Join all snippets 
+    let result = snippets.join(' ... ');
+    
+    // Highlight all words in the result
+    for (const word of lowerWords) {
+      // Use regex with word boundary when possible for better matching
+      const regex = new RegExp(`\\b${word}\\b`, 'gi');
+      if (regex.test(result)) {
+        result = result.replace(regex, match => `<mark>${match}</mark>`);
+      } else {
+        // Fallback to simple replacement if word boundary doesn't match
+        const regex = new RegExp(word, 'gi');
+        result = result.replace(regex, match => `<mark>${match}</mark>`);
+      }
+    }
+    
+    return result;
   };
+  
   const result: ISearchResultItem[] = [];
+  const processedMessages = new Set(); // Track processed message IDs
+  
   msgs.forEach((msg: IChatMessage) => {
+    // Process prompt
     const promptSnippet = extract(msg.prompt, keywords);
     if (promptSnippet !== '') {
-      result.push({
-        key: `prompt-${msg.id}`,
-        content: promptSnippet,
-        chatId: msg.chatId,
-      });
+      const promptKey = `prompt-${msg.id}`;
+      if (!processedMessages.has(promptKey)) {
+        result.push({
+          key: promptKey,
+          content: promptSnippet,
+          chatId: msg.chatId,
+        });
+        processedMessages.add(promptKey);
+      }
     }
+    
+    // Process reply
     const replySnippet = extract(msg.reply, keywords);
     if (replySnippet !== '') {
-      result.push({
-        key: `reply-${msg.id}`,
-        content: replySnippet,
-        chatId: msg.chatId,
-      });
+      const replyKey = `reply-${msg.id}`;
+      if (!processedMessages.has(replyKey)) {
+        result.push({
+          key: replyKey,
+          content: replySnippet,
+          chatId: msg.chatId,
+        });
+        processedMessages.add(replyKey);
+      }
     }
   });
+  
   return result;
 };
 
@@ -116,14 +184,28 @@ export default function SearchDialog(args: {
             setMessages([]);
             return;
           }
-          const keywords = filter.split(' ');
+          
+          // Split into words and remove empty strings
+          const keywords = filter.split(' ')
+            .map(word => word.trim())
+            .filter(word => word !== '');
+            
+          if (keywords.length === 0) {
+            setMessages([]);
+            return;
+          }
+          
           const whereStats: string[] = [];
           const params: string[] = [];
           
-          // Add keyword search conditions
+          // Build more precise query
+          // Each keyword must appear in either prompt OR reply
+          // This will return messages that contain ALL keywords (in prompt, reply, or both)
           keywords.forEach((word: string) => {
+            if (word === '') return;
+            
             const param = `%${word.trim()}%`;
-            whereStats.push('(prompt like ? OR reply like ?)');
+            whereStats.push('(prompt LIKE ? OR reply LIKE ?)');
             params.push(param);
             params.push(param);
           });
@@ -134,16 +216,18 @@ export default function SearchDialog(args: {
             params.push(chatId);
           }
 
-          const sql = `SELECT id, chatId, prompt, reply FROM messages
+          // Use DISTINCT to avoid duplicate messages
+          const sql = `SELECT DISTINCT id, chatId, prompt, reply FROM messages
             WHERE ${whereStats.join(' AND ')}
-            ORDER BY messages.createdAt ASC
-            LIMIT ${singleChatSearch ? 50 : 10}
+            ORDER BY createdAt DESC
+            LIMIT ${singleChatSearch ? 50 : 20}
           `;
           
           const $messages = (await window.electron.db.all(
             sql,
             params
           )) as IChatMessage[];
+          
           const searchResult = extractMatchedSnippet($messages, keywords);
           setMessages(searchResult);
         },
@@ -165,9 +249,11 @@ export default function SearchDialog(args: {
   };
 
   const jumpTo = useCallback((chatId: string, key: string) => {
-    navigate(`/chats/${chatId}/${key}`);
+    // Extract the message ID from the key (remove "prompt-" or "reply-" prefix)
+    const messageId = key.includes('-') ? key.split('-')[1] : key;
+    navigate(`/chats/${chatId}/${messageId}`);
     setOpen(false);
-  }, []);
+  }, [navigate, setOpen]);
 
   return (
     <Dialog open={open}>

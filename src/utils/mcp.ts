@@ -6,20 +6,28 @@ import { flatten, isUndefined } from "lodash";
 import { MCPArgParameter, MCPArgType, MCPEnvParameter, MCPEnvType, IMCPServerParameter } from "types/mcp";
 
 export function getParameters(parmas: string[]): IMCPServerParameter[] {
-  const result:IMCPServerParameter[] = []
+  const result: IMCPServerParameter[] = [];
   if (!parmas) {
     return result;
   }
+  
+  // Regular expression to match template parameters
   const pattern = /\{\{(?<n>[^@]+)@(?<type>[^:]+)(::(?<description>[^}]*)?)?\}\}/;
-  parmas.forEach((param:string)=>{
-    const match = param.match(pattern);
-    if (match && match.groups) {
-      result.push({
-            name: match.groups.name,
-            type: match.groups.type as MCPEnvType|MCPArgType,
-            description: match.groups.description||'',
-        }) ;
-  }});
+  
+  parmas.forEach((param: string) => {
+    // Check if this string contains a parameter template
+    if (param.includes('{{') && param.includes('}}')) {
+      const match = param.match(pattern);
+      if (match && match.groups) {
+        result.push({
+          name: match.groups.n,
+          type: match.groups.type as MCPEnvType|MCPArgType,
+          description: match.groups.description || '',
+        });
+      }
+    }
+  });
+  
   return result;
 }
 
@@ -82,16 +90,32 @@ export function FillEnv(
   env: Record<string, string> | undefined,
   params: { [key: string]: string }
 ): Record<string, string> {
-  if(!env) return{}
-  const pattern = /\{\{(?<name>[^@]+)@(?<type>[^:]+)(::(?<description>[^}]*)?)?\}\}/;
-  let _env = {...env};
-  const envKeys = Object.keys(env)
-  for(const envKey of envKeys){
-    const envItem = env[envKey]
-    const match = envItem.match(pattern);
-    if(match && match.groups){
-      _env[envKey] = params[match.groups.name]||''
+  if (!env) return {};
+  
+  // Pattern to match parameter placeholders
+  const pattern = /\{\{(?<n>[^@]+)@(?<type>[^:]+)(::(?<description>[^}]*)?)?\}\}/;
+  
+  // Create a copy of the environment variables
+  let filledEnv = {...env};
+  
+  // Process each environment variable
+  const envKeys = Object.keys(env);
+  for (const envKey of envKeys) {
+    const envValue = env[envKey];
+    
+    // Skip if the value is not a string
+    if (typeof envValue !== 'string') continue;
+    
+    // Check if this contains a parameter template
+    if (envValue.includes('{{') && envValue.includes('}}')) {
+      const match = envValue.match(pattern);
+      if (match && match.groups) {
+        const paramName = match.groups.n;
+        // Replace with the parameter value or empty string if not found
+        filledEnv[envKey] = params[paramName] || '';
+      }
     }
   }
-  return  _env
+  
+  return filledEnv;
 }

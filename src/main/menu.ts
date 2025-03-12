@@ -163,7 +163,7 @@ export default class MenuBuilder {
         {
           label: 'Community Discussions',
           click() {
-            shell.openExternal('https://omni-os.canny.io/');
+            shell.openExternal('https://omni-os.canny.io/omni');
           },
         },
       ],

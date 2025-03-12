@@ -321,6 +321,24 @@ div.think{
  -webkit-backdrop-filter: blur(8px);
  border: 1px solid rgba(var(--color-border), 0.2);
  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+ 
+ .font-lg {
+   font-size: 15px;
+   line-height: 1.8;
+   
+   * {
+     font-size: 15px;
+     line-height: 1.8;
+   }
+   
+   code, pre {
+     font-size: 14px;
+     
+     * {
+       font-size: 14px;
+     }
+   }
+ }
 }
 [data-theme='dark'] div.think{
   color: #999;

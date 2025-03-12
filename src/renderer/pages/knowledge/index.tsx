@@ -7,12 +7,18 @@ import Grid from './Grid';
 import { ICollection } from 'types/knowledge';
 import useKnowledgeStore from 'stores/useKnowledgeStore';
 import { debounce } from 'lodash';
+import OmniBaseConnectionDialog from 'renderer/components/knowledge/OmniBaseConnectionDialog';
+import { 
+  CloudSync24Regular,
+  Add24Regular,
+} from '@fluentui/react-icons';
 
 export default function Knowledge() {
   const { t } = useTranslation();
   const navigate = useNav();
   const { listCollections, collectionChangedAt } = useKnowledgeStore();
   const [collections, setCollections] = useState<ICollection[]>([]);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   const debouncedLoad= useRef(
     debounce(() => {
@@ -26,6 +32,14 @@ export default function Knowledge() {
     debouncedLoad();
   }, [collectionChangedAt]);
 
+  const handleDialogOpenChange = (open: boolean) => {
+    setDialogOpen(open);
+  };
+
+  const handleDialogSuccess = () => {
+    debouncedLoad();
+  };
+
   return (
     <div className="page h-full">
       <div className="page-top-bar"></div>
@@ -34,8 +48,17 @@ export default function Knowledge() {
           <h1 className="text-2xl flex-shrink-0 mr-6">{t('Common.Knowledge')}</h1>
           <div className="flex justify-end w-full items-center gap-2">
             <Button
+              appearance="outline"
+              onClick={() => setDialogOpen(true)}
+              icon={<CloudSync24Regular />}
+              title={t('Knowledge.SyncWithOmniBase')}
+            >
+              {t('Knowledge.Sync')}
+            </Button>
+            <Button
               appearance="primary"
               onClick={() => navigate('/knowledge/collection-form')}
+              icon={<Add24Regular />}
             >
               {t('Common.New')}
             </Button>
@@ -51,6 +74,12 @@ export default function Knowledge() {
           <Empty image="knowledge" text={t('\"You know nothing Jon Snow!\" ~ Redhead lady from spiky chair gameshow.')} />
         )}
       </div>
+      
+      <OmniBaseConnectionDialog 
+        open={dialogOpen}
+        onOpenChange={handleDialogOpenChange}
+        onSuccess={handleDialogSuccess}
+      />
     </div>
   );
 }
