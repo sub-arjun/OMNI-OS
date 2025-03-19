@@ -40,6 +40,9 @@ export default function useChatContext(): IChatContext {
       const { api } = useSettingsStore.getState();
       const defaultModel = { name: api.model, label: api.model } as IChatModel;
       
+      // Check if a specialized model is selected
+      const { specializedModel } = useSettingsStore.getState();
+      
       // For Ollama, use the model name from our dedicated storage
       if (api.provider === 'Ollama') {
         // Check our dedicated storage first
@@ -97,6 +100,78 @@ export default function useChatContext(): IChatContext {
           isDefault: true,
           group: 'Open Source'
         } as IChatModel;
+      }
+      
+      // If specialized model is selected, find and return the appropriate model
+      if (specializedModel && api.provider === 'OMNI') {
+        try {
+          let specializedModelObj: IChatModel | undefined;
+          
+          // Find the specialized model based on its type
+          if (specializedModel === 'Deep-Searcher-R1') {
+            // Look for Deep-Searcher-Pro model instead of Sonar Reasoning
+            specializedModelObj = getChatModel(api.provider, 'Deep-Searcher-Pro');
+            if (specializedModelObj) {
+              console.log(`Found Deep-Searcher-Pro model: ${specializedModelObj.name}`);
+            } else {
+              console.log('Deep-Searcher-Pro model not found, checking by model name');
+              // Fall back to direct model name lookup if needed
+              const provider = getChatProvider(api.provider);
+              if (provider?.chat?.models) {
+                // Look through all models manually
+                for (const key in provider.chat.models) {
+                  const model = provider.chat.models[key];
+                  if (model.name === 'perplexity/sonar-reasoning-pro') {
+                    specializedModelObj = model;
+                    console.log(`Found model by name: ${model.name}`);
+                    break;
+                  }
+                }
+              }
+            }
+          } else if (specializedModel === 'Deep-Thinker-R1') {
+            specializedModelObj = getChatModel(api.provider, 'Deep-Thinker-R1');
+            if (!specializedModelObj || !specializedModelObj.name) {
+              // Fall back to direct model name lookup if needed
+              const provider = getChatProvider(api.provider);
+              if (provider?.chat?.models) {
+                // Look through all models manually
+                for (const key in provider.chat.models) {
+                  const model = provider.chat.models[key];
+                  if (model.name === 'perplexity/r1-1776') {
+                    specializedModelObj = model;
+                    break;
+                  }
+                }
+              }
+            }
+          } else if (specializedModel === 'Flash-2.0') {
+            specializedModelObj = getChatModel(api.provider, 'Flash-2.0');
+            if (!specializedModelObj || !specializedModelObj.name) {
+              // Fall back to direct model name lookup if needed
+              const provider = getChatProvider(api.provider);
+              if (provider?.chat?.models) {
+                // Look through all models manually
+                for (const key in provider.chat.models) {
+                  const model = provider.chat.models[key];
+                  if (model.name === 'google/gemini-2.0-flash-001') {
+                    specializedModelObj = model;
+                    break;
+                  }
+                }
+              }
+            }
+          }
+          
+          if (specializedModelObj && specializedModelObj.name) {
+            console.log(`Using specialized model: ${specializedModel}, Name: ${specializedModelObj.name}, Label: ${specializedModelObj.label}`);
+            return specializedModelObj;
+          } else {
+            console.log(`Could not find specialized model for ${specializedModel}, falling back to default`);
+          }
+        } catch (err) {
+          console.error('Error finding specialized model:', err);
+        }
       }
       
       let model = getChatModel(api.provider, api.model) || defaultModel;
@@ -175,10 +250,10 @@ export default function useChatContext(): IChatContext {
       const { getToolState } = useSettingsStore.getState();
       const model = getModel();
       let toolEnabled = getToolState(getProvider().name, model.name);
-      if (isUndefined(toolEnabled)) {
+      if (typeof toolEnabled === 'undefined') {
         toolEnabled = model.toolEnabled || false;
       }
-      return toolEnabled;
+      return Boolean(toolEnabled);
     };
 
     const getCtxMessages = () => {

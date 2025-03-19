@@ -336,6 +336,17 @@ ${prompt}
             ...new Set(citedChunks.map((k: any) => k.fileId)),
           ];
           const citedFiles = files.filter((f) => citedFileIds.includes(f.id));
+          
+          // Debug citations from the result
+          if (result.citations) {
+            console.log('Citations received in onChatComplete:', result.citations);
+            console.log('Citations type:', typeof result.citations);
+            console.log('Citations is array:', Array.isArray(result.citations));
+            console.log('Citations length:', result.citations.length);
+          } else {
+            console.log('No citations in result object');
+          }
+          
           await updateMessage({
             id: msg.id,
             reply: getNormalContent(result.content as string),
@@ -366,10 +377,25 @@ ${prompt}
         updateStates($chatId, { loading: false, runningTool: null });
       };
       chatService.onComplete(onChatComplete);
+
+      // Create refs to track the latest content and reasoning to prevent re-renders
+      const lastContentRef = { current: '' };
+      const lastReasoningRef = { current: '' };
+      
       chatService.onReading((content: string, reasoning?: string) => {
-        appendReply(msg.id, content || '', reasoning || '');
-        if (!isUserScrollingRef.current) {
-          scrollToBottom();
+        // Only update if the content or reasoning actually changed
+        // This prevents unnecessary state updates
+        const newContent = content || '';
+        const newReasoning = reasoning || '';
+        
+        if (newContent !== lastContentRef.current || newReasoning !== lastReasoningRef.current) {
+          lastContentRef.current = newContent;
+          lastReasoningRef.current = newReasoning;
+          appendReply(msg.id, newContent, newReasoning);
+          
+          if (!isUserScrollingRef.current) {
+            scrollToBottom();
+          }
         }
       });
       chatService.onToolCalls((toolName: string) => {

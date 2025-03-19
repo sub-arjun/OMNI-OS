@@ -224,6 +224,12 @@ export interface IPrompt {
   userMessage: string;
   maxTokens?: number;
   temperature?: number;
+  systemVariables?: string[];
+  userVariables?: string[];
+  originalSystemMessage?: string;
+  originalUserMessage?: string;
+  filledSystemVars?: {[key: string]: string};
+  filledUserVars?: {[key: string]: string};
 }
 
 export interface IStage {

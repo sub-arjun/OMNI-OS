@@ -221,7 +221,13 @@ ipcMain.handle('get-native-theme', () => {
 });
 
 ipcMain.handle('get-system-language', () => {
-  return app.getLocale();
+  try {
+    // Use a safer approach with fallback
+    return app.getLocale() || 'en-US';
+  } catch (error) {
+    logging.error('Error getting system locale:', error);
+    return 'en-US';
+  }
 });
 
 ipcMain.handle('get-embedding-model-file-status', () => {
@@ -701,6 +707,9 @@ const createWindow = async () => {
     webPreferences: {
       nodeIntegration: true,
       webSecurity: false,
+      contextIsolation: true,
+      backgroundThrottling: false,
+      spellcheck: false, // Disable spellcheck to avoid locale issues
       preload: app.isPackaged
         ? path.join(__dirname, 'preload.js')
         : path.join(__dirname, '../../.erb/dll/preload.js'),

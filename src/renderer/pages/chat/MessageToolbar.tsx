@@ -72,7 +72,8 @@ export default function MessageToolbar({ message }: { message: IChatMessage }) {
   };
 
   const copy = () => {
-    let content = `user: \n${message.prompt}\n\nassistant:\n${message.reply}`;
+    // Just copy the assistant's reply without prefixes
+    let content = `${message.reply}`;
     
     // Add citations if they exist
     try {
@@ -97,7 +98,7 @@ export default function MessageToolbar({ message }: { message: IChatMessage }) {
       if (message.citedFiles) {
         const files = JSON.parse(message.citedFiles || '[]');
         if (files.length > 0) {
-          content += '\n' + t('Common.References') + ':\n';
+          content += '\n\n' + t('Common.References') + ':\n';
           files.forEach((file: string, index: number) => {
             content += `[${index + 1}] ${file}\n`;
           });

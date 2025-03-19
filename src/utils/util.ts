@@ -6,6 +6,325 @@ import {
 import { isArray, isNull } from 'lodash';
 import useSettingsStore from '../stores/useSettingsStore';
 
+// Add this near the top of the file, after imports
+const REPLICATE_API_KEY = ;
+
+// Declare global flag for active speech to text processing
+declare global {
+  interface Window {
+    _activeSpeechProcessing?: boolean;
+    _lastProcessingStartTime?: number;
+  }
+}
+
+/**
+ * Enhances a system prompt using prompt engineering techniques via Replicate API
+ * @param systemPrompt - The system prompt to enhance
+ * @returns A promise that resolves to the enhanced system prompt
+ */
+export async function enhanceSystemPrompt(systemPrompt: string): Promise<string> {
+  if (!systemPrompt || systemPrompt.trim() === '') {
+    throw new Error('System prompt cannot be empty');
+  }
+
+  try {
+    const engineeringPrompt = `You are an expert prompt engineer specializing in agentic AI assistants. Your task is to enhance the following system prompt to make it more effective, detailed, and actionable.
+
+Apply these prompt engineering techniques:
+1. Define Clear Goals and Constraints:
+   - Clarify the assistant's role, objectives, and limitations
+   - Use specific, unambiguous language
+   - Outline explicit boundaries and constraints
+
+2. Structure for Adaptability and Task Delegation:
+   - Encourage step-by-step planning for complex tasks
+   - Enable role-based reasoning if appropriate
+   - Promote adaptability to changing contexts
+
+3. Optimize Autonomy While Maintaining Accuracy:
+   - Give permission for appropriate autonomous actions
+   - Emphasize fact-checking and tool usage when needed
+   - Include self-review mechanisms
+   - Set clear quality criteria for responses
+
+4. Handle Complex Multi-Step Workflows:
+   - Structure the workflow with clear stages
+   - Maintain context across steps
+   - Allow for iteration and refinement
+
+5. Ensure Ethical Decision-Making:
+   - Include relevant ethical guidelines
+   - Address how to handle sensitive scenarios
+   - Guard against misuse
+   - Promote fairness and transparency
+
+6. Improve Robustness and Reliability:
+   - Anticipate errors and unknowns
+   - Provide fallback strategies
+   - Maintain consistency in responses
+
+7. IMPORTANT: Return ONLY the enhanced prompt without any explanation, introduction, or additional text
+8. IMPORTANT: Format your response as a well-structured system prompt, not as a casual conversation
+9. IMPORTANT: Keep Jinja2 syntax for variables if used in the original prompt i.e {{variable_name}}
+10. IMPORTANT: Make the agent more effective but don't make it do things the user doesn't specify - focus on making it work harder on exactly what was asked for
+11. IMPORTANT: Do NOT add information or tasks that weren't specifically requested by the user`;
+
+    const response = await fetch('https://api.replicate.com/v1/models/meta/meta-llama-3-8b-instruct/predictions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${REPLICATE_API_KEY}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'wait'
+      },
+      body: JSON.stringify({
+        input: {
+          top_k: 0,
+          top_p: 0.95,
+          prompt: engineeringPrompt,
+          max_tokens: 512,
+          temperature: 0.7,
+          stream: false,
+          system_prompt: `You are a helpful assistant. Your task is to enhance this system prompt:
+
+${systemPrompt}`,
+          length_penalty: 1,
+          max_new_tokens: 512,
+          stop_sequences: "<|end_of_text|>,<|eot_id|>",
+          prompt_template: "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n{system_prompt}<|eot_id|><|start_header_id|>user<|end_header_id|>\n\n{prompt}<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n",
+          presence_penalty: 0,
+          log_performance_metrics: false
+        }
+      })
+    });
+
+    const initialData = await response.json();
+    
+    if (initialData.error) {
+      throw new Error(initialData.error);
+    }
+
+    // If the response is still processing, wait for it to complete
+    if (initialData.status === 'processing') {
+      return await pollForEnhancedPrompt(initialData.id);
+    }
+    
+    // Process and clean up the output
+    let enhancedPrompt = initialData.output || systemPrompt;
+    
+    // If output is an array, join it with newlines
+    if (Array.isArray(enhancedPrompt)) {
+      enhancedPrompt = enhancedPrompt.join('');
+    }
+    
+    // Skip text cleanup entirely - just return the raw response
+    return enhancedPrompt;
+  } catch (error) {
+    console.error('Failed to enhance system prompt:', error);
+    throw error;
+  }
+}
+
+// Helper function to poll for the enhanced prompt result
+async function pollForEnhancedPrompt(predictionId: string): Promise<string> {
+  const maxAttempts = 30; // Maximum polling attempts
+  const delay = 1000; // Delay between polls in ms
+  
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      // Wait before polling
+      await new Promise(resolve => setTimeout(resolve, delay));
+      
+      // Use the correct URL format for the Llama 3 model predictions
+      const response = await fetch(`https://api.replicate.com/v1/predictions/${predictionId}`, {
+        headers: {
+          'Authorization': `Bearer ${REPLICATE_API_KEY}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      const data = await response.json();
+      
+      if (data.status === 'succeeded') {
+        // Process and clean up the output
+        let enhancedPrompt = data.output || '';
+        
+        // If output is an array, join it with simple concatenation
+        if (Array.isArray(enhancedPrompt)) {
+          enhancedPrompt = enhancedPrompt.join('');
+        }
+        
+        // Skip cleanup entirely - return raw response
+        return enhancedPrompt;
+      } else if (data.status === 'failed') {
+        throw new Error(`Prompt enhancement failed: ${data.error}`);
+      }
+      // Continue polling if still processing
+    } catch (error) {
+      console.error('Error polling for enhanced prompt:', error);
+      throw error;
+    }
+  }
+  
+  throw new Error('Prompt enhancement timed out');
+}
+
+/**
+ * Cleans up text from the API to remove formatting issues
+ */
+function cleanupPromptText(text: string): string {
+  if (!text) return '';
+  
+  // Remove repeated commas
+  text = text.replace(/,\s*,+/g, ',');
+  
+  // Remove extra spaces after commas
+  text = text.replace(/,\s{2,}/g, ', ');
+  
+  // Fix common formatting issues with LLM responses
+  text = text.replace(/^(?:Enhanced prompt:|Here is the enhanced system prompt:|Enhanced system prompt:)/i, '').trim();
+  
+  // If the response starts with quotes, remove them
+  text = text.replace(/^["'](.+)["']$/s, '$1');
+  
+  // Remove trailing punctuation if it looks like the model added it
+  text = text.replace(/[.!]\s*$/g, '');
+  
+  // First check if this is a run-together text issue
+  // Count the average word length - if it's very high, we likely have run-together words
+  const words = text.split(/\s+/);
+  const avgWordLength = words.reduce((sum, word) => sum + word.length, 0) / (words.length || 1);
+  
+  // If average word length is very high (> 10), we likely have run-together words
+  if (avgWordLength > 10) {
+    text = separateRunTogetherWords(text);
+  }
+  
+  // Fix camelCase or PascalCase words that should be separate words
+  // Look for lowercase followed by uppercase or numbers followed by uppercase
+  text = text.replace(/([a-z])([A-Z])/g, '$1 $2');
+  text = text.replace(/([0-9])([A-Z])/g, '$1 $2');
+  
+  // Also break up words where lowercase letters follow uppercase (e.g., "YOUare" -> "YOU are")
+  text = text.replace(/([A-Z])([A-Z][a-z])/g, '$1 $2');
+  
+  // Break up adjacent words that form clear dictionary words
+  // This is a heuristic approach that splits at common word boundaries
+  const commonPrefixes = ['and', 'or', 'the', 'with', 'to', 'in', 'on', 'for', 'of', 'a'];
+  for (const prefix of commonPrefixes) {
+    const regex = new RegExp(`(${prefix})([a-z][a-z][a-z]+)`, 'gi');
+    text = text.replace(regex, '$1 $2');
+  }
+  
+  // For longer run-on sequences, try a different approach
+  // Look for patterns where part of a word could be its own word
+  // For example: "expertisein" -> expertise + in
+  text = text.replace(/([a-z]{5,})([a-z]{2,3})\b/g, (match, p1, p2) => {
+    // Only split if p2 is a common short word
+    if (['in', 'on', 'at', 'by', 'to', 'of', 'and', 'or', 'the', 'for'].includes(p2.toLowerCase())) {
+      return `${p1} ${p2}`;
+    }
+    return match;
+  });
+  
+  // Extreme spacing fix for cases with spaces between individual characters
+  // Check if we have an extreme spacing issue (more spaces than half the characters)
+  const spaceCount = (text.match(/ /g) || []).length;
+  const charCount = text.replace(/ /g, '').length;
+  
+  if (spaceCount > charCount * 0.4) { // Threshold to detect extreme spacing
+    // Step 1: Join single letters that are likely words (a, I, etc.)
+    let words = text.split(/\s+/);
+    let fixedWords = [];
+    let currentWord = '';
+    
+    for (let i = 0; i < words.length; i++) {
+      const word = words[i];
+      if (word.length === 1 && /[a-zA-Z]/.test(word)) {
+        // Found a single letter - check if next words are also single letters
+        currentWord = word;
+        
+        // Look ahead to collect consecutive single letters
+        while (i + 1 < words.length && words[i + 1].length === 1 && /[a-zA-Z]/.test(words[i + 1])) {
+          currentWord += words[i + 1];
+          i++; // Skip the next word since we've incorporated it
+        }
+        
+        fixedWords.push(currentWord);
+      } else {
+        // Regular word
+        fixedWords.push(word);
+      }
+    }
+    
+    // Step 2: Apply regex to fix remaining cases of single-character separation
+    text = fixedWords.join(' ');
+    
+    // Fix patterns like "w o r d" -> "word"
+    text = text.replace(/\b([a-zA-Z]) ([a-zA-Z]) ([a-zA-Z]) ([a-zA-Z])\b/g, '$1$2$3$4');
+    text = text.replace(/\b([a-zA-Z]) ([a-zA-Z]) ([a-zA-Z])\b/g, '$1$2$3');
+    text = text.replace(/\b([a-zA-Z]) ([a-zA-Z])\b/g, '$1$2');
+    
+    // For longer words with spaces between all characters
+    const spacedWordPattern = /(?:\b[a-zA-Z](?: [a-zA-Z]){2,}\b)/g;
+    text = text.replace(spacedWordPattern, match => match.replace(/ /g, ''));
+  }
+  
+  // Fix irregular spacing between single characters (spaces between almost every letter)
+  text = text.replace(/(\w) (\w)/g, '$1$2');
+  
+  // Normalize multiple spaces into single spaces
+  text = text.replace(/ +/g, ' ');
+  
+  // Fix line breaks - normalize to standard line breaks
+  text = text.replace(/\r\n|\r/g, '\n');
+  
+  // Remove excessive empty lines (more than two consecutive line breaks)
+  text = text.replace(/\n{3,}/g, '\n\n');
+  
+  return text;
+}
+
+// Helper function to separate run-together words using common words as landmarks
+function separateRunTogetherWords(text: string): string {
+  // Common words to use as landmarks for separation
+  const commonWords = [
+    // Common short words
+    'a', 'an', 'the', 'and', 'or', 'but', 'nor', 'for', 'yet', 'so',
+    'in', 'on', 'at', 'by', 'to', 'of', 'with', 'from', 'into',
+    // Common medium words
+    'when', 'where', 'what', 'which', 'who', 'whom', 'whose', 'why', 'how',
+    'that', 'this', 'these', 'those', 'such', 'some', 'many', 'most', 'few',
+    'provide', 'include', 'ensure', 'suggest', 'offer', 'first', 'then', 'also',
+    // Common longer words that might appear in system prompts
+    'information', 'guidelines', 'instructions', 'recommend', 'alternative',
+    'appropriate', 'specific', 'different', 'important', 'necessary',
+    'expertise', 'techniques', 'experience', 'knowledge', 'understanding'
+  ];
+  
+  let result = text;
+  
+  // Sort words by length (longest first) to avoid subword matching issues
+  commonWords.sort((a, b) => b.length - a.length);
+  
+  // For each word in our list
+  for (const word of commonWords) {
+    // Create a regex that finds the word within other text, case insensitive
+    // Match only if preceded by at least 2 letters and/or followed by at least 2 letters
+    const regex = new RegExp(`([a-z]{2,})(${word})([a-z]{2,})`, 'gi');
+    result = result.replace(regex, `$1 ${word} $3`);
+    
+    // Also check for word at the beginning of a longer word
+    const beginRegex = new RegExp(`\\b(${word})([a-z]{3,})`, 'gi');
+    result = result.replace(beginRegex, `${word} $2`);
+    
+    // And check for word at the end of a longer word
+    const endRegex = new RegExp(`([a-z]{3,})(${word})\\b`, 'gi');
+    result = result.replace(endRegex, `$1 ${word}`);
+  }
+  
+  return result;
+}
+
 export function date2unix(date: Date) {
   return Math.floor(date.getTime() / 1000);
 }
@@ -589,7 +908,7 @@ export async function textToSpeech(markdown: string): Promise<string> {
     const response = await fetch('https://api.replicate.com/v1/predictions', {
       method: 'POST',
       headers: {
-        'Authorization': '',
+        'Authorization': `Bearer ${REPLICATE_API_KEY}`,
         'Content-Type': 'application/json',
         'Prefer': 'wait'
       },
@@ -634,7 +953,7 @@ async function pollForResult(predictionId: string): Promise<string> {
       
       const response = await fetch(`https://api.replicate.com/v1/predictions/${predictionId}`, {
         headers: {
-          'Authorization': '',
+          'Authorization': `Bearer ${REPLICATE_API_KEY}`,
           'Content-Type': 'application/json'
         }
       });
@@ -658,65 +977,82 @@ async function pollForResult(predictionId: string): Promise<string> {
 
 // Speech to text functionality
 export async function speechToText(audioBase64: string, signal?: AbortSignal): Promise<string> {
-  // Check if current provider is Ollama (OMNI Edge)
-  const { api } = window.electron?.store?.get('settings') || {};
-  if (api?.provider === 'Ollama' || api?.provider === 'OMNI Edge') {
-    throw new Error('Speech-to-text is not supported with OMNI Edge');
-  }
-
   try {
-    // Create a data URL from the base64 audio
-    const audioUrl = `data:audio/wav;base64,${audioBase64}`;
+    // Set global flag to indicate active processing
+    window._activeSpeechProcessing = true;
+    window._lastProcessingStartTime = Date.now();
     
-    const response = await fetch('https://api.replicate.com/v1/predictions', {
-      method: 'POST',
-      headers: {
-        'Authorization': '',
-        'Content-Type': 'application/json',
-        'Prefer': 'wait'
-      },
-      body: JSON.stringify({
-        version: "3ab86df6c8f54c11309d4d1f930ac292bad43ace52d10c80d87eb258b3c9f79c",
-        input: {
-          task: "transcribe",
-          audio: audioUrl,
-          language: "None",
-          timestamp: "chunk",
-          batch_size: 64,
-          diarise_audio: false
-        }
-      }),
-      signal // Pass the abort signal to the fetch request
-    });
-    
-    const data = await response.json();
-    
-    if (data.error) {
-      throw new Error(data.error);
+    // Check if current provider is Ollama (OMNI Edge)
+    const { api } = window.electron?.store?.get('settings') || {};
+    if (api?.provider === 'Ollama' || api?.provider === 'OMNI Edge') {
+      throw new Error('Speech-to-text is not supported with OMNI Edge');
     }
-    
-    // If prediction is still processing, poll for result
-    if (data.status === 'processing') {
-      return await pollForSttResult(data.id, signal);
+
+    try {
+      // Create a data URL from the base64 audio
+      const audioUrl = `data:audio/wav;base64,${audioBase64}`;
+      
+      const response = await fetch('https://api.replicate.com/v1/predictions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${REPLICATE_API_KEY}`,
+          'Content-Type': 'application/json',
+          'Prefer': 'wait'
+        },
+        body: JSON.stringify({
+          version: "3ab86df6c8f54c11309d4d1f930ac292bad43ace52d10c80d87eb258b3c9f79c",
+          input: {
+            task: "transcribe",
+            audio: audioUrl,
+            language: "None",
+            timestamp: "chunk",
+            batch_size: 64,
+            diarise_audio: false
+          }
+        }),
+        signal // Pass the abort signal to the fetch request
+      });
+      
+      const data = await response.json();
+      
+      if (data.error) {
+        throw new Error(data.error);
+      }
+      
+      // If prediction is still processing, poll for result
+      if (data.status === 'processing') {
+        return await pollForSttResult(data.id, signal);
+      }
+      
+      // Parse and return the transcribed text
+      const text = extractTextFromSttResponse(data.output);
+      
+      // Additional validation to prevent empty results
+      if (!text || typeof text !== 'string' || text.trim() === '') {
+        throw new Error('No speech detected or transcription failed');
+      }
+      
+      // Clear processing flag on success
+      window._activeSpeechProcessing = false;
+      return text;
+    } catch (error: any) {
+      // Clear processing flag on error
+      window._activeSpeechProcessing = false;
+      
+      // Re-throw AbortError to be caught by the caller
+      if (error.name === 'AbortError') {
+        throw error;
+      }
+      
+      console.error('Error in speech-to-text:', error);
+      throw new Error(error.message || 'Failed to transcribe audio');
     }
-    
-    // Parse and return the transcribed text
-    const text = extractTextFromSttResponse(data.output);
-    
-    // Additional validation to prevent empty results
-    if (!text || typeof text !== 'string' || text.trim() === '') {
-      throw new Error('No speech detected or transcription failed');
-    }
-    
-    return text;
   } catch (error: any) {
-    // Re-throw AbortError to be caught by the caller
-    if (error.name === 'AbortError') {
-      throw error;
-    }
+    // Clear processing flag on any error
+    window._activeSpeechProcessing = false;
     
-    console.error('Error in speech-to-text:', error);
-    throw new Error(error.message || 'Failed to transcribe audio');
+    console.error('Speech to text conversion failed:', error);
+    return `[Speech-to-text conversion failed: ${error.message || 'Unknown error'}]`;
   }
 }
 
@@ -742,7 +1078,7 @@ async function pollForSttResult(predictionId: string, signal?: AbortSignal): Pro
       
       const response = await fetch(`https://api.replicate.com/v1/predictions/${predictionId}`, {
         headers: {
-          'Authorization': '',
+          'Authorization': `Bearer ${REPLICATE_API_KEY}`,
           'Content-Type': 'application/json'
         },
         signal // Pass the abort signal to this fetch call as well
@@ -759,12 +1095,19 @@ async function pollForSttResult(predictionId: string, signal?: AbortSignal): Pro
           throw new Error('No speech detected or transcription failed');
         }
         
+        // Clear global processing flag
+        window._activeSpeechProcessing = false;
         return text;
       } else if (data.status === 'failed') {
+        // Clear global processing flag
+        window._activeSpeechProcessing = false;
         throw new Error(`STT generation failed: ${data.error || 'Unknown error'}`);
       }
       // Continue polling if still processing
     } catch (error: any) {
+      // Clear global processing flag on error
+      window._activeSpeechProcessing = false;
+      
       // If this is an abort error, propagate it
       if (error.name === 'AbortError') {
         throw error;
@@ -775,6 +1118,8 @@ async function pollForSttResult(predictionId: string, signal?: AbortSignal): Pro
     }
   }
   
+  // Clear global processing flag on timeout
+  window._activeSpeechProcessing = false;
   throw new Error('STT generation timed out');
 }
 
@@ -1075,3 +1420,23 @@ export function createWaveformCanvas(
     }
   };
 }
+
+// Helper function to convert base64 to Blob
+const base64ToBlob = (base64: string): Blob => {
+  const byteCharacters = atob(base64);
+  const byteArrays = [];
+  
+  for (let offset = 0; offset < byteCharacters.length; offset += 512) {
+    const slice = byteCharacters.slice(offset, offset + 512);
+    
+    const byteNumbers = new Array(slice.length);
+    for (let i = 0; i < slice.length; i++) {
+      byteNumbers[i] = slice.charCodeAt(i);
+    }
+    
+    const byteArray = new Uint8Array(byteNumbers);
+    byteArrays.push(byteArray);
+  }
+  
+  return new Blob(byteArrays, { type: 'audio/mp3' });
+};

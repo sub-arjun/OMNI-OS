@@ -245,6 +245,7 @@ export default abstract class BaseReader implements IChatReader {
     },
   ): Promise<void> {
     let isStreamDone = false;
+    let lastPerplexityCitations: string[] = [];
 
     while (!isStreamDone) {
       const { value, done } = await this.streamReader.read();
@@ -252,6 +253,38 @@ export default abstract class BaseReader implements IChatReader {
 
       const decodedValue = decoder.decode(value);
       const lines = this.splitIntoLines(decodedValue);
+      
+      // Check if this is a Perplexity response by examining the raw data
+      const isPerplexityResponse = decodedValue.includes('"provider":"Perplexity"') || 
+                                  decodedValue.includes('"model":"perplexity');
+      
+      // For Perplexity responses, try to extract citations directly from the raw JSON
+      if (isPerplexityResponse) {
+        try {
+          // Find citations array in the raw response using regex
+          const citationsMatch = decodedValue.match(/"citations":\s*(\[[^\]]*\])/);
+          if (citationsMatch && citationsMatch[1]) {
+            try {
+              const extractedCitations = JSON.parse(citationsMatch[1]);
+              if (Array.isArray(extractedCitations) && extractedCitations.length > 0) {
+                debug(`Directly extracted citations from raw Perplexity response: ${JSON.stringify(extractedCitations)}`);
+                lastPerplexityCitations = extractedCitations;
+                
+                // Add any new citations to the state
+                extractedCitations.forEach(citation => {
+                  if (!state.citations.includes(citation)) {
+                    state.citations.push(citation);
+                  }
+                });
+              }
+            } catch (parseErr) {
+              debug(`Failed to parse extracted citations: ${parseErr}`);
+            }
+          }
+        } catch (regexErr) {
+          debug(`Failed to extract citations with regex: ${regexErr}`);
+        }
+      }
 
       for (const line of lines) {
         const chunks = this.extractDataChunks(line);
@@ -259,6 +292,17 @@ export default abstract class BaseReader implements IChatReader {
         for (const chunk of chunks) {
           if (chunk === '[DONE]') {
             isStreamDone = true;
+            
+            // If this is the final chunk and we have Perplexity citations, ensure they're in the state
+            if (lastPerplexityCitations.length > 0 && isPerplexityResponse) {
+              debug(`Adding final Perplexity citations before stream ends: ${JSON.stringify(lastPerplexityCitations)}`);
+              lastPerplexityCitations.forEach(citation => {
+                if (!state.citations.includes(citation)) {
+                  state.citations.push(citation);
+                }
+              });
+            }
+            
             break;
           }
 
@@ -277,6 +321,16 @@ export default abstract class BaseReader implements IChatReader {
           }
         }
       }
+    }
+    
+    // Ensure we have at least 1 citation if we detected Perplexity citations during streaming
+    if (state.citations.length === 0 && lastPerplexityCitations.length > 0) {
+      debug(`Adding Perplexity citations at the end of processing: ${JSON.stringify(lastPerplexityCitations)}`);
+      state.citations = [...lastPerplexityCitations];
+    }
+    
+    if (state.citations.length > 0) {
+      debug(`Final citations after processing stream: ${JSON.stringify(state.citations)}`);
     }
   }
 
@@ -335,11 +389,18 @@ export default abstract class BaseReader implements IChatReader {
     // Check for citations
     if (response.citations && Array.isArray(response.citations)) {
       // Add any new citations that aren't already in the state
-      response.citations.forEach(citation => {
-        if (!state.citations.includes(citation)) {
+      const newCitations = response.citations.filter(citation => !state.citations.includes(citation));
+      
+      if (newCitations.length > 0) {
+        debug(`Adding ${newCitations.length} new citations to the state`);
+        debug(`New citations: ${JSON.stringify(newCitations)}`);
+        
+        newCitations.forEach(citation => {
           state.citations.push(citation);
-        }
-      });
+        });
+        
+        debug(`Updated citations state now has ${state.citations.length} items`);
+      }
     }
 
     state.messageIndex++;

@@ -1,6 +1,19 @@
 // Disable no-unused-vars, broken for spread args
 /* eslint no-unused-vars: off */
 
+// Early locale initialization to prevent crashes
+(() => {
+  try {
+    // Ensure Intl object is initialized with safe defaults
+    Intl.NumberFormat('en-US');
+    Intl.DateTimeFormat('en-US');
+    // Force locale initialization
+    new Date().toLocaleDateString('en-US');
+  } catch (e) {
+    console.error('Failed to initialize locales:', e);
+  }
+})();
+
 // Early ResizeObserver error suppression
 // This runs before React loads and will suppress all ResizeObserver errors
 (() => {

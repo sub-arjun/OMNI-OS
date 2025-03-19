@@ -94,17 +94,17 @@ export default function OmegaFlashCtrl({
       // Clear the specialized model
       setSpecializedModel(null);
       
-      // Enable AUTO
+      // Enable OMNI Agent (previously AUTO/Agent)
       setAutoEnabled(true);
       
-      // Get the AUTO model
-      const autoModel = allModels.find(model => model.autoEnabled === true);
+      // Get the OMNI Agent model
+      const agentModel = allModels.find(model => model.autoEnabled === true || model.agentEnabled === true);
       
-      // Switch back to AUTO model
-      if (autoModel) {
-        // Switch to AUTO model with the same settings
+      // Switch back to OMNI Agent model
+      if (agentModel) {
+        // Switch to OMNI Agent model with the same settings
         editStage(chat.id, { 
-          model: autoModel.label,
+          model: agentModel.label,
           // Keep the same settings
           systemMessage: systemMessageRef.current,
           temperature: temperatureRef.current,
@@ -115,10 +115,57 @@ export default function OmegaFlashCtrl({
     }
   };
   
+  // Add effect to ensure the specialized model is applied to the current chat
+  useEffect(() => {
+    // When specializedModel changes and Omega Flash is enabled, apply it to the current chat
+    if (omegaFlashEnabled && flashModel && chat?.id) {
+      editStage(chat.id, { 
+        model: flashModel.label
+      });
+    }
+  }, [omegaFlashEnabled, flashModel, chat?.id, editStage]);
+  
   // Track message count to detect when a new message is added
   useEffect(() => {
     setMessageCount(messages.length);
   }, [messages]);
+  
+  // Add an effect to handle switching back after receiving a response
+  useEffect(() => {
+    const currentMessages = useChatStore.getState().messages;
+    if (!omegaFlashEnabled || currentMessages.length <= messageCount) {
+      return;
+    }
+    
+    // Check if we have both prompt messages and replies
+    const userMessageCount = currentMessages.filter(m => m.prompt && m.prompt.trim() !== '').length;
+    const assistantMessageCount = currentMessages.filter(m => m.reply && m.reply.trim() !== '').length;
+    
+    // Only switch back if we've received a response
+    if (userMessageCount > 0 && assistantMessageCount > 0 && assistantMessageCount >= userMessageCount - 1) {
+      // Disable Omega Flash
+      setSpecializedModel(null);
+      
+      // Enable OMNI Agent
+      setAutoEnabled(true);
+      
+      // Get the OMNI Agent model
+      const agentModel = allModels.find(model => model.autoEnabled === true || model.agentEnabled === true);
+      
+      // Switch back to OMNI Agent model
+      if (agentModel) {
+        // Switch to OMNI Agent model with the same settings
+        editStage(chat.id, { 
+          model: agentModel.label,
+          // Keep the same settings
+          systemMessage: systemMessageRef.current,
+          temperature: temperatureRef.current,
+          maxTokens: maxTokensRef.current,
+          maxCtxMessages: maxCtxMessagesRef.current
+        });
+      }
+    }
+  }, [messages, messageCount, omegaFlashEnabled, chat.id, editStage, setSpecializedModel, setAutoEnabled, allModels]);
   
   // Always render the component, even if the model isn't found
   return (
@@ -133,6 +180,7 @@ export default function OmegaFlashCtrl({
                 <li>Handles extremely long documents</li>
                 <li>Processes code and data rapidly</li>
               </ul>
+              <p className="text-xs italic mt-2">Returns to OMNI Agent after use</p>
             </div>
           ),
         }}

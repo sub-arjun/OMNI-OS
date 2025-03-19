@@ -4,40 +4,41 @@ import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   bundleIcon,
-  Heart20Filled,
-  Heart20Regular,
+  Bot20Filled,
+  Bot20Regular,
 } from '@fluentui/react-icons';
 
-const HeartIcon = bundleIcon(
-  Heart20Filled,
-  Heart20Regular
+const BotIcon = bundleIcon(
+  Bot20Filled,
+  Bot20Regular
 );
 
-export default function ArjunsFavoriteStatusIndicator(
+export default function AgenticStatusIndicator(
   props: {
     provider: string;
     providerDisplayName?: string;
     model: string;
     withTooltip?: boolean;
+    compact?: boolean;
   } & any,
 ) {
-  const { provider, providerDisplayName, model, withTooltip, ...rest } = props;
+  const { provider, providerDisplayName, model, withTooltip, compact = false, ...rest } = props;
   const { getChatModel } = useProvider();
 
-  const hasArjunsFavoriteCapability = useMemo(() => {
-    // Only check if model has arjunsFavoriteEnabled flag set to true
+  const hasAgenticCapability = useMemo(() => {
+    // Check if model has agentEnabled flag set to true
     const modelConfig = getChatModel(provider, model);
-    return !!modelConfig.arjunsFavoriteEnabled;
+    return !!modelConfig.agentEnabled;
   }, [provider, model]);
 
   const { t } = useTranslation();
-  const tip = t('ArjunsFavorite.Supported').replace(
+  const tip = t('Agentic.Supported').replace(
     '{provider}', 
     providerDisplayName || provider
   );
 
   const indicator = () => {
-    if (!hasArjunsFavoriteCapability) {
+    if (!hasAgenticCapability) {
       return null;
     }
 
@@ -45,18 +46,20 @@ export default function ArjunsFavoriteStatusIndicator(
       <div 
         className="flex text-center justify-center items-center"
         style={{ 
-          width: 16, 
-          height: 16, 
-          minWidth: 16,
-          marginRight: 1
+          width: compact ? 14 : 16, 
+          height: compact ? 14 : 16, 
+          minWidth: compact ? 14 : 16,
+          marginRight: 1,
+          marginLeft: compact ? 2 : 0,
+          background: 'linear-gradient(0deg, rgba(234,88,12,1) 0%, rgba(249,115,22,1) 100%)',
+          borderRadius: '50%',
         }}
       >
-        <HeartIcon 
-          className="text-red-500 dark:text-red-400" 
+        <BotIcon 
           style={{ 
-            color: '#ef4444', /* Red for Arjun's favorite */
-            width: '15px',
-            height: '15px'
+            color: 'white',
+            width: compact ? '10px' : '11px',
+            height: compact ? '10px' : '11px'
           }}
           {...rest}
         />
@@ -64,7 +67,7 @@ export default function ArjunsFavoriteStatusIndicator(
     );
   };
 
-  if (!hasArjunsFavoriteCapability) {
+  if (!hasAgenticCapability) {
     return null;
   }
 

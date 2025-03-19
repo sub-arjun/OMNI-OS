@@ -21,9 +21,9 @@ export default {
       streamCustomizable: false,
     },
     models: {
-        'AUTO 🪄 AI Selects Best Model 🪄 (Experimental)': {
-        name: 'openrouter/auto',
-        label: 'OmniRouter',
+        'Agent': {
+        name: 'anthropic/claude-3.7-sonnet:beta',
+        label: 'OMNI Agent',
         contextWindow: 200000,
         maxTokens: 6000,
         defaultMaxTokens: 4000,
@@ -35,13 +35,14 @@ export default {
           allowUrl: true,
         },
         toolEnabled: true,
+        reasoningEnabled: true,
+        agentEnabled: true,
         isDefault: true,
-        autoEnabled: true,
-        description: ``,
+        description: ``,  // Remove description so it doesn't show in tooltip
         group: 'OMNI' as ChatModelGroup,
       },
-      'Deep-Searcher-R1': {
-        name: 'perplexity/sonar-reasoning',
+      'Deep-Searcher-Pro': {
+        name: 'perplexity/sonar-reasoning-pro',
         label: 'Sonar Reasoning',
         contextWindow: 127000,
         maxTokens: 4096,
@@ -58,7 +59,7 @@ export default {
         reasoningEnabled: true,
         muricaEnabled: true,
         isDefault: false,
-        description: `✨ Built-in internet search! Great for facts, news, and research.\n\n📊 For experts: DeepSeek-based model fine-tuned for truthfulness and resistance to propoganda hosted in the USA with integrated web search capabilities for research, citations, and up-to-date answers.`,
+        description: `✨ Built-in internet search! Works harder with more intensive searches and a wider range of sources for comprehensive research.\n\n📊 For experts: DeepSeek-based model fine-tuned for truthfulness and resistance to propaganda hosted in the USA with enhanced web search capabilities that performs deeper research, uses more sources, and delivers more comprehensive, well-cited answers.`,
         group: 'DeepSeek' as ChatModelGroup,
       },
       'Deep-Thinker-R1': {

@@ -88,6 +88,12 @@ export default function Editor({
   const pasteWithoutStyle = useCallback((e: ClipboardEvent) => {
     e.preventDefault(); // 阻止默认粘贴行为
     if (!e.clipboardData) return;
+    // Keep toolbar visible during paste
+    const toolbarContainer = document.querySelector('.toolbar-container');
+    if (toolbarContainer) {
+      (toolbarContainer as HTMLElement).style.visibility = 'visible';
+    }
+    
     // @ts-expect-error clipboardData is not defined in types
     const clipboardItems = e.clipboardData.items || window.clipboardData;
     let text = '';
@@ -161,7 +167,9 @@ export default function Editor({
           </Button>
         </div>
       ) : null}
-      <Toolbar onConfirm={onToolbarActionConfirm} />
+      <div className="toolbar-container">
+        <Toolbar onConfirm={onToolbarActionConfirm} />
+      </div>
       <div
         contentEditable={true}
         suppressContentEditableWarning={true}
@@ -183,6 +191,13 @@ export default function Editor({
       {/* Add global styles for recording state */}
       <style>
         {`
+          /* Ensure toolbar always remains visible */
+          .toolbar-container {
+            visibility: visible !important;
+            opacity: 1 !important;
+            z-index: 10;
+          }
+          
           #editor.recording-active {
             background-color: rgba(239, 68, 68, 0.05);
             border: 1px solid rgba(239, 68, 68, 0.2);

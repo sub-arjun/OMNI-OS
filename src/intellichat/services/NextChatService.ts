@@ -418,6 +418,14 @@ export default abstract class NextCharService {
         ] as IChatRequestMessage[];
         await this.chat(_messages);
       } else {
+        // Log the citations before completing
+        if (readResult.citations) {
+          debug(`Citations found in readResult: ${JSON.stringify(readResult.citations)}`);
+          debug(`Citations length: ${readResult.citations.length}`);
+        } else {
+          debug('No citations found in readResult');
+        }
+        
         await this.onCompleteCallback({
           content: reply,
           reasoning,

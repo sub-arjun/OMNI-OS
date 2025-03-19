@@ -71,6 +71,7 @@ export interface IChatModel {
   muricaEnabled?: boolean;
   arjunsFavoriteEnabled?: boolean;
   longContextEnabled?: boolean;
+  agentEnabled?: boolean;
   vision?: IChatModelVision;
   endpoint?: string;
   group: ChatModelGroup;

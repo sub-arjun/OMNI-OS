@@ -63,6 +63,9 @@
     -webkit-backdrop-filter: blur(4px);
     border-radius: 8px;
     transition: all 0.2s ease;
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+    word-break: break-word;
     
     &:hover {
       backdrop-filter: blur(6px);
@@ -248,7 +251,61 @@
   button{
     font-family: Barlow;
   }
+  overflow-x: auto !important;
+  flex-wrap: nowrap !important;
+  max-width: 100% !important;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+  
+  &::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Opera*/
+  }
 }
+
+.toolbar-container {
+  width: 100%;
+  overflow: hidden;
+  position: relative;
+  z-index: 10; /* Ensure toolbar stays on top */
+  
+  /* Force the toolbar to take up all available width */
+  .editor-toolbar {
+    display: flex;
+    width: 100%;
+    min-width: 100%;
+    justify-content: flex-start;
+    align-items: center;
+    padding-right: 8px; /* Add padding to prevent clipping of rightmost items */
+    background-color: rgba(var(--color-bg-surface-1), 1); /* Ensure solid background */
+    min-height: 40px; /* Set minimum height for toolbar */
+    border-bottom: 1px solid rgba(var(--color-border), 0.1); /* Add subtle separator */
+  }
+}
+
+/* Update editor styling to prevent it from overlapping toolbar */
+#editor {
+  padding-top: 8px !important; /* Add padding to separate from toolbar */
+  position: relative;
+  z-index: 5; /* Lower z-index than toolbar */
+  border-top: none !important; /* Remove border to avoid double borders */
+  
+  /* Ensure editor has its own space */
+  &:focus, &:active, &.active {
+    border-top: none !important;
+  }
+}
+
+/* Add a specific style for when pasting text to maintain toolbar visibility */
+.editor {
+  display: flex;
+  flex-direction: column;
+  
+  /* Ensure toolbar container maintains fixed position during text paste */
+  .toolbar-container {
+    flex-shrink: 0; /* Prevent toolbar from shrinking */
+  }
+}
+
 .ellipsis-loader {
   font-family: -apple-system, BlinkMacSystemFont, PingFang SC, Hiragino Sans GB,
     Microsoft YaHei, '微软雅黑', helvetica neue, helvetica, ubuntu, roboto, noto,
@@ -484,7 +541,7 @@ div.think-body{
 .mermaid-container {
   margin: 1rem 0;
   padding: 1rem;
-  background-color: rgba(var(--color-bg-surface-1), 0.5);
+  background-color: #ffffff !important; /* Force white background */
   border-radius: 8px;
   border: 1px solid rgba(var(--color-border), 0.3);
   overflow: auto;
@@ -493,14 +550,33 @@ div.think-body{
     display: flex;
     justify-content: center;
     font-family: 'Barlow', sans-serif;
+    background-color: #ffffff !important; /* Force white background */
+    color: #333333 !important; /* Force dark text */
     
     svg {
       max-width: 100%;
       height: auto;
+      background-color: #ffffff !important; /* Force white background on SVG */
+    }
+    
+    /* Force all text elements to have dark color for visibility on white */
+    text, .messageText, .actor, .labelText, .loopText, .noteText {
+      fill: #333333 !important;
+      color: #333333 !important;
+    }
+    
+    /* Force all diagram elements to have proper visibility on white */
+    .node rect, .node circle, .node ellipse, .node polygon, .node path {
+      stroke: #333333 !important;
+    }
+    
+    .cluster rect {
+      fill: #f8f8f8 !important;
+      stroke: #cccccc !important;
     }
   }
   
-  .mermaid-error {
+  .mermaid-error-fallback {
     color: #e74c3c;
     font-size: 14px;
     padding: 8px;
@@ -510,19 +586,26 @@ div.think-body{
   }
 }
 
+/* Override dark theme styles for mermaid diagrams */
 [data-theme='dark'] .mermaid-container {
+  background-color: #ffffff !important;
+  border-color: #666666;
+  
   .mermaid {
-    filter: brightness(0.9);
+    filter: none !important; /* Remove brightness filter */
+    background-color: #ffffff !important;
     
-    /* Improve text contrast in dark mode */
-    text {
-      fill: #e0e0e0 !important;
+    /* Ensure all text is visible on white background */
+    text, .messageText, .actor, .labelText {
+      fill: #333333 !important;
+      color: #333333 !important;
     }
-    
-    /* Improve diagram line contrast in dark mode */
-    .messageText, .actor, .labelText {
-      fill: #f0f0f0 !important;
-    }
+  }
+  
+  /* Ensure error messages are still readable in dark mode */
+  .mermaid-error-fallback {
+    background-color: #ffffff;
+    color: #e74c3c;
   }
 }
 

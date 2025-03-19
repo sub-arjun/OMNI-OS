@@ -12,15 +12,25 @@ import {
   ArrowLeft16Regular,
   Alert20Regular,
 } from '@fluentui/react-icons';
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import useAppearanceStore from 'stores/useAppearanceStore';
+
+// Add type declaration for Canny
+declare global {
+  interface Window {
+    Canny?: (method: string, options?: any) => void;
+    attachEvent?: (event: string, callback: () => void) => void;
+  }
+}
 
 export default function Footer({ collapsed }: { collapsed: boolean }) {
   const toggleSidebarCollapsed = useAppearanceStore(
     (state) => state.toggleSidebarCollapsed
   );
   const { t } = useTranslation();
+  const cannyInitialized = useRef(false);
+  const [cannyLoadFailed, setCannyLoadFailed] = useState(false);
   
   const goYouTube = useCallback(() => {
     window.electron.openExternal('https://www.youtube.com/@OMNI-OS');
@@ -32,22 +42,92 @@ export default function Footer({ collapsed }: { collapsed: boolean }) {
     window.electron.ingestEvent([{ app: 'go-homepage' }]);
   }, []);
 
+  // Load Canny script on component mount
   useEffect(() => {
+    const loadCannyScript = () => {
+      if (cannyInitialized.current || document.getElementById('canny-jssdk')) {
+        return; // Already loaded or initialized
+      }
+      
+      try {
+        // Use the official Canny loader snippet
+        // This creates a queue for commands until the SDK is fully loaded
+        (function(w: Window, d: Document, i: string, s: string) {
+          function l() {
+            if (!d.getElementById(i)) {
+              const f = d.getElementsByTagName(s)[0];
+              const e = d.createElement(s) as HTMLScriptElement;
+              e.id = i;
+              e.src = "https://cdn.canny.io/sdk.js";
+              e.async = true;
+              f.parentNode?.insertBefore(e, f);
+              
+              // Track failures
+              e.onerror = () => {
+                console.error('Failed to load Canny SDK');
+                setCannyLoadFailed(true);
+              };
+            }
+          }
+          
+          if (typeof w.Canny !== 'function') {
+            const c = function(...args: any[]) {
+              (c as any).q.push(args);
+            };
+            (c as any).q = [];
+            w.Canny = c;
+            
+            if (d.readyState === 'complete') {
+              l();
+            } else if (w.attachEvent) {
+              // Old IE support
+              w.attachEvent('onload', l);
+            } else {
+              w.addEventListener('load', l, false);
+            }
+          }
+        })(window, document, 'canny-jssdk', 'script');
+        
+        // Initialize the Canny changelog
+        // This should happen right after setting up the loader
+        // The SDK will queue this command if it's not loaded yet
+        if (window.Canny) {
+          window.Canny('initChangelog', {
+            appID: '67ad3367817e8854c1d4665b',
+            position: 'top',
+            align: 'left',
+            theme: 'auto',
+          });
+          
+          cannyInitialized.current = true;
+          console.log('Canny changelog initialized');
+        }
+      } catch (error) {
+        console.error('Error setting up Canny:', error);
+        setCannyLoadFailed(true);
+      }
+    };
+    
+    // Load Canny as soon as the component mounts
+    loadCannyScript();
+    
+    // Set up keyboard shortcut
     Mousetrap.bind('mod+t', () => toggleSidebarCollapsed());
-    //@ts-ignore
-    const canny = window?.Canny;
-    if (canny) {
-      canny('initChangelog', {
-        appID: '67ad3367817e8854c1d4665b',
-        position: 'top',
-        align: 'left',
-        theme: 'auto',
-      });
-    }
+    
     return () => {
       Mousetrap.unbind('mod+t');
     };
-  }, []);
+  }, [toggleSidebarCollapsed]);
+
+  // Handle clicks when Canny failed to load
+  const handleChangelogClick = () => {
+    if (cannyLoadFailed) {
+      // Open the external changelog URL if Canny failed to load
+      window.electron?.openExternal?.('https://omni-os.canny.io/changelog');
+    }
+    // When Canny is working, it will automatically handle the click
+    // on any element with the data-canny-changelog attribute
+  };
 
   return (
     <div
@@ -58,6 +138,7 @@ export default function Footer({ collapsed }: { collapsed: boolean }) {
       <button
         data-canny-changelog
         type="button"
+        onClick={handleChangelogClick}
         className={`flex items-center gap-x-1 rounded-md px-2 py-2 text-xs font-medium text-brand-secondary outline-none hover:bg-brand-surface-1 hover:text-brand-base ${
           collapsed ? 'w-full justify-center' : ''
         }`}

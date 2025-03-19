@@ -11,7 +11,7 @@ import {
   DialogActions,
 } from '@fluentui/react-components';
 import { Dismiss24Regular } from '@fluentui/react-icons';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 
 export default function PromptVariableDialog(args: {
@@ -29,6 +29,14 @@ export default function PromptVariableDialog(args: {
 
   const [systemVars, setSystemVars] = useState<{ [key: string]: string }>({});
   const [userVars, setUserVars] = useState<{ [key: string]: string }>({});
+
+  // Reset state when dialog is opened
+  useEffect(() => {
+    if (open) {
+      setSystemVars({});
+      setUserVars({});
+    }
+  }, [open]);
 
   const onSystemVariesChange = (key: string, value: string) => {
     setSystemVars({ ...systemVars, [key]: value });

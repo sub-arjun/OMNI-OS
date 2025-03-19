@@ -25,6 +25,25 @@ const defaultAPI: IAPISettings = {
 const defaultModelMapping: IModelMapping = {};
 const defaultToolStates: IToolStates = {};
 
+// Safe store access with fallbacks
+const safeStore = {
+  get: (key: string, defaultValue: any) => {
+    try {
+      return window.electron?.store?.get?.(key, defaultValue) ?? defaultValue;
+    } catch (e) {
+      console.error('Error accessing electron store:', e);
+      return defaultValue;
+    }
+  },
+  set: (key: string, value: any) => {
+    try {
+      window.electron?.store?.set?.(key, value);
+    } catch (e) {
+      console.error('Error setting electron store:', e);
+    }
+  }
+};
+
 export interface ISettingStore {
   theme: ThemeType;
   language: LanguageType;
@@ -52,7 +71,7 @@ export interface ISettingStore {
   setSpecializedModel: (modelName: string | null) => void;
 }
 
-const settings = window.electron.store.get('settings', {}) as ISettings;
+const settings = safeStore.get('settings', {}) as ISettings;
 let apiSettings = defaultAPI;
 if (settings.api?.activeProvider) {
   apiSettings =
@@ -67,10 +86,10 @@ const useSettingsStore = create<ISettingStore>((set, get) => ({
   toolStates: settings.toolStates || defaultToolStates,
   autoEnabled: settings.autoEnabled !== false && (settings as any).autoOMNIEnabled !== false, // Default to true if not set
   api: apiSettings,
-  specializedModel: null,
+  specializedModel: settings.specializedModel || null, // Initialize from disk
   setTheme: async (theme: ThemeType) => {
     set({ theme });
-    window.electron.store.set('settings.theme', theme);
+    safeStore.set('settings.theme', theme);
   },
   setAPI: (api: Partial<IAPISettings>) => {
     set((state) => {
@@ -105,19 +124,19 @@ const useSettingsStore = create<ISettingStore>((set, get) => ({
         const apiSchema = providerObj?.chat?.apiSchema || ['base', 'model', 'provider'];
         
         // Ensure we're storing the complete config including model for Ollama
-        window.electron.store.set('settings.api.activeProvider', provider);
+        safeStore.set('settings.api.activeProvider', provider);
         
         const configToStore = pick(newAPI, [...apiSchema, 'provider']);
         console.log(`Storing config for ${providerLookupKey}:`, configToStore);
         
-        window.electron.store.set(
+        safeStore.set(
           `settings.api.providers.${providerLookupKey}`,
           configToStore
         );
         
         // Special handling to ensure Ollama model name is preserved correctly
         if (providerLookupKey === 'Ollama' && model) {
-          window.electron.store.set(
+          safeStore.set(
             `settings.api.providers.${providerLookupKey}.model`, 
             model
           );
@@ -125,7 +144,7 @@ const useSettingsStore = create<ISettingStore>((set, get) => ({
       } catch (error) {
         console.error('Error in setAPI:', error);
         // Just set the activeProvider without trying to save provider-specific settings
-        window.electron.store.set('settings.api.activeProvider', provider);
+        safeStore.set('settings.api.activeProvider', provider);
       }
       
       return { api: newAPI };
@@ -133,13 +152,13 @@ const useSettingsStore = create<ISettingStore>((set, get) => ({
   },
   setModelMapping: (modelMapping: IModelMapping) => {
     set({ modelMapping });
-    window.electron.store.set('settings.modelMapping', modelMapping);
+    safeStore.set('settings.modelMapping', modelMapping);
   },
   setToolState(providerName: string, modelName: string, state: boolean) {
     set((currentState) => {
       const key = `${providerName}.${modelName}`;
       const newToolStates = { ...currentState.toolStates, [key]: state };
-      window.electron.store.set('settings.toolStates', newToolStates);
+      safeStore.set('settings.toolStates', newToolStates);
       return { toolStates: newToolStates };
     });
   },
@@ -148,17 +167,21 @@ const useSettingsStore = create<ISettingStore>((set, get) => ({
   },
   setAutoEnabled(auto: boolean) {
     set({ autoEnabled: auto });
-    window.electron.store.set('settings.autoOMNIEnabled', auto);
+    safeStore.set('settings.autoOMNIEnabled', auto);
   },
   setLanguage: (language: 'en' | 'zh' | 'system') => {
     set({ language });
-    window.electron.store.set('settings.language', language);
+    safeStore.set('settings.language', language);
   },
   setFontSize: (fontSize: FontSize) => {
     set({ fontSize });
-    window.electron.store.set('settings.fontSize', fontSize);
+    safeStore.set('settings.fontSize', fontSize);
   },
-  setSpecializedModel: (modelName: string | null) => set({ specializedModel: modelName }),
+  setSpecializedModel: (modelName: string | null) => {
+    set({ specializedModel: modelName });
+    // Persist the specialized model to disk
+    safeStore.set('settings.specializedModel', modelName);
+  }
 }));
 
 export default useSettingsStore;

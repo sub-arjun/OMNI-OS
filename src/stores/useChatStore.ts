@@ -401,18 +401,24 @@ const useChatStore = create<IChatStore>((set, get) => ({
     return msg;
   },
   appendReply: (msgId: string, reply: string, reasoning: string) => {
-    let accReply = '';
-    let accReasoning = '';
+    // Don't update if there's nothing new to add
+    if (!reply && !reasoning) return;
+    
     set(
       produce((state: IChatStore) => {
         const message = state.messages.find((msg) => msg.id === msgId);
         if (message) {
-          accReply = message.reply ? `${message.reply}${reply}` : reply;
-          accReasoning = message.reasoning
+          // Calculate what the new values would be
+          const newReply = message.reply ? `${message.reply}${reply}` : reply;
+          const newReasoning = message.reasoning
             ? `${message.reasoning}${reasoning}`
             : reasoning;
-          message.reply = accReply;
-          message.reasoning = accReasoning;
+          
+          // Only update if something actually changed
+          if (newReply !== message.reply || newReasoning !== message.reasoning) {
+            message.reply = newReply;
+            message.reasoning = newReasoning;
+          }
         }
       }),
     );
@@ -477,9 +483,39 @@ const useChatStore = create<IChatStore>((set, get) => ({
       params.push(msg.reasoning);
     }
     if (message.citations) {
+      debug('Received citations in updateMessage:', message.citations);
+      debug('Citations type:', typeof message.citations);
+      debug('Is Array:', Array.isArray(message.citations));
+      
       stats.push('citations = ?');
-      msg.citations = message.citations;
-      params.push(JSON.stringify(msg.citations));
+      
+      // Ensure citations are properly stored as a stringified JSON array
+      let citationsJson: string;
+      
+      if (Array.isArray(message.citations)) {
+        // If already an array, stringify it
+        msg.citations = message.citations;
+        citationsJson = JSON.stringify(message.citations);
+      } else if (typeof message.citations === 'string') {
+        try {
+          // If it's a string, check if it's already JSON
+          JSON.parse(message.citations);
+          // If no error, it's valid JSON, use as is
+          msg.citations = message.citations;
+          citationsJson = message.citations;
+        } catch (e) {
+          // If it's a string but not valid JSON, treat it as a single citation
+          msg.citations = [message.citations];
+          citationsJson = JSON.stringify(msg.citations);
+        }
+      } else {
+        // Fallback
+        msg.citations = [];
+        citationsJson = '[]';
+      }
+      
+      debug('Final stringified citations:', citationsJson);
+      params.push(citationsJson);
     }
     if (message.id && stats.length) {
       params.push(msg.id);

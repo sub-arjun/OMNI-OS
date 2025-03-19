@@ -78,29 +78,14 @@ export default function useMarkdown() {
     // Load mermaid initially
     loadMermaid();
     
-    // Update theme when it changes
-    const observer = new MutationObserver((mutations) => {
-      mutations.forEach((mutation) => {
-        if (mutation.attributeName === 'data-theme' && mermaidRef.current) {
-          const theme = document.body.getAttribute('data-theme') === 'dark' ? 'dark' : 'default';
-          mermaidRef.current.initialize({
-            startOnLoad: false,
-            theme: theme,
-            fontSize: 14,
-            securityLevel: 'loose'
-          });
-        }
-      });
-    });
-    
-    observer.observe(document.body, { attributes: true });
-    
-    return () => observer.disconnect();
+    // We don't need the theme observer anymore since we're using a fixed white background
+    return () => {};
   }, []);
   
   const md = new MarkdownIt({
-    html: true,
+    breaks: true,
     linkify: true,
+    html: true,
     typographer: true,
     highlight(str: string, lang: string) {
       // Special handling for Mermaid diagrams
@@ -156,6 +141,30 @@ export default function useMarkdown() {
         notifySuccess(t('Common.Notification.Copied'));
       },
     });
+  
+  // Override paragraph rendering to ensure word wrapping
+  const defaultParagraphRenderer = md.renderer.rules.paragraph_open || function(
+    tokens: any[], 
+    idx: number, 
+    options: any, 
+    env: any, 
+    self: any
+  ) {
+    return self.renderToken(tokens, idx, options);
+  };
+  
+  md.renderer.rules.paragraph_open = function(
+    tokens: any[], 
+    idx: number, 
+    options: any, 
+    env: any, 
+    self: any
+  ) {
+    // Add classes for word wrapping
+    tokens[idx].attrJoin('class', 'break-words');
+    return defaultParagraphRenderer(tokens, idx, options, env, self);
+  };
+  
   const defaultRender =
     md.renderer.rules.link_open ||
     function (tokens: any, idx: any, options: any, env: any, self: any) {
@@ -183,6 +192,26 @@ export default function useMarkdown() {
         return;
       }
       
+      // Always use light theme with white background regardless of app theme
+      mermaid.initialize({
+        startOnLoad: false,
+        theme: 'default',
+        fontSize: 14,
+        securityLevel: 'loose',
+        themeVariables: {
+          background: '#ffffff',
+          primaryColor: '#f4f4f4',
+          secondaryColor: '#f4f4f4',
+          tertiaryColor: '#ffffff',
+          primaryTextColor: '#333333',
+          secondaryTextColor: '#333333',
+          tertiaryTextColor: '#333333',
+          noteTextColor: '#333333',
+          noteBkgColor: '#fff5ad'
+        }
+      });
+      
+      // Only select diagrams that haven't been processed yet
       const diagrams = document.querySelectorAll('pre.mermaid-diagram:not(.processed)');
       if (diagrams.length === 0) return;
       
@@ -197,6 +226,7 @@ export default function useMarkdown() {
           // Create a new div for the rendered diagram
           const container = document.createElement('div');
           container.className = 'mermaid-container';
+          container.style.backgroundColor = '#ffffff'; // Force white background
           
           // Create a div to hold the actual diagram with proper classes
           const mermaidDiv = document.createElement('div');
@@ -241,9 +271,9 @@ export default function useMarkdown() {
   return {
     render: (str: string): string => {
       const result = md.render(str);
-      // Defer mermaid processing to allow the DOM to be updated
-      setTimeout(processMermaidDiagrams, 100);
       return result;
-    }
+    },
+    // Add separate function to process diagrams that can be called after message is complete
+    processMermaidDiagrams
   };
 }

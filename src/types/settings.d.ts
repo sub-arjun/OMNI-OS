@@ -26,6 +26,7 @@ export interface ISettings {
   modelMapping: IModelMapping;
   toolStates: IToolStates;
   autoEnabled?: boolean;
+  specializedModel?: string | null;
 }
 
 export interface IModelMapping {

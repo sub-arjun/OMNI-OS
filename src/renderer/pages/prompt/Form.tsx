@@ -6,15 +6,18 @@ import {
   Text,
   InputOnChangeData,
   InfoLabel,
+  Spinner,
+  Tooltip,
+  Checkbox,
 } from '@fluentui/react-components';
-import { BracesVariable20Regular } from '@fluentui/react-icons';
+import { BracesVariable20Regular, SparkleRegular } from '@fluentui/react-icons';
 import useToast from 'hooks/useToast';
 import { IPromptDef } from 'intellichat/types';
 import { ChangeEvent, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
 import usePromptStore from 'stores/usePromptStore';
-import { parseVariables } from 'utils/util';
+import { parseVariables, enhanceSystemPrompt } from 'utils/util';
 import { isBlank } from 'utils/validators';
 
 function MessageField({
@@ -31,27 +34,80 @@ function MessageField({
   variables: string[];
 }) {
   const { t } = useTranslation();
+  const { notifySuccess, notifyError } = useToast();
   const isSystemMessage = label === t('Common.SystemMessage');
+  const [isVariablesSelectorOpen, setIsVariablesSelectorOpen] = useState(false);
+  const [enhancingPrompt, setEnhancingPrompt] = useState<boolean>(false);
+
+  const handleEnhanceSystemPrompt = async () => {
+    if (!value || typeof value !== 'string' || value.trim() === '') {
+      return;
+    }
+    
+    try {
+      setEnhancingPrompt(true);
+      const enhancedPrompt = await enhanceSystemPrompt(value);
+      
+      // Create a synthetic event to pass to the onChange handler
+      const syntheticEvent = {
+        target: {
+          value: enhancedPrompt
+        }
+      } as ChangeEvent<HTMLTextAreaElement>;
+      
+      onChange(syntheticEvent);
+      notifySuccess(t('Common.SystemMessageEnhanced'));
+    } catch (error) {
+      console.error('Failed to enhance system prompt:', error);
+      notifyError(t('Common.EnhanceSystemMessageError'));
+    } finally {
+      setEnhancingPrompt(false);
+    }
+  };
   
   return (
-    <div>
+    <div className="w-full">
       <Field
         label={tooltip ? <InfoLabel info={tooltip}>{label}</InfoLabel> : label}
+        className="w-full"
       >
-        <textarea
-          className="fluent"
-          style={{ minHeight: 180, resize: 'vertical' }}
-          onChange={onChange}
-          value={value}
-        />
-        <Text size={200} className="text-color-secondary mt-1">
-          {t('Prompt.Form.Tooltip.Variable')}
-        </Text>
-        <Text size={200} className="text-color-secondary mt-1 block">
-          {isSystemMessage 
-            ? t('Prompt.Form.Example.SystemVariable')
-            : t('Prompt.Form.Example.UserVariable')}
-        </Text>
+        <div className="relative w-full">
+          <textarea
+            className="fluent w-full min-w-[360px]"
+            style={{ minHeight: 180, resize: 'vertical', width: '100%' }}
+            onChange={onChange}
+            value={value}
+          />
+        </div>
+        {isSystemMessage && (
+          <div className="flex justify-end mt-2 mb-2">
+            <Button
+              icon={enhancingPrompt ? <Spinner size="tiny" /> : <SparkleRegular />}
+              appearance="subtle"
+              disabled={enhancingPrompt || !value || typeof value !== 'string' || value.trim() === ''}
+              onClick={handleEnhanceSystemPrompt}
+              className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm"
+              size="small"
+            >
+              {t('Common.EnhanceSystemPrompt')}
+            </Button>
+          </div>
+        )}
+        <div>
+          <Text size={200} className="text-color-secondary">
+            {t('Prompt.Form.Tooltip.Variable')}
+          </Text>
+          <Text size={200} className="text-color-secondary mt-1 block">
+            {isSystemMessage 
+              ? t('Prompt.Form.Example.SystemVariable')
+              : t('Prompt.Form.Example.UserVariable')}
+          </Text>
+          {isSystemMessage && (
+            <Text size={200} className="text-color-secondary mt-1 block">
+              <span className="text-blue-500">✨ Tip:</span> Click the sparkle icon to enhance your system prompt using AI-powered prompt engineering techniques.
+            </Text>
+          )}
+        </div>
       </Field>
       {variables.length ? (
         <Divider className="mt-2.5 mb-1.5">
@@ -89,6 +145,8 @@ export default function Form() {
   const updatePrompt = usePromptStore((state) => state.updatePrompt);
   const getPrompt = usePromptStore((state) => state.getPrompt);
   const { notifyInfo, notifySuccess, notifyError } = useToast();
+  const [skipParsing, setSkipParsing] = useState<boolean>(false);
+  const [enhancingPrompt, setEnhancingPrompt] = useState<boolean>(false);
 
   type PromptPayload = { id: string } & Partial<IPromptDef>;
 
@@ -162,6 +220,27 @@ export default function Form() {
     navigate(-1);
   };
 
+  const handleEnhanceSystemPrompt = async () => {
+    try {
+      if (!systemMessage || systemMessage.trim() === '') {
+        notifyError(t('Common.EnhanceSystemMessageError'));
+        return;
+      }
+
+      setEnhancingPrompt(true);
+
+      const enhancedSystemPrompt = await enhanceSystemPrompt(systemMessage);
+      
+      setSystemMessage(enhancedSystemPrompt);
+      notifySuccess(t('Common.SystemMessageEnhanced'));
+    } catch (error) {
+      console.error('Error enhancing system message:', error);
+      notifyError(t('Common.EnhanceSystemMessageError'));
+    } finally {
+      setEnhancingPrompt(false);
+    }
+  };
+
   return (
     <div className="page h-full">
       <div className="page-top-bar"></div>
@@ -178,9 +257,9 @@ export default function Form() {
           </div>
         </div>
       </div>
-      <div className="mt-2.5 pb-12 h-full -mr-5 overflow-y-auto">
-        <div className="mr-5 flex flex-col">
-          <div>
+      <div className="mt-2.5 pb-12 h-full overflow-y-auto">
+        <div className="flex flex-col w-[80%] mx-auto">
+          <div className="w-full">
             <div className="mb-2.5">
               <Field label={t('Common.Name')}>
                 <Input
@@ -191,25 +270,28 @@ export default function Form() {
                     ev: ChangeEvent<HTMLInputElement>,
                     data: InputOnChangeData
                   ) => setName(data.value || '')}
+                  className="w-full"
                 />
               </Field>
             </div>
-            <div className="mb-2.5">
-              <MessageField
-                label={t('Common.SystemMessage')}
-                tooltip={t('Tooltip.SystemMessage')}
-                value={systemMessage}
-                onChange={onSystemMessageChange}
-                variables={systemVariables}
-              />
-            </div>
-            <div className="mb-2.5">
-              <MessageField
-                label={t('Common.UserMessage')}
-                value={userMessage}
-                onChange={onUserMessageChange}
-                variables={userVariables}
-              />
+            <div className="space-y-4 mb-4 w-full">
+              <div className="relative w-full">
+                <MessageField
+                  label={t('Common.SystemMessage')}
+                  tooltip={t('Tooltip.SystemMessage')}
+                  value={systemMessage}
+                  onChange={onSystemMessageChange}
+                  variables={systemVariables}
+                />
+              </div>
+              <div className="relative w-full">
+                <MessageField
+                  label={t('Common.UserMessage')}
+                  value={userMessage}
+                  onChange={onUserMessageChange}
+                  variables={userVariables}
+                />
+              </div>
             </div>
           </div>
         </div>

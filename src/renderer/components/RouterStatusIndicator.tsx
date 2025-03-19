@@ -37,12 +37,12 @@ export default function RouterStatusIndicator(
   const { provider, model, withTooltip, compact = false, ...rest } = props;
 
   const isAutoRouter = useMemo(() => {
-    // Only show for auto-enabled models
-    return model === 'openrouter/auto';
+    // Check for OMNI Agent model
+    return model === 'openrouter/auto' || model === 'anthropic/claude-3.7-sonnet:beta';
   }, [model]);
 
   const { t } = useTranslation();
-  const tip = "Auto-router selects optimal model based on query content";
+  const tip = "OMNI Agent dynamically selects optimal processing for your task";
 
   const indicator = () => {
     if (!isAutoRouter) {

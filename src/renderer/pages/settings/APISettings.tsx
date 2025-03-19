@@ -6,8 +6,9 @@ import {
   InputOnChangeData,
   Label,
   Option,
+  Button,
 } from '@fluentui/react-components';
-import { Premium16Regular } from '@fluentui/react-icons';
+import { Premium16Regular, Save16Regular } from '@fluentui/react-icons';
 import useSettingsStore from '../../../stores/useSettingsStore';
 import ModelField from './ModelField';
 import { IServiceProvider } from '../../../providers/types';
@@ -16,17 +17,23 @@ import useProvider from 'hooks/useProvider';
 import useAuthStore from 'stores/useAuthStore';
 import TooltipIcon from 'renderer/components/TooltipIcon';
 import ModelMappingButton from './ModelMappingButton';
+import supabase from 'vendors/supa';
+import useToast from 'hooks/useToast';
+import { captureException } from 'renderer/logging';
 
 export default function APISettings() {
   const { t } = useTranslation();
   const api = useSettingsStore((state) => state.api);
   const session = useAuthStore((state) => state.session);
+  const user = useAuthStore((state) => state.user);
   const setAPI = useSettingsStore((state) => state.setAPI);
   const { getProviders, getProvider, getDefaultChatModel } = useProvider();
   const providers = useMemo(() => getProviders(), []);
   const [provider, setProvider] = useState<IServiceProvider>(
     Object.values(providers)[0]
   );
+  const [saving, setSaving] = useState(false);
+  const { notifyInfo, notifyError, notifySuccess } = useToast();
 
   useEffect(() => {
     const provider = getProvider(api.provider);
@@ -154,6 +161,34 @@ export default function APISettings() {
     setAPI({ deploymentId: data.value });
   };
 
+  const saveToCloud = async () => {
+    if (!user) {
+      notifyInfo(t('Auth.Notification.SignInRequired'));
+      return;
+    }
+    setSaving(true);
+    try {
+      const { theme, api } = useSettingsStore.getState();
+      const encrypted = await window.electron.crypto.encrypt(
+        JSON.stringify({ theme, api }),
+        user.id
+      );
+      const { error } = await supabase
+        .from('settings')
+        .upsert({ data: encrypted, id: user.id });
+      if (error) {
+        notifyError(error.message);
+      } else {
+        notifySuccess(t('Settings.Notification.SaveToCloudSuccess'));
+      }
+    } catch (error) {
+      console.error(error);
+      captureException(error as Error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="settings-section">
       <div className="settings-section--header">{t('Common.API')}</div>
@@ -226,6 +261,17 @@ export default function APISettings() {
                 disabled={!provider.options.apiKeyCustomizable}
                 onChange={onAPIKeyChange}
               />
+            </div>
+            <div className="mt-2">
+              <Button 
+                appearance="primary"
+                size="small"
+                icon={<Save16Regular />}
+                onClick={saveToCloud}
+                disabled={saving || !user}
+              >
+                {saving ? t('Common.Waiting') : t('Common.Save')}
+              </Button>
             </div>
           </div>
         )}

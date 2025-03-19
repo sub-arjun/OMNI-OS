@@ -60,8 +60,12 @@ export default function DeepSearchCtrl({
   // Get the Deep-Searcher-R1 model
   const provider = getProvider('OMNI');
   const allModels = getChatModels(provider.name) || [];
-  // Use the label instead of the name to find the model
-  const deepSearcherModel = allModels.find(model => model.label === 'Sonar Reasoning' || model.name === 'perplexity/sonar-reasoning');
+  // Use the correct model name/label from OMNI.ts
+  const deepSearcherModel = allModels.find(model => 
+    model.name === 'perplexity/sonar-reasoning-pro' || 
+    model.label === 'Sonar Reasoning' || 
+    model.label === 'Deep-Searcher-Pro'
+  );
   
   // Handle button click
   const toggleDeepSearch = () => {
@@ -103,17 +107,17 @@ export default function DeepSearchCtrl({
       // Clear the specialized model
       setSpecializedModel(null);
       
-      // Enable AUTO
+      // Enable OMNI Agent (previously AUTO/Agent)
       setAutoEnabled(true);
       
-      // Get the AUTO model
-      const autoModel = allModels.find(model => model.autoEnabled === true);
+      // Get the OMNI Agent model
+      const agentModel = allModels.find(model => model.autoEnabled === true || model.agentEnabled === true);
       
-      // Switch back to AUTO model
-      if (autoModel) {
-        // Switch to AUTO model with the same settings
+      // Switch back to OMNI Agent model
+      if (agentModel) {
+        // Switch to OMNI Agent model with the same settings
         editStage(chat.id, { 
-          model: autoModel.label,
+          model: agentModel.label,
           // Keep the same settings
           systemMessage: systemMessageRef.current,
           temperature: temperatureRef.current,
@@ -124,6 +128,16 @@ export default function DeepSearchCtrl({
     }
   };
   
+  // Add effect to ensure the specialized model is applied to the current chat
+  useEffect(() => {
+    // When specializedModel changes and Deep Search is enabled, apply it to the current chat
+    if (deepSearchEnabled && deepSearcherModel && chat?.id) {
+      editStage(chat.id, { 
+        model: deepSearcherModel.label
+      });
+    }
+  }, [deepSearchEnabled, deepSearcherModel, chat?.id, editStage]);
+  
   // Track message count to detect when a new message is added
   useEffect(() => {
     setMessageCount(messages.length);
@@ -132,21 +146,30 @@ export default function DeepSearchCtrl({
   // When message count increases and deep search is enabled, disable it and switch back
   useEffect(() => {
     const currentMessages = useChatStore.getState().messages;
-    if (deepSearchEnabled && currentMessages.length > messageCount) {
+    if (!deepSearchEnabled || currentMessages.length <= messageCount) {
+      return;
+    }
+    
+    // Check if we have both prompt messages and replies
+    const userMessageCount = currentMessages.filter(m => m.prompt && m.prompt.trim() !== '').length;
+    const assistantMessageCount = currentMessages.filter(m => m.reply && m.reply.trim() !== '').length;
+    
+    // Only switch back if we've received a response
+    if (userMessageCount > 0 && assistantMessageCount > 0 && assistantMessageCount >= userMessageCount - 1) {
       // Disable deep search
       setSpecializedModel(null);
       
-      // Enable AUTO
+      // Enable OMNI Agent (previously AUTO)
       setAutoEnabled(true);
       
-      // Get the AUTO model
-      const autoModel = allModels.find(model => model.autoEnabled === true);
+      // Get the OMNI Agent model (previously AUTO)
+      const agentModel = allModels.find(model => model.autoEnabled === true || model.agentEnabled === true);
       
-      // Switch back to AUTO model
-      if (autoModel) {
-        // Switch to AUTO model with the same settings
+      // Switch back to OMNI Agent model
+      if (agentModel) {
+        // Switch to OMNI Agent model with the same settings
         editStage(chat.id, { 
-          model: autoModel.label,
+          model: agentModel.label,
           // Keep the same settings
           systemMessage: systemMessageRef.current,
           temperature: temperatureRef.current,
@@ -166,11 +189,11 @@ export default function DeepSearchCtrl({
             <div style={{ maxWidth: "280px" }}>
               <p className="font-bold mb-1">Internet-Connected Research</p>
               <ul className="list-disc pl-4 mb-1 space-y-1">
-                <li>Searches the web for current information</li>
-                <li>Plans and executes research strategies</li>
-                <li>Provides factual, cited responses</li>
+                <li>Searches the web more intensively for current information</li>
+                <li>Uses a wider range of sources for comprehensive research</li>
+                <li>Works harder to provide detailed, well-cited responses</li>
               </ul>
-              <p className="text-xs italic mt-2">Returns to AUTO after one response</p>
+              <p className="text-xs italic mt-2">Returns to OMNI Agent after one response</p>
             </div>
           ),
         }}
@@ -187,6 +210,7 @@ export default function DeepSearchCtrl({
           <span className="flex items-center font-medium">
             <Search16Regular className="mr-1" />
             DeepSearch
+            <span className="ml-0.5 text-[7px] text-purple-400 font-semibold align-super relative top-[-2px]">PRO</span>
           </span>
         </Button>
       </Tooltip>

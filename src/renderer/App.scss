@@ -198,6 +198,12 @@ main {
   word-wrap: break-word;
   flex-wrap: wrap;
 }
+.break-words {
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  word-break: break-word;
+  hyphens: auto;
+}
 .button {
   cursor: default !important;
   outline: none !important;

@@ -20,7 +20,7 @@ import {
   SwitchProps,
 } from '@fluentui/react-components';
 import type { MenuCheckedValueChangeEvent } from '@fluentui/react-components';
-import { Info16Regular } from '@fluentui/react-icons';
+import { Info16Regular, ChevronUp16Regular } from '@fluentui/react-icons';
 import Mousetrap from 'mousetrap';
 import { IChat, IChatContext } from 'intellichat/types';
 import { useEffect, useMemo, useState, useRef } from 'react';
@@ -39,6 +39,7 @@ import UncensoredStatusIndicator from 'renderer/components/UncensoredStatusIndic
 import MuricaStatusIndicator from 'renderer/components/MuricaStatusIndicator';
 import ArjunsFavoriteStatusIndicator from 'renderer/components/ArjunsFavoriteStatusIndicator';
 import LongContextStatusIndicator from 'renderer/components/LongContextStatusIndicator';
+import AgenticStatusIndicator from 'renderer/components/AgenticStatusIndicator';
 import SecureStatusIndicator from '../../../../components/SecureStatusIndicator';
 import RouterStatusIndicator from '../../../../components/RouterStatusIndicator';
 import { isUndefined } from 'lodash';
@@ -76,7 +77,10 @@ export default function ModelCtrl({
   chat: IChat;
 }) {
   const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState<boolean>(false);
+  const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
+  const [iconPopupOpen, setIconPopupOpen] = useState<boolean>(false);
+  const iconContainerRef = useRef<HTMLDivElement>(null);
   
   // Add null checks and default values for store selectors
   const api = useSettingsStore((state) => state?.api || { provider: 'OMNI' });
@@ -141,7 +145,7 @@ export default function ModelCtrl({
   }, [api?.provider, getProvider]);
 
   const autoModel = useMemo(() => {
-    return allModels.find(model => model.autoEnabled === true);
+    return allModels.find(model => model.autoEnabled === true || model.agentEnabled === true);
   }, [allModels]);
 
   const models = useMemo<IChatModel[]>(() => {
@@ -159,7 +163,7 @@ export default function ModelCtrl({
       if (specializedModel) {
         // Find the specialized model in allModels
         const model = allModels.find(m => 
-          (specializedModel === 'Deep-Searcher-R1' && (m.label === 'Sonar Reasoning' || m.name === 'perplexity/sonar-reasoning')) ||
+          (specializedModel === 'Deep-Searcher-R1' && (m.label === 'Sonar Reasoning' || m.name === 'perplexity/sonar-reasoning-pro')) ||
           (specializedModel === 'Deep-Thinker-R1' && (m.label === 'R1-1776' || m.name === 'perplexity/r1-1776')) ||
           (specializedModel === 'Flash-2.0' && (m.label === 'Flash-2.0' || m.name === 'google/gemini-2.0-flash-001'))
         );
@@ -270,6 +274,206 @@ export default function ModelCtrl({
     };
   }, [models]);
 
+  // Check if we need to collapse the icons based on window size
+  useEffect(() => {
+    let resizeObserver: ResizeObserver | null = null;
+    let timeoutId: NodeJS.Timeout;
+    let debounceTimeout: NodeJS.Timeout;
+    let checkCount = 0;
+    let previousWidth = 0;
+    
+    // Add debounce to prevent rapid firing
+    const debouncedCheckSpace = () => {
+      clearTimeout(debounceTimeout);
+      debounceTimeout = setTimeout(checkSpace, 200);
+    };
+    
+    const checkSpace = () => {
+      // Limit to maximum of 5 checks per mount to prevent infinite loops
+      if (checkCount >= 5) {
+        console.log('ModelCtrl: Max resize checks reached, stopping resize checks');
+        return;
+      }
+      
+      checkCount++;
+      
+      try {
+        // Get the toolbar element width regardless of iconContainerRef
+        const toolbar = document.querySelector('.editor-toolbar');
+        const availableWidth = toolbar?.clientWidth || window.innerWidth;
+        
+        // Only update if width changed significantly (by more than 10px)
+        // This prevents micro-adjustments causing re-renders
+        if (Math.abs(availableWidth - previousWidth) > 10) {
+          previousWidth = availableWidth;
+          
+          // Set collapsed state based on available width
+          const shouldCollapse = availableWidth < 900;
+          console.log(`ModelCtrl: Width ${availableWidth}px - should${shouldCollapse ? '' : ' not'} collapse`);
+          
+          // Only update state if it actually changed
+          setIsCollapsed(prevState => {
+            if (prevState !== shouldCollapse) {
+              return shouldCollapse;
+            }
+            return prevState;
+          });
+        }
+      } catch (error) {
+        console.error('ModelCtrl: Error checking space:', error);
+      }
+    };
+
+    // Setup ResizeObserver with error handling
+    const setupResizeObserver = () => {
+      try {
+        // Clear any existing observer
+        if (resizeObserver) {
+          resizeObserver.disconnect();
+        }
+        
+        // Create new observer with debounced handler
+        resizeObserver = new ResizeObserver(debouncedCheckSpace);
+        
+        // Get toolbar and observe it
+        const toolbar = document.querySelector('.editor-toolbar');
+        if (toolbar) {
+          resizeObserver.observe(toolbar);
+          console.log('ModelCtrl: Observing toolbar for resize');
+        } else {
+          console.log('ModelCtrl: Toolbar not found, will retry');
+          timeoutId = setTimeout(setupResizeObserver, 100);
+        }
+      } catch (error) {
+        console.error('ModelCtrl: Error setting up resize observer:', error);
+      }
+    };
+
+    // Force initial state and perform checks
+    try {
+      // Initial check and observer setup - but don't force state to prevent flicker
+      checkSpace();
+      setupResizeObserver();
+      
+      // Also listen for window resize events with debounce
+      window.addEventListener('resize', debouncedCheckSpace);
+      
+      // Run additional check after a delay
+      setTimeout(checkSpace, 500);
+    } catch (error) {
+      console.error('ModelCtrl: Error during initial setup:', error);
+    }
+    
+    return () => {
+      clearTimeout(timeoutId);
+      clearTimeout(debounceTimeout);
+      
+      if (resizeObserver) {
+        try {
+          resizeObserver.disconnect();
+        } catch (error) {
+          console.error('ModelCtrl: Error disconnecting observer:', error);
+        }
+      }
+      
+      window.removeEventListener('resize', debouncedCheckSpace);
+    };
+  }, []); // Run only on mount
+
+  // Toggle the icon popup
+  const toggleIconPopup = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIconPopupOpen(!iconPopupOpen);
+  };
+
+  // Close the popup when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      // Don't close if clicked within the popup or the trigger button
+      const popupEl = document.querySelector('.fui-PopoverSurface');
+      const triggerButton = document.querySelector('.popup-trigger');
+      
+      if (iconPopupOpen && 
+          popupEl && 
+          !popupEl.contains(e.target as Node) && 
+          triggerButton && 
+          !triggerButton.contains(e.target as Node)) {
+        setIconPopupOpen(false);
+      }
+    };
+    
+    document.addEventListener('click', handleClickOutside);
+    return () => {
+      document.removeEventListener('click', handleClickOutside);
+    };
+  }, [iconPopupOpen]);
+
+  // Attribute icons component for reuse
+  const AttributeIcons = ({ collapsed = false, inPopup = false }) => (
+    <div 
+      ref={inPopup ? null : iconContainerRef} 
+      className={`flex justify-start items-center ${inPopup ? 'icon-popup-container' : ''}`}
+      style={{ 
+        flexDirection: inPopup ? 'row' : 'row',
+        flexWrap: inPopup ? 'wrap' : 'nowrap',
+        gap: inPopup ? '5px' : '0',
+        padding: inPopup ? '8px' : '0',
+        maxWidth: inPopup ? 'none' : undefined,
+        width: inPopup ? 'auto' : undefined
+      }}
+    >
+      <SecureStatusIndicator
+        provider={providerName}
+        withTooltip={true}
+      />
+      <SearchStatusIndicator
+        provider={providerName}
+        model={activeModel.name}
+        withTooltip={true}
+      />
+      <ReasoningStatusIndicator
+        provider={providerName}
+        model={activeModel.name}
+        withTooltip={true}
+      />
+      <FastResponseStatusIndicator
+        provider={providerName}
+        model={activeModel.name}
+        withTooltip={true}
+      />
+      <ToolStatusIndicator
+        provider={providerName}
+        model={activeModel.name}
+        withTooltip={true}
+      />
+      <AgenticStatusIndicator
+        provider={providerName}
+        model={activeModel.name}
+        withTooltip={true}
+      />
+      <UncensoredStatusIndicator
+        provider={providerName}
+        model={activeModel.name}
+        withTooltip={true}
+      />
+      <MuricaStatusIndicator
+        provider={providerName}
+        model={activeModel.name}
+        withTooltip={true}
+      />
+      <ArjunsFavoriteStatusIndicator
+        provider={providerName}
+        model={activeModel.name}
+        withTooltip={true}
+      />
+      <LongContextStatusIndicator
+        model={activeModel.name}
+        provider={providerName}
+        withTooltip={true}
+      />
+    </div>
+  );
+
   return models && models.length ? (
     <ClickAwayListener onClickAway={handleClickAway} active={open}>
       <Menu
@@ -290,85 +494,69 @@ export default function ModelCtrl({
           >
             {autoEnabled && autoModel && activeModel.autoEnabled ? (
               <div style={{ display: 'flex', alignItems: 'center' }}>
-                <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
-                  <SecureStatusIndicator
-                    provider={providerName}
-                    withTooltip={true}
-                  />
-                  <ToolStatusIndicator
-                    provider={providerName}
-                    model={activeModel.name}
-                    withTooltip={true}
-                  />
-                  <RouterStatusIndicator
-                    provider={providerName}
-                    model={activeModel.name}
-                    withTooltip={true}
-                  />
-                </div>
+                {isCollapsed ? (
+                  <Popover
+                    open={iconPopupOpen}
+                    onOpenChange={(e, data) => setIconPopupOpen(data.open)}
+                  >
+                    <PopoverTrigger>
+                      <Button
+                        size="small"
+                        appearance="subtle"
+                        className="p-1 mr-1 popup-trigger"
+                        icon={<ChevronUp16Regular />}
+                        onClick={toggleIconPopup}
+                      />
+                    </PopoverTrigger>
+                    <PopoverSurface>
+                      <div className="popup-title">OMNI Attributes</div>
+                      <AttributeIcons inPopup={true} />
+                    </PopoverSurface>
+                  </Popover>
+                ) : (
+                  <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+                    <AttributeIcons />
+                  </div>
+                )}
                 <span className={theme === 'dark' ? 'text-gray-200' : 'text-gray-700'}>
                   {providerName === 'Ollama' ? 'OMNI Edge' : providerName}
                   {providerName !== 'Ollama' && ' /'}
                 </span>
-                <span className={theme === 'dark' ? 'text-white font-medium' : 'text-gray-900 font-medium'}>AUTO</span>
-                <span className={theme === 'dark' ? 'text-gray-200' : 'text-gray-700'}> 🪄</span>
+                <span className={theme === 'dark' ? 'text-white font-medium' : 'text-gray-900 font-medium'}>OMNI Agent</span>
+                <span className={theme === 'dark' ? 'text-gray-200' : 'text-gray-700'}> ✨</span>
               </div>
             ) : (
               <div className="flex items-center">
                 <div className="flex flex-row justify-start items-center mr-1">
-                  <div style={{ display: 'flex', width: '68px', justifyContent: 'flex-start' }}>
-                    <SecureStatusIndicator
-                      provider={providerName}
-                      withTooltip={true}
-                    />
-                    <SearchStatusIndicator
-                      provider={providerName}
-                      model={activeModel.name}
-                      withTooltip={true}
-                    />
-                    <ReasoningStatusIndicator
-                      provider={providerName}
-                      model={activeModel.name}
-                      withTooltip={true}
-                    />
-                    <FastResponseStatusIndicator
-                      provider={providerName}
-                      model={activeModel.name}
-                      withTooltip={true}
-                    />
-                    <ToolStatusIndicator
-                      provider={providerName}
-                      model={activeModel.name}
-                      withTooltip={true}
-                    />
-                    <UncensoredStatusIndicator
-                      provider={providerName}
-                      model={activeModel.name}
-                      withTooltip={true}
-                    />
-                    <MuricaStatusIndicator
-                      provider={providerName}
-                      model={activeModel.name}
-                      withTooltip={true}
-                    />
-                    <ArjunsFavoriteStatusIndicator
-                      provider={providerName}
-                      model={activeModel.name}
-                      withTooltip={true}
-                    />
-                    <LongContextStatusIndicator
-                      model={activeModel.name}
-                      provider={providerName}
-                      withTooltip={true}
-                    />
-                  </div>
+                  {isCollapsed ? (
+                    <Popover
+                      open={iconPopupOpen}
+                      onOpenChange={(e, data) => setIconPopupOpen(data.open)}
+                    >
+                      <PopoverTrigger>
+                        <Button
+                          size="small"
+                          appearance="subtle"
+                          className="p-1 mr-1 popup-trigger"
+                          icon={<ChevronUp16Regular />}
+                          onClick={toggleIconPopup}
+                        />
+                      </PopoverTrigger>
+                      <PopoverSurface>
+                        <div className="popup-title">OMNI Attributes</div>
+                        <AttributeIcons inPopup={true} />
+                      </PopoverSurface>
+                    </Popover>
+                  ) : (
+                    <AttributeIcons />
+                  )}
                 </div>
                 <div className="flex-shrink overflow-hidden whitespace-nowrap text-ellipsis min-w-12">
                   <span className={theme === 'dark' ? 'text-white' : 'text-gray-800'}>
                     {providerName === 'Ollama' ? 'OMNI Edge' : providerName} /
                   </span>
                   <span className={theme === 'dark' ? 'text-white font-medium' : 'text-gray-900 font-medium'}>
-                    {specializedModel === 'Deep-Searcher-R1' ? 'DeepSearch-R1' : 
+                    {specializedModel === 'Deep-Searcher-R1' ? 'DeepSearch-Pro' : 
                      specializedModel === 'Deep-Thinker-R1' ? 'DeepThought-R1' : 
                      specializedModel === 'Flash-2.0' ? 'Flash-2.0' : 
                      activeModel.label}
@@ -442,12 +630,17 @@ export default function ModelCtrl({
                         model={autoModel?.name || ''}
                         withTooltip={true}
                       />
+                      <AgenticStatusIndicator
+                        provider={providerName}
+                        model={autoModel?.name || ''}
+                        withTooltip={true}
+                      />
                       <RouterStatusIndicator
                         provider={providerName}
                         model={autoModel?.name || ''}
                         withTooltip={true}
                       />
-                      <span style={{ fontSize: '1rem', fontWeight: 500, textAlign: 'center' }} className="text-gray-800 dark:text-white">&nbsp;&nbsp;✨ AUTO ✨</span>
+                      <span style={{ fontSize: '1rem', fontWeight: 500, textAlign: 'center' }} className="text-gray-800 dark:text-white">&nbsp;&nbsp;✨ OMNI Agent ✨</span>
                     </div>
                   </div>
                   <div className="mb-2">
@@ -458,7 +651,7 @@ export default function ModelCtrl({
                         color: textColors.primary
                       }}
                     >
-                      Automatically selects the best advanced AI model for your task
+                      Elite model with tool use, reasoning traces, and vision capabilities
                     </div>
                     <div className="text-xs text-gray-500 dark:text-white">
                       <span className="opacity-80">Powered by {providerName === 'OMNI' ? 'OMNI OS' : providerName === 'Ollama' ? 'OMNI Edge' : providerName}</span>
@@ -479,14 +672,20 @@ export default function ModelCtrl({
                     }}
                     className="dark:border-gray-400 dark:bg-gray-700"
                   >
-                    Optimized for:
+                    Advanced capabilities:
                   </span>
-                    <div className="dark:bg-gray-800 bg-gray-100" style={{ display: 'flex', gap: '12px', marginLeft: '4px', padding: '6px 10px', borderRadius: '6px', width: 'fit-content' }}>
-                      <span style={{ fontSize: '0.9rem', fontWeight: 500 }} className="text-blue-600 dark:text-blue-300">Performance</span>
+                    <div className="dark:bg-gray-800 bg-gray-100" style={{ display: 'flex', gap: '12px', marginLeft: '4px', padding: '6px 10px', borderRadius: '6px', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '0.9rem', fontWeight: 500 }} className="text-blue-600 dark:text-blue-300">Tool Use</span>
                       <span className="text-gray-400 dark:text-gray-400">•</span>
-                      <span style={{ fontSize: '0.9rem', fontWeight: 500 }} className="text-cyan-600 dark:text-cyan-300">Speed</span>
+                      <span style={{ fontSize: '0.9rem', fontWeight: 500 }} className="text-purple-600 dark:text-purple-300">Reasoning</span>
                       <span className="text-gray-400 dark:text-gray-400">•</span>
-                      <span style={{ fontSize: '0.9rem', fontWeight: 500 }} className="text-green-600 dark:text-green-300">Cost</span>
+                      <span style={{ fontSize: '0.9rem', fontWeight: 500 }} className="text-violet-600 dark:text-violet-300">Agentic</span>
+                      <span className="text-gray-400 dark:text-gray-400">•</span>
+                      <span style={{ fontSize: '0.9rem', fontWeight: 500 }} className="text-green-600 dark:text-green-300">Adaptivity</span>
+                    </div>
+                    <div className="mt-2 text-xs text-gray-600 dark:text-gray-300 p-3 bg-blue-50 dark:bg-blue-900/30 rounded-md border border-blue-200 dark:border-blue-500">
+                      <p className="font-medium text-blue-700 dark:text-blue-300">Designed for complex tasks and applications</p>
+                      <p className="mt-1">OMNI Agent dynamically decides whether to think and how much to think based on the complexity of your task.</p>
                     </div>
                   </div>
                 </div>
@@ -498,7 +697,7 @@ export default function ModelCtrl({
                   <>
                     <div className="px-1 text-sm text-gray-700 dark:text-gray-200">
                       <p className="font-bold text-base mb-3" style={{ color: textColors.primary }}>
-                        Use the specialized model buttons for specific tasks:
+                        Choose specialized models:
                       </p>
                       <div className="grid grid-cols-1 gap-3">
                         <div className="flex items-start p-2 rounded-md bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
@@ -546,33 +745,51 @@ export default function ModelCtrl({
           </MenuList>
         </MenuPopover>
       </Menu>
+      
+      <style>
+        {`
+          .icon-popup-container {
+            padding: 8px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            max-width: 250px;
+          }
+          
+          .popup-title {
+            font-weight: 600;
+            font-size: 14px;
+            color: var(--colorNeutralForeground1);
+            padding: 8px 8px 4px 8px;
+            border-bottom: 1px solid var(--colorNeutralStroke1);
+            margin-bottom: 8px;
+            text-align: center;
+          }
+          
+          @media (max-width: 700px) {
+            .model-selector-text {
+              max-width: 150px;
+              white-space: nowrap;
+              overflow: hidden;
+              text-overflow: ellipsis;
+            }
+          }
+        `}
+      </style>
     </ClickAwayListener>
   ) : (
     <Text size={200} className={theme === 'dark' ? 'text-white' : 'text-gray-900'}>
       {autoEnabled && autoModel && activeModel.autoEnabled ? (
         <div style={{ display: 'flex', alignItems: 'center' }}>
           <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
-            <SecureStatusIndicator
-              provider={providerName}
-              withTooltip={true}
-            />
-            <ToolStatusIndicator
-              provider={providerName}
-              model={activeModel.name}
-              withTooltip={true}
-            />
-            <RouterStatusIndicator
-              provider={providerName}
-              model={activeModel.name}
-              withTooltip={true}
-            />
+            <AttributeIcons />
           </div>
           <span className={theme === 'dark' ? 'text-gray-200' : 'text-gray-700'}>
             {providerName === 'Ollama' ? 'OMNI Edge' : providerName}
             {providerName !== 'Ollama' && ' /'}
           </span>
-          <span className={theme === 'dark' ? 'text-white font-medium' : 'text-gray-900 font-medium'}>AUTO</span>
-          <span className={theme === 'dark' ? 'text-gray-200' : 'text-gray-700'}> 🪄</span>
+          <span className={theme === 'dark' ? 'text-white font-medium' : 'text-gray-900 font-medium'}>OMNI Agent</span>
+          <span className={theme === 'dark' ? 'text-gray-200' : 'text-gray-700'}> ✨</span>
           {providerName !== 'Ollama' && (
             <div 
               className="hover:bg-blue-700 text-white"
@@ -599,50 +816,7 @@ export default function ModelCtrl({
       ) : (
         <span className="flex justify-start items-center gap-1">
           <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
-            <SecureStatusIndicator
-              provider={providerName}
-              withTooltip={true}
-            />
-            <SearchStatusIndicator
-              provider={providerName}
-              model={activeModel.name}
-              withTooltip={true}
-            />
-            <ReasoningStatusIndicator
-              provider={providerName}
-              model={activeModel.name}
-              withTooltip={true}
-            />
-            <FastResponseStatusIndicator
-              provider={providerName}
-              model={activeModel.name}
-              withTooltip={true}
-            />
-            <ToolStatusIndicator
-              provider={providerName}
-              model={activeModel.name}
-              withTooltip={true}
-            />
-            <UncensoredStatusIndicator
-              provider={providerName}
-              model={activeModel.name}
-              withTooltip={true}
-            />
-            <MuricaStatusIndicator
-              provider={providerName}
-              model={activeModel.name}
-              withTooltip={true}
-            />
-            <ArjunsFavoriteStatusIndicator
-              provider={providerName}
-              model={activeModel.name}
-              withTooltip={true}
-            />
-            <LongContextStatusIndicator
-              model={activeModel.name}
-              provider={providerName}
-              withTooltip={true}
-            />
+            <AttributeIcons />
           </div>
           <span className={theme === 'dark' ? 'text-white' : 'text-gray-800'}>
             {providerName === 'Ollama' ? 'OMNI Edge' : providerName}

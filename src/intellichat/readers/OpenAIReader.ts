@@ -97,7 +97,25 @@ export default class OpenAIReader extends BaseReader implements IChatReader {
     // Extract citations from Perplexity API responses
     let citations = undefined;
     if (data.citations && Array.isArray(data.citations)) {
+      debug(`Found citations in response: ${JSON.stringify(data.citations)}`);
       citations = data.citations;
+    } else if (data.provider === "Perplexity" || (data.model && typeof data.model === 'string' && data.model.toLowerCase().includes('perplexity'))) {
+      // Perplexity models should have citations but sometimes they come in a different format
+      debug(`This is a Perplexity model response: ${data.model || "unknown model"}, but no direct citations field found`);
+      
+      // Check for citations in other possible locations
+      if (data.choices && data.choices[0] && data.choices[0].citations) {
+        debug(`Found citations in choices[0].citations: ${JSON.stringify(data.choices[0].citations)}`);
+        citations = data.choices[0].citations;
+      } else if (data.choices && data.choices[0] && data.choices[0].delta && data.choices[0].delta.citations) {
+        debug(`Found citations in choices[0].delta.citations: ${JSON.stringify(data.choices[0].delta.citations)}`);
+        citations = data.choices[0].delta.citations;
+      }
+      
+      // If we still have no citations, check if this is the final usage message which might not include them
+      if (!citations && data.usage) {
+        debug("This appears to be a final usage message with no citations");
+      }
     }
     
     return {
