@@ -7,15 +7,7 @@ import { isArray, isNull } from 'lodash';
 import useSettingsStore from '../stores/useSettingsStore';
 
 // Add this near the top of the file, after imports
-const REPLICATE_API_KEY = ;
-
-// Declare global flag for active speech to text processing
-declare global {
-  interface Window {
-    _activeSpeechProcessing?: boolean;
-    _lastProcessingStartTime?: number;
-  }
-}
+export const REPLICATE_API_KEY = ''; // Key for speech-to-text
 
 /**
  * Enhances a system prompt using prompt engineering techniques via Replicate API
@@ -23,84 +15,50 @@ declare global {
  * @returns A promise that resolves to the enhanced system prompt
  */
 export async function enhanceSystemPrompt(systemPrompt: string): Promise<string> {
-  if (!systemPrompt || systemPrompt.trim() === '') {
-    throw new Error('System prompt cannot be empty');
+  // Use the hardcoded key defined at the top of the file
+  // const REPLICATE_API_KEY is globally available from line 10
+
+  if (!REPLICATE_API_KEY) {
+    console.warn('Replicate API key (hardcoded) is missing, skipping prompt enhancement.');
+    return systemPrompt; // Return original prompt if key is missing
   }
 
+  console.log('Enhancing system prompt via Replicate API...');
+
   try {
-    const engineeringPrompt = `You are an expert prompt engineer specializing in agentic AI assistants. Your task is to enhance the following system prompt to make it more effective, detailed, and actionable.
+    const instruction = `Enhance the following system prompt for an AI assistant. Make it clearer, more concise, and more effective in guiding the AI's behavior. Focus on professional and helpful interactions. Original prompt: "${systemPrompt}" Enhanced prompt:`;
 
-Apply these prompt engineering techniques:
-1. Define Clear Goals and Constraints:
-   - Clarify the assistant's role, objectives, and limitations
-   - Use specific, unambiguous language
-   - Outline explicit boundaries and constraints
-
-2. Structure for Adaptability and Task Delegation:
-   - Encourage step-by-step planning for complex tasks
-   - Enable role-based reasoning if appropriate
-   - Promote adaptability to changing contexts
-
-3. Optimize Autonomy While Maintaining Accuracy:
-   - Give permission for appropriate autonomous actions
-   - Emphasize fact-checking and tool usage when needed
-   - Include self-review mechanisms
-   - Set clear quality criteria for responses
-
-4. Handle Complex Multi-Step Workflows:
-   - Structure the workflow with clear stages
-   - Maintain context across steps
-   - Allow for iteration and refinement
-
-5. Ensure Ethical Decision-Making:
-   - Include relevant ethical guidelines
-   - Address how to handle sensitive scenarios
-   - Guard against misuse
-   - Promote fairness and transparency
-
-6. Improve Robustness and Reliability:
-   - Anticipate errors and unknowns
-   - Provide fallback strategies
-   - Maintain consistency in responses
-
-7. IMPORTANT: Return ONLY the enhanced prompt without any explanation, introduction, or additional text
-8. IMPORTANT: Format your response as a well-structured system prompt, not as a casual conversation
-9. IMPORTANT: Keep Jinja2 syntax for variables if used in the original prompt i.e {{variable_name}}
-10. IMPORTANT: Make the agent more effective but don't make it do things the user doesn't specify - focus on making it work harder on exactly what was asked for
-11. IMPORTANT: Do NOT add information or tasks that weren't specifically requested by the user`;
-
-    const response = await fetch('https://api.replicate.com/v1/models/meta/meta-llama-3-8b-instruct/predictions', {
+    // Use fetch directly as Replicate SDK might not be available in all contexts
+    const response = await fetch('https://api.replicate.com/v1/models/meta/llama-4-scout-instruct/predictions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${REPLICATE_API_KEY}`,
         'Content-Type': 'application/json',
-        'Prefer': 'wait'
+        'Prefer': 'wait' // Request synchronous completion if possible
       },
       body: JSON.stringify({
         input: {
-          top_k: 0,
-          top_p: 0.95,
-          prompt: engineeringPrompt,
-          max_tokens: 512,
-          temperature: 0.7,
-          stream: false,
-          system_prompt: `You are a helpful assistant. Your task is to enhance this system prompt:
-
-${systemPrompt}`,
-          length_penalty: 1,
-          max_new_tokens: 512,
-          stop_sequences: "<|end_of_text|>,<|eot_id|>",
-          prompt_template: "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n{system_prompt}<|eot_id|><|start_header_id|>user<|end_header_id|>\n\n{prompt}<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n",
-          presence_penalty: 0,
-          log_performance_metrics: false
+          prompt: instruction,
+          max_new_tokens: 128, // Keep it reasonably short
+          temperature: 0.6,   // Use user-specified temp
+          top_p: 1.0,         // Use user-specified top_p
+          presence_penalty: 0, // Use user-specified presence_penalty
+          frequency_penalty: 0 // Use user-specified frequency_penalty
         }
       })
     });
 
+    if (!response.ok) {
+      console.error(`API call failed with status ${response.status}`);
+      throw new Error(`API call failed with status ${response.status}`);
+    }
+
     const initialData = await response.json();
+    console.log('Replicate API initial response:', initialData);
     
     if (initialData.error) {
-      throw new Error(initialData.error);
+      console.error(`API error: ${initialData.error}`);
+      throw new Error(`API error: ${initialData.error}`);
     }
 
     // If the response is still processing, wait for it to complete
@@ -886,10 +844,10 @@ export function markdownToPlainText(markdown: string): string {
 }
 
 export async function textToSpeech(markdown: string): Promise<string> {
-  // Check if current provider is Ollama (OMNI Edge)
-  const { api } = window.electron?.store?.get('settings') || {};
-  if (api?.provider === 'Ollama' || api?.provider === 'OMNI Edge') {
-    throw new Error('Text-to-speech is not supported with OMNI Edge');
+  // Check if current provider is Ollama (OMNI Edge maps to Ollama internally)
+  const api = useSettingsStore.getState().api;
+  if (api?.provider === 'Ollama') { // Simplified check
+    throw new Error('Text-to-speech is not supported with OMNI Edge/Ollama');
   }
 
   // Convert markdown to plain text
@@ -904,8 +862,20 @@ export async function textToSpeech(markdown: string): Promise<string> {
     .replace(/\s+/g, ' ')            // Replace multiple spaces with single space
     .trim();                          // Trim spaces from start and end
     
+  if (!text) {
+    throw new Error('Cannot convert empty text to speech');
+  }
+
+  // Ensure window.electron exists and has the required methods
+  if (typeof window.electron?.proxyReplicate !== 'function' || typeof window.electron?.fetchAudioData !== 'function') {
+    console.error('window.electron API (proxyReplicate or fetchAudioData) is not available. Check preload script.');
+    throw new Error('Electron context API is not available');
+  }
+
   try {
-    const response = await fetch('https://api.replicate.com/v1/predictions', {
+    console.log('Requesting TTS from Replicate API...');
+    const initialData = await window.electron.proxyReplicate({
+      url: 'https://api.replicate.com/v1/predictions',
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${REPLICATE_API_KEY}`,
@@ -917,62 +887,108 @@ export async function textToSpeech(markdown: string): Promise<string> {
         input: {
           text: text,
           speed: 1,
-          voice: "af_bella"
+          voice: "af_bella" // Example voice
         }
       })
     });
     
-    const data = await response.json();
+    console.log('Replicate TTS initial response:', initialData);
     
-    if (data.error) {
-      throw new Error(data.error);
+    if (initialData.error) {
+      throw new Error(`Replicate API error: ${initialData.error}`);
     }
     
-    // If prediction is still processing, poll for result
-    if (data.status === 'processing') {
-      return await pollForResult(data.id);
+    const predictionId = initialData.id;
+    if (!predictionId || typeof predictionId !== 'string') {
+      throw new Error('Failed to get prediction ID from initial Replicate response');
     }
     
-    // Return direct URL if available
-    return data.output;
+    let remoteUrl;
+    if (initialData.status === 'processing' || initialData.status === 'starting') {
+      console.log('TTS prediction is processing, polling for result...');
+      remoteUrl = await pollForTtsResult(predictionId);
+    } else if (initialData.status === 'succeeded') {
+      remoteUrl = initialData.output;
+    } else {
+      throw new Error(`TTS prediction failed with status: ${initialData.status}, error: ${initialData.error}`);
+    }
+    
+    if (!remoteUrl || typeof remoteUrl !== 'string') {
+      throw new Error('Failed to get audio URL from Replicate API response');
+    }
+    
+    // Use the newly exposed IPC handler to fetch audio via the main process
+    console.log('Fetching audio data via main process from:', remoteUrl);
+    const audioDataUrl = await window.electron.fetchAudioData(remoteUrl);
+    console.log('Audio data URL received from main process.');
+    
+    // Return the base64 data URL received from the main process
+    return audioDataUrl;
+
   } catch (error) {
-    console.error('Error in text-to-speech:', error);
-    throw error;
+    console.error('Error in textToSpeech function:', error);
+    throw error; // Re-throw the error for the caller to handle
   }
 }
 
 // Helper function to poll for TTS result
-async function pollForResult(predictionId: string): Promise<string> {
-  const maxAttempts = 30; // Maximum polling attempts
-  const delay = 1000; // Delay between polls in ms
+async function pollForTtsResult(predictionId: string): Promise<string> {
+  const maxAttempts = 30;
+  const delay = 1000;
+  
+  console.log(`Starting polling for TTS prediction: ${predictionId}`);
+  
+  // Ensure window.electron exists and has the required method
+  if (typeof window.electron?.proxyReplicate !== 'function') {
+    console.error('window.electron.proxyReplicate is not available for polling. Check preload script.');
+    throw new Error('Electron context (proxyReplicate) is not available for polling');
+  }
   
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     try {
-      // Wait before polling
       await new Promise(resolve => setTimeout(resolve, delay));
       
-      const response = await fetch(`https://api.replicate.com/v1/predictions/${predictionId}`, {
-        headers: {
-          'Authorization': `Bearer ${REPLICATE_API_KEY}`,
-          'Content-Type': 'application/json'
-        }
+      console.log(`Polling attempt ${attempt + 1}/${maxAttempts} for prediction ${predictionId}...`);
+      
+      // Explicitly assert window.electron exists here after the check above
+      const data = await window.electron!.proxyReplicate({
+         url: `https://api.replicate.com/v1/predictions/${predictionId}`,
+         method: 'GET',
+         headers: {
+           'Authorization': `Bearer ${REPLICATE_API_KEY}`,
+           'Content-Type': 'application/json'
+         }
       });
       
-      const data = await response.json();
+      console.log(`Polling response for attempt ${attempt + 1}:`, JSON.stringify(data, null, 2));
       
       if (data.status === 'succeeded') {
+        console.log('Polling succeeded, returning output URL');
+        if (!data.output || typeof data.output !== 'string') {
+          throw new Error('Polling succeeded but received invalid output URL');
+        }
         return data.output;
       } else if (data.status === 'failed') {
-        throw new Error(`TTS generation failed: ${data.error}`);
+        console.error('TTS prediction failed with error:', data.error);
+        throw new Error(`TTS generation failed: ${data.error || 'Unknown error'}`);
+      } else if (data.status === 'canceled') {
+        console.log('TTS prediction was canceled');
+        throw new Error('TTS operation was canceled');
+      } else {
+        console.log(`Polling status: ${data.status}, continuing to poll...`);
       }
-      // Continue polling if still processing
-    } catch (error) {
-      console.error('Error polling for TTS result:', error);
-      throw error;
+    } catch (error: any) {
+      console.error(`Error during polling attempt ${attempt + 1}:`, error);
+      if (error.message.includes('Authentication error')) {
+         throw error;
+      }
+      if (attempt === maxAttempts - 1) {
+        throw new Error(`Polling failed after ${maxAttempts} attempts: ${error.message}`);
+      }
     }
   }
   
-  throw new Error('TTS generation timed out');
+  throw new Error(`TTS generation timed out after ${maxAttempts} attempts`);
 }
 
 // Speech to text functionality
@@ -982,17 +998,38 @@ export async function speechToText(audioBase64: string, signal?: AbortSignal): P
     window._activeSpeechProcessing = true;
     window._lastProcessingStartTime = Date.now();
     
-    // Check if current provider is Ollama (OMNI Edge)
-    const { api } = window.electron?.store?.get('settings') || {};
-    if (api?.provider === 'Ollama' || api?.provider === 'OMNI Edge') {
-      throw new Error('Speech-to-text is not supported with OMNI Edge');
+    console.log('Starting speech-to-text processing...');
+    
+    // Check if current provider is Ollama (OMNI Edge maps to Ollama internally)
+    const api = useSettingsStore.getState().api;
+    if (api?.provider === 'Ollama') { // Simplified check
+      throw new Error('Speech-to-text is not supported with OMNI Edge/Ollama');
+    }
+
+    // Validate audioBase64 input
+    if (!audioBase64 || typeof audioBase64 !== 'string') {
+      console.error('Invalid audio data provided to speechToText:', typeof audioBase64);
+      throw new Error('Invalid audio data provided');
+    }
+    
+    console.log(`Audio base64 length: ${audioBase64.length} characters`);
+    if (audioBase64.length < 1000) {
+      console.error('Audio recording too short:', audioBase64.length);
+      throw new Error('Audio recording too short or empty');
     }
 
     try {
-      // Create a data URL from the base64 audio
-      const audioUrl = `data:audio/wav;base64,${audioBase64}`;
+      // Create a data URL from the base64 audio - ensure we're not doubling up on the data URL prefix
+      const audioUrl = audioBase64.startsWith('data:audio') 
+        ? audioBase64 
+        : `data:audio/wav;base64,${audioBase64}`;
       
-      const response = await fetch('https://api.replicate.com/v1/predictions', {
+      console.log('Sending request to Replicate API...');
+      console.log('Using API key:', REPLICATE_API_KEY ? `${REPLICATE_API_KEY.substring(0, 4)}...` : 'Missing key');
+      
+      // Use electron proxy instead of direct fetch
+      const data = await window.electron.proxyReplicate({
+        url: 'https://api.replicate.com/v1/predictions',
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${REPLICATE_API_KEY}`,
@@ -1004,31 +1041,38 @@ export async function speechToText(audioBase64: string, signal?: AbortSignal): P
           input: {
             task: "transcribe",
             audio: audioUrl,
-            language: "None",
+            language: "None", // Changed from "en" to "None" as required by the API
             timestamp: "chunk",
             batch_size: 64,
             diarise_audio: false
           }
-        }),
-        signal // Pass the abort signal to the fetch request
+        })
       });
       
-      const data = await response.json();
+      console.log('Replicate API response:', data);
       
       if (data.error) {
-        throw new Error(data.error);
+        console.error('API returned error:', data.error);
+        throw new Error(`API error: ${data.error}`);
       }
       
       // If prediction is still processing, poll for result
-      if (data.status === 'processing') {
-        return await pollForSttResult(data.id, signal);
+      let output;
+      if (data.status === 'processing' || data.status === 'starting') {
+        console.log('Request is still processing, polling for result...');
+        output = await pollForSttResult(data.id, signal);
+      } else {
+        output = data.output;
       }
       
       // Parse and return the transcribed text
-      const text = extractTextFromSttResponse(data.output);
+      console.log('Extracting text from response:', output);
+      const text = extractTextFromSttResponse(output);
+      console.log('Extracted text:', text);
       
       // Additional validation to prevent empty results
       if (!text || typeof text !== 'string' || text.trim() === '') {
+        console.error('No text detected in response');
         throw new Error('No speech detected or transcription failed');
       }
       
@@ -1041,6 +1085,7 @@ export async function speechToText(audioBase64: string, signal?: AbortSignal): P
       
       // Re-throw AbortError to be caught by the caller
       if (error.name === 'AbortError') {
+        console.log('STT operation aborted by user');
         throw error;
       }
       
@@ -1052,12 +1097,12 @@ export async function speechToText(audioBase64: string, signal?: AbortSignal): P
     window._activeSpeechProcessing = false;
     
     console.error('Speech to text conversion failed:', error);
-    return `[Speech-to-text conversion failed: ${error.message || 'Unknown error'}]`;
+    throw error;
   }
 }
 
 // Helper function to poll for STT result
-async function pollForSttResult(predictionId: string, signal?: AbortSignal): Promise<string> {
+async function pollForSttResult(predictionId: string, signal?: AbortSignal): Promise<any> {
   const maxAttempts = 30; // Maximum polling attempts
   const delay = 1000; // Delay between polls in ms
   
@@ -1076,32 +1121,35 @@ async function pollForSttResult(predictionId: string, signal?: AbortSignal): Pro
         throw new DOMException('STT operation aborted by user', 'AbortError');
       }
       
-      const response = await fetch(`https://api.replicate.com/v1/predictions/${predictionId}`, {
+      console.log(`Polling attempt ${attempt + 1}/${maxAttempts} for prediction ${predictionId}`);
+      
+      // Use electron proxy instead of direct fetch
+      const data = await window.electron.proxyReplicate({
+        url: `https://api.replicate.com/v1/predictions/${predictionId}`,
+        method: 'GET',
         headers: {
           'Authorization': `Bearer ${REPLICATE_API_KEY}`,
           'Content-Type': 'application/json'
-        },
-        signal // Pass the abort signal to this fetch call as well
+        }
       });
       
-      const data = await response.json();
+      console.log(`Polling response for attempt ${attempt + 1}:`, JSON.stringify(data, null, 2));
       
       if (data.status === 'succeeded') {
-        // Parse the transcribed text from the response
-        const text = extractTextFromSttResponse(data.output);
-        
-        // Additional validation to prevent empty results
-        if (!text || typeof text !== 'string' || text.trim() === '') {
-          throw new Error('No speech detected or transcription failed');
-        }
-        
-        // Clear global processing flag
-        window._activeSpeechProcessing = false;
-        return text;
+        console.log('Polling succeeded, returning output');
+        return data.output;
       } else if (data.status === 'failed') {
         // Clear global processing flag
         window._activeSpeechProcessing = false;
+        console.error('STT prediction failed with error:', data.error);
         throw new Error(`STT generation failed: ${data.error || 'Unknown error'}`);
+      } else if (data.status === 'canceled') {
+        // Clear global processing flag
+        window._activeSpeechProcessing = false;
+        console.log('STT prediction was canceled');
+        throw new Error('STT operation was canceled');
+      } else {
+        console.log(`Polling status: ${data.status}, continuing to poll...`);
       }
       // Continue polling if still processing
     } catch (error: any) {
@@ -1110,7 +1158,31 @@ async function pollForSttResult(predictionId: string, signal?: AbortSignal): Pro
       
       // If this is an abort error, propagate it
       if (error.name === 'AbortError') {
+        console.log('Polling aborted by user');
         throw error;
+      }
+      
+      // If we get an HTTP error with specific status codes, handle them
+      if (error.message && error.message.includes('status:')) {
+        const statusMatch = error.message.match(/status: (\d+)/);
+        if (statusMatch && statusMatch[1]) {
+          const status = parseInt(statusMatch[1]);
+          
+          // Handle specific status codes
+          if (status === 401 || status === 403) {
+            console.error('Authentication error with Replicate API - invalid or expired token');
+            throw new Error('Authentication error: Invalid or expired Replicate API token');
+          } else if (status === 404) {
+            console.error('Prediction not found - ID may be invalid:', predictionId);
+            throw new Error('Prediction not found');
+          } else if (status === 422) {
+            console.error('Validation error with request parameters');
+            throw new Error('Invalid request parameters');
+          } else if (status >= 500) {
+            console.error('Replicate server error:', error.message);
+            throw new Error('Replicate service unavailable. Try again later.');
+          }
+        }
       }
       
       console.error('Error polling for STT result:', error);
@@ -1126,6 +1198,8 @@ async function pollForSttResult(predictionId: string, signal?: AbortSignal): Pro
 // Helper function to extract text from the API response
 function extractTextFromSttResponse(output: any): string {
   try {
+    console.log('extractTextFromSttResponse: Processing output type:', typeof output, output);
+    
     // If output is a string, try to parse it as JSON
     if (typeof output === 'string') {
       try {
@@ -1140,8 +1214,15 @@ function extractTextFromSttResponse(output: any): string {
       }
     }
     
+    // Check for transcription field (Whisper specific format)
+    if (output && typeof output === 'object' && output.transcription) {
+      console.log('extractTextFromSttResponse: Found transcription field:', output.transcription);
+      return output.transcription;
+    }
+    
     // If output is already an object with text property
     if (output && typeof output === 'object' && output.text) {
+      console.log('extractTextFromSttResponse: Found text field:', output.text);
       return output.text;
     }
     
@@ -1163,10 +1244,11 @@ function extractTextFromSttResponse(output: any): string {
     }
     
     // Fallback: stringify the output
-    return String(output);
+    console.log('extractTextFromSttResponse: Falling back to string conversion');
+    return String(output || '');
   } catch (e) {
     console.error('Error extracting text from STT response:', e);
-    return String(output);
+    return String(output || '');
   }
 }
 
@@ -1177,266 +1259,455 @@ export class AudioRecorder {
   private audioChunks: Blob[] = [];
   private onDataAvailableCallback: ((data: Blob) => void) | null = null;
   private onStopCallback: ((audioBlob: Blob) => void) | null = null;
-  
-  // Add a getter to access the stream
+  private isCleanedUp: boolean = false;
+
+  constructor() {
+    console.log('AudioRecorder constructor called');
+  }
+
   getStream(): MediaStream | null {
     return this.stream;
   }
-  
+
   async start(): Promise<void> {
     try {
-      this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      this.mediaRecorder = new MediaRecorder(this.stream);
-      this.audioChunks = [];
+      console.log('AudioRecorder.start() called');
       
+      // Ensure we clean up previous stream if start is called multiple times
+      await this.cleanup();
+      
+      // Get microphone access
+      this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      console.log('Microphone access granted');
+      
+      // Create MediaRecorder with specific settings for better audio quality
+      this.mediaRecorder = new MediaRecorder(this.stream, {
+        mimeType: 'audio/webm;codecs=opus',
+        audioBitsPerSecond: 128000
+      });
+      console.log('MediaRecorder created', this.mediaRecorder.state);
+      
+      this.audioChunks = [];
+      this.isCleanedUp = false;
+      
+      // Add data available event listener
       this.mediaRecorder.addEventListener('dataavailable', (event) => {
         if (event.data.size > 0) {
+          console.log(`AudioRecorder: dataavailable event, size=${event.data.size}`);
           this.audioChunks.push(event.data);
+          
           if (this.onDataAvailableCallback) {
             this.onDataAvailableCallback(event.data);
           }
         }
       });
       
+      // Add stop event listener with explicit log messages
       this.mediaRecorder.addEventListener('stop', () => {
-        const audioBlob = new Blob(this.audioChunks, { type: 'audio/wav' });
-        if (this.onStopCallback) {
-          this.onStopCallback(audioBlob);
+        console.log('AudioRecorder: MediaRecorder STOP event fired');
+        console.log(`AudioRecorder: ${this.audioChunks.length} chunks collected`);
+        
+        if (this.audioChunks.length > 0) {
+          const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
+          console.log(`AudioRecorder: Created blob of ${audioBlob.size} bytes`);
+          
+          if (this.onStopCallback) {
+            console.log('AudioRecorder: Calling onStop callback');
+            // Use setTimeout to avoid any potential issues with event loop
+            window.setTimeout(() => {
+              if (this.onStopCallback) {
+                console.log('AudioRecorder: Executing onStop callback');
+                try {
+                  this.onStopCallback(audioBlob);
+                  console.log('AudioRecorder: onStop callback completed');
+                } catch (err) {
+                  console.error('AudioRecorder: Error in onStop callback:', err);
+                }
+              }
+            }, 10);
+          } else {
+            console.warn('AudioRecorder: No onStop callback registered');
+          }
+        } else {
+          console.warn('AudioRecorder: No audio chunks available after recording');
         }
         
-        // Stop all tracks
-        if (this.stream) {
-          this.stream.getTracks().forEach(track => track.stop());
-        }
+        console.log('AudioRecorder: Cleaning up resources after stop event');
+        this.releaseMediaResources();
       });
       
-      this.mediaRecorder.start();
+      // Start recording with time slices to get data more frequently
+      this.mediaRecorder.start(100);
+      console.log('AudioRecorder: Recording started with 100ms time slices');
     } catch (error) {
-      console.error('Error starting audio recording:', error);
+      console.error('AudioRecorder: Error starting recording:', error);
+      await this.cleanup();
       throw error;
     }
   }
   
   stop(): void {
+    console.log('AudioRecorder.stop() called');
+    
     if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
-      this.mediaRecorder.stop();
+      console.log(`AudioRecorder: Current state before stop: ${this.mediaRecorder.state}`);
+      console.log(`AudioRecorder: ${this.audioChunks.length} chunks collected so far`);
+      
+      try {
+        console.log('AudioRecorder: Stopping MediaRecorder...');
+        this.mediaRecorder.stop();
+        console.log('AudioRecorder: MediaRecorder.stop() called successfully');
+      } catch (err) {
+        console.error('AudioRecorder: Error stopping MediaRecorder:', err);
+        // Force resource cleanup even if stop fails
+        this.releaseMediaResources();
+      }
+    } else {
+      console.log(`AudioRecorder: MediaRecorder can't be stopped. State: ${this.mediaRecorder?.state || 'null'}`);
+      // If mediaRecorder isn't recording, still ensure resources are cleared
+      this.releaseMediaResources();
     }
   }
   
+  // Release media resources while preserving callbacks
+  private releaseMediaResources(): void {
+    console.log('AudioRecorder: Releasing media resources');
+    
+    if (this.stream) {
+      const tracks = this.stream.getTracks();
+      console.log(`AudioRecorder: Stopping ${tracks.length} media tracks`);
+      
+      tracks.forEach(track => {
+        try {
+          track.stop();
+          console.log(`AudioRecorder: Track ${track.id} stopped`);
+        } catch (err) {
+          console.error(`AudioRecorder: Error stopping track ${track.id}:`, err);
+        }
+      });
+      
+      this.stream = null;
+    } else {
+      console.log('AudioRecorder: No stream to clean up');
+    }
+    
+    this.mediaRecorder = null;
+    this.audioChunks = [];
+    console.log('AudioRecorder: Media resources released');
+  }
+  
+  // Full cleanup method that can be called externally
+  async cleanup(): Promise<void> {
+    console.log('AudioRecorder.cleanup() called');
+    
+    if (this.isCleanedUp) {
+      console.log('AudioRecorder: Already cleaned up, nothing to do');
+      return;
+    }
+    
+    // Stop recording if still active
+    if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
+      try {
+        console.log('AudioRecorder: Stopping media recorder during cleanup');
+        this.mediaRecorder.stop();
+      } catch (err) {
+        console.error('AudioRecorder: Error stopping recorder during cleanup:', err);
+      }
+    }
+    
+    // Release media resources
+    this.releaseMediaResources();
+    
+    // Clear callbacks
+    this.onDataAvailableCallback = null;
+    this.onStopCallback = null;
+    
+    this.isCleanedUp = true;
+    console.log('AudioRecorder: Cleanup completed');
+  }
+  
   onDataAvailable(callback: (data: Blob) => void): void {
+    console.log('AudioRecorder: Registered onDataAvailable callback');
     this.onDataAvailableCallback = callback;
   }
   
   onStop(callback: (audioBlob: Blob) => void): void {
+    console.log('AudioRecorder: Registered onStop callback');
     this.onStopCallback = callback;
   }
   
   isRecording(): boolean {
-    return this.mediaRecorder !== null && this.mediaRecorder.state === 'recording';
+    const isRecording = this.mediaRecorder !== null && this.mediaRecorder.state === 'recording';
+    console.log(`AudioRecorder.isRecording() => ${isRecording}`);
+    return isRecording;
   }
 }
 
-// Convert Blob to base64
+// Convert Blob to base64 (Helper function)
 export function blobToBase64(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
+    if (!blob || !(blob instanceof Blob)) {
+      console.error('Invalid blob provided to blobToBase64', blob);
+      reject(new Error('Invalid blob provided'));
+      return;
+    }
+
+    console.log(`Processing blob: size=${blob.size}, type=${blob.type || 'unknown'}`);
+    
+    if (blob.size === 0) {
+      console.warn('Empty blob provided to blobToBase64');
+      reject(new Error('Empty blob provided'));
+      return;
+    }
+    
     const reader = new FileReader();
-    reader.onloadend = () => {
-      if (typeof reader.result === 'string') {
-        // Extract the base64 data from the data URL
-        const base64Data = reader.result.split(',')[1];
-        resolve(base64Data);
-      } else {
-        reject(new Error('Failed to convert blob to base64'));
-      }
-    };
-    reader.onerror = reject;
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = (error) => reject(new Error(`FileReader error: ${error}`)); // Simplified error handling
     reader.readAsDataURL(blob);
   });
 }
 
-// Helper function to create a waveform visualization
-export function createWaveformCanvas(
-  container: HTMLElement, 
-  stream: MediaStream
-): { canvas: HTMLCanvasElement, stop: () => void } {
-  const canvas = document.createElement('canvas');
-  const isEditor = container.id === 'editor';
-  
-  // Set size based on container
-  canvas.width = container.clientWidth;
-  canvas.height = isEditor ? container.clientHeight : 60;
-  
-  // Style the canvas
-  canvas.style.width = '100%';
-  canvas.style.height = isEditor ? '100%' : '60px';
-  canvas.style.position = isEditor ? 'absolute' : 'relative';
-  canvas.style.top = '0';
-  canvas.style.left = '0';
-  canvas.style.pointerEvents = 'none'; // Allow clicking through the canvas
-  canvas.style.zIndex = isEditor ? '5' : '1';
-  canvas.style.opacity = isEditor ? '0.7' : '1';
-  
-  // Append canvas to container
-  container.appendChild(canvas);
-  
-  // Set up audio context and analyzer
-  const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-  const analyser = audioContext.createAnalyser();
-  const source = audioContext.createMediaStreamSource(stream);
-  source.connect(analyser);
-  
-  // Configure analyser
-  analyser.fftSize = isEditor ? 512 : 256; // Higher resolution for editor
-  const bufferLength = analyser.frequencyBinCount;
-  const dataArray = new Uint8Array(bufferLength);
-  
-  // Get canvas drawing context
-  const ctx = canvas.getContext('2d')!;
-  
-  // Variables for animation
-  let animationId: number;
-  let lastUpdateTime = Date.now();
-  const animationSpeed = 0.05; // Controls animation speed
-  
-  // For waveform animation
-  const barHeights: number[] = Array(bufferLength).fill(0);
-  const targetHeights: number[] = Array(bufferLength).fill(0);
-  
-  // Generate gradient for waveform
-  let gradient: CanvasGradient;
-  
-  // Animation function
-  const draw = () => {
-    animationId = requestAnimationFrame(draw);
-    
-    // Get current audio data
-    analyser.getByteFrequencyData(dataArray);
-    
-    // Calculate delta time for smooth animations
-    const now = Date.now();
-    const deltaTime = (now - lastUpdateTime) * animationSpeed;
-    lastUpdateTime = now;
-    
-    // Clear canvas with different background based on container
-    if (isEditor) {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+/**
+ * Generates enterprise-focused example prompts using Replicate API with Llama 3
+ * @param recentMessages - Recent messages for context-based prompts
+ * @returns A promise that resolves to an array of prompts with text and type
+ */
+export async function generateExamplePrompts(
+  recentMessages: Array<{ role: string; content: string }> = []
+): Promise<Array<{text: string; type: string}>> {
+  // Fallback prompts to use if API call fails
+  const fallbackPrompts = [
+    { text: "Analyze sales data for Q3", type: "blue" },
+    { text: "Draft an email to the project team about deadlines", type: "purple" },
+    { text: "Summarize the key points of the attached report", type: "green" }
+  ];
+
+  if (!REPLICATE_API_KEY) {
+    console.warn('Replicate API key (hardcoded) is missing, returning fallback prompts.');
+    return fallbackPrompts;
+  }
+
+  // Determine prompt based on context
+  let apiPrompt = '';
+  let isContextBased = false;
+  let userMessage1 = '';
+  let userMessage2 = '';
+
+  if (recentMessages.length >= 2) {
+    console.log('Generating example prompt based on recent messages via Replicate API...');
+    isContextBased = true;
+    const lastTwoMessages = recentMessages.slice(-2);
+    userMessage1 = lastTwoMessages[0].content;
+    userMessage2 = lastTwoMessages[1].content;
+    apiPrompt = `Here are the two most recent messages in the conversation:\n\nUser 1: "${userMessage1}"\n\nUser 2: "${userMessage2}"\n\nBased on these two messages, I'd like you to generate a CREATIVE yet FAMILIAR third prompt that:\n1. Builds incrementally on the themes or interests shown in the original prompts\n2. Offers a natural next step or slightly different angle on the same topic\n3. Feels familiar but introduces a fresh perspective or application\n4. Starts with an action verb\n5. Is concise (6-10 words) and compelling\n\nThe goal is to guide the user toward incremental exploration that feels natural and connected to their current interests, while still offering a new direction to consider.\n\nReturn ONLY the prompt text itself with no explanation, introduction, or additional text.`;
+    console.log(`Calling Llama 4 Scout API to generate creative incremental prompt...`);
+  } else {
+    console.log('Generating generic example prompt via Replicate API (no recent messages)...');
+    isContextBased = false;
+    apiPrompt = `Generate a single, creative, clear, and concise starting prompt for an industrial enterprise copilot. The prompt should be valuable to ANY role across the organization (e.g., leadership, operations, engineering, finance, HR, marketing, sales).\n\nINSTRUCTIONS:\n- Start with an action verb.\n- Make it 6-10 words long.\n- Be specific, actionable, and relevant for industrial/enterprise environments.\n- Consider diverse business functions (e.g., manufacturing, strategy, compliance, R&D, customer service).\n- IMPORTANT: Return ONLY the prompt text itself, with no additional text before or after.\n\nEXAMPLES (for inspiration, create something new):\n- "Optimize cross-functional collaboration between engineering and operations"\n- "Develop financial forecasting model for capital investments"\n- "Design recruitment strategy for specialized technical talent"\n- "Analyze customer feedback patterns across product lines"`;
+    console.log(`Calling Llama 4 Scout API to generate generic starting prompt...`);
+  }
+
+  try {
+    const requestBody = JSON.stringify({
+      input: {
+        prompt: apiPrompt,
+        max_new_tokens: 128,
+        temperature: 0.6,
+        top_p: 1.0,
+        presence_penalty: 0,
+        frequency_penalty: 0
+      }
+    });
+
+    // Use the proxy replicate method
+    const initialData = await window.electron.proxyReplicate({
+        url: 'https://api.replicate.com/v1/models/meta/llama-4-scout-instruct/predictions',
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${REPLICATE_API_KEY}`,
+          'Content-Type': 'application/json',
+          'Prefer': 'wait'
+        },
+        body: requestBody
+    });
+
+    console.log('Replicate API initial response (via proxy):', initialData);
+
+    if (initialData.error) {
+      console.error(`API error: ${initialData.error}`);
+      throw new Error(`API error: ${initialData.error}`);
+    }
+
+    // Handle potential polling
+    let generatedText;
+    if (initialData.status === 'processing' || initialData.status === 'starting') {
+      console.log('Need to poll for result, ID:', initialData.id);
+      generatedText = await pollForLlamaResult(initialData.id);
+    } else if (initialData.status === 'succeeded') {
+      generatedText = initialData.output || '';
+      if (Array.isArray(generatedText)) {
+        generatedText = generatedText.join('');
+      }
     } else {
-      ctx.fillStyle = 'rgb(240, 240, 240)';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      console.error('Unexpected API status:', initialData.status, initialData);
+       throw new Error(`Unexpected API status: ${initialData.status}`);
     }
     
-    // Create gradient if not already created or if canvas size changed
-    gradient = ctx.createLinearGradient(0, canvas.height, 0, 0);
+    // Basic cleanup - remove quotes and trim whitespace
+    generatedText = generatedText.trim().replace(/^["']|["']$/g, ''); 
+
+    if (!generatedText) {
+      console.warn('No text generated from API, returning fallback.');
+      return fallbackPrompts;
+    }
     
-    if (isEditor) {
-      // Colorful gradient for editor view
-      gradient.addColorStop(0, 'rgba(59, 130, 246, 0.5)'); // Blue
-      gradient.addColorStop(0.5, 'rgba(167, 139, 250, 0.5)'); // Purple
-      gradient.addColorStop(1, 'rgba(239, 68, 68, 0.5)'); // Red
+    console.log('Generated example prompt:', generatedText);
+
+    // Define colors/types for the prompts
+    const types = ["blue", "purple", "green"]; 
+    let prompts: Array<{ text: string; type: string }> = [];
+
+    if (isContextBased) {
+      // Return the original two messages and the generated one
+      prompts = [
+        { text: userMessage1, type: types[0] }, // First user message
+        { text: userMessage2, type: types[1] }, // Second user message
+        { text: generatedText, type: types[2] }  // AI-generated follow-up
+      ];
+      console.log(`Successfully generated ${prompts.length} prompts based on context:`, prompts);
     } else {
-      // Simpler gradient for small view
-      gradient.addColorStop(0, 'rgb(58, 130, 246)');
-      gradient.addColorStop(1, 'rgb(124, 58, 237)');
+      // Return only the single generated prompt
+      prompts = [
+        { text: generatedText, type: types[0] } // AI-generated generic prompt
+      ];
+      console.log(`Successfully generated 1 generic prompt:`, prompts);
     }
     
-    // Calculate bar width based on container
-    const barWidth = isEditor 
-      ? (canvas.width / bufferLength) * 1.5 // Thicker bars for editor
-      : (canvas.width / bufferLength) * 2.5;
-    
-    let x = 0;
-    
-    // Draw bars
-    for (let i = 0; i < bufferLength; i++) {
-      // Smoothly update target heights
-      targetHeights[i] = dataArray[i] / (isEditor ? 1.5 : 4);
-      
-      // Smoothly animate current height toward target
-      barHeights[i] = barHeights[i] + (targetHeights[i] - barHeights[i]) * deltaTime;
-      
-      // Get bar height with slight randomness for visual interest
-      const jitter = isEditor ? Math.random() * 2 - 1 : 0;
-      const barHeight = Math.max(1, barHeights[i] + jitter);
-      
-      // Different drawing style based on container
-      if (isEditor) {
-        // Mirror effect for editor - draw from center
-        const middleY = canvas.height / 2;
-        
-        // Draw upper bar with gradient
-        ctx.fillStyle = gradient;
-        ctx.fillRect(
-          x, 
-          middleY - barHeight, 
-          barWidth, 
-          barHeight
-        );
-        
-        // Draw lower bar with gradient
-        ctx.fillRect(
-          x, 
-          middleY, 
-          barWidth, 
-          barHeight
-        );
-      } else {
-        // Standard bottom-up bars for small view
-        ctx.fillStyle = gradient;
-        ctx.fillRect(
-          x, 
-          canvas.height - barHeight, 
-          barWidth, 
-          barHeight
-        );
-      }
-      
-      x += barWidth + (isEditor ? 0 : 1);
-    }
-  };
-  
-  // Start animation
-  draw();
-  
-  // Return canvas and cleanup function
-  return { 
-    canvas,
-    stop: () => {
-      // Stop animation
-      cancelAnimationFrame(animationId);
-      
-      // Close audio context safely - check state first
-      if (audioContext.state !== 'closed') {
-        try {
-          audioContext.close();
-        } catch (error) {
-          console.warn('Error closing AudioContext:', error);
-        }
-      }
-      
-      // Remove canvas
-      if (container.contains(canvas)) {
-        container.removeChild(canvas);
-      }
-    }
-  };
+    return prompts;
+
+  } catch (error) {
+    console.error('Error generating example prompts:', error);
+    console.log('API call failed, returning hardcoded fallback prompts.');
+    return fallbackPrompts; // Return fallback prompts on error
+  }
 }
 
-// Helper function to convert base64 to Blob
-const base64ToBlob = (base64: string): Blob => {
-  const byteCharacters = atob(base64);
-  const byteArrays = [];
+// Helper function to poll for Llama results
+async function pollForLlamaResult(predictionId: string): Promise<string> {
+  const maxAttempts = 15;
+  const delay = 1500;
   
-  for (let offset = 0; offset < byteCharacters.length; offset += 512) {
-    const slice = byteCharacters.slice(offset, offset + 512);
-    
-    const byteNumbers = new Array(slice.length);
-    for (let i = 0; i < slice.length; i++) {
-      byteNumbers[i] = slice.charCodeAt(i);
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      await new Promise(resolve => setTimeout(resolve, delay));
+      
+      console.log(`Polling attempt ${attempt + 1} for prediction ${predictionId}...`);
+      
+      // Use the proxy replicate method
+      const data = await window.electron.proxyReplicate({
+          url: `https://api.replicate.com/v1/predictions/${predictionId}`,
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${REPLICATE_API_KEY}`,
+            'Content-Type': 'application/json'
+          }
+      });
+
+      console.log('Polling response status:', data.status);
+
+      if (data.status === 'succeeded') {
+        const output = data.output || '';
+        return Array.isArray(output) ? output.join('') : output;
+      } else if (data.status === 'failed') {
+        throw new Error(`Generation failed: ${data.error}`);
+      }
+    } catch (error) {
+      console.error(`Error polling attempt ${attempt + 1}:`, error);
+      throw error;
     }
-    
-    const byteArray = new Uint8Array(byteNumbers);
-    byteArrays.push(byteArray);
   }
   
-  return new Blob(byteArrays, { type: 'audio/mp3' });
-};
+  throw new Error('Polling timed out after maximum attempts');
+}
+
+/**
+ * Enhances a user prompt using Replicate API with Llama 4 Scout Instruct
+ * @param userPrompt - The user's current prompt text (can include HTML)
+ * @returns A promise that resolves to the enhanced prompt text
+ */
+export async function enhanceUserPrompt(userPrompt: string): Promise<string> {
+  if (!userPrompt || !userPrompt.trim()) {
+    console.warn('Cannot enhance empty prompt.');
+    return userPrompt; // Return original if empty
+  }
+
+  if (!REPLICATE_API_KEY) {
+    console.warn('Replicate API key (hardcoded) is missing, skipping prompt enhancement.');
+    return userPrompt; // Return original prompt if key is missing
+  }
+
+  console.log('Enhancing user prompt via Replicate API...');
+
+  // Instruction prompt for Llama 4
+  const instruction = `Analyze the following user input intended for an AI assistant. Your goal is to subtly enhance it using robust prompt engineering principles to improve clarity, effectiveness, and likely achieve the user's underlying goal better, while strictly preserving all original content, context, and explicit instructions provided by the user. Focus on:\n  1.  **Clarity:** Rephrase ambiguous parts for better understanding by the AI.\n  2.  **Specificity:** Add minor details if they can be safely inferred and improve the request (e.g., specifying format if implied).\n  3.  **Structure:** Improve flow or organization if needed (e.g., using lists if appropriate for the content).\n  4.  **Action Verbs:** Ensure the prompt starts with or clearly implies a strong action if appropriate.\n  5.  **Preservation:** Critically important: Do NOT remove any information, examples, data, code snippets, or specific constraints mentioned in the original prompt. Keep HTML tags like <img> if present.\n\n-  Return ONLY the enhanced prompt text itself. DO NOT include any introductory phrases like "I'm analyzing...", "Here is the enhanced prompt:", or similar explanations. Do not use quotation marks around the output.\n+  **Output Format:** Prepend the following meta-instruction to your enhanced version of the user's prompt: "[System Note: The user's prompt was automatically enhanced for clarity. Prioritize the original core request and intent, using the enhanced structure mainly for guidance.]\\n\\n" Then, append the enhanced prompt text directly after the meta-instruction. Return ONLY this combined text (meta-instruction + newline + enhanced prompt). Do not add any other introductory text, explanations, or quotation marks.\n\n  Original User Prompt:\n  \`\`\`\n  ${userPrompt}\n  \`\`\`\n\n  Enhanced Output (Meta-instruction + Prompt):`;
+
+  try {
+    const requestBody = JSON.stringify({
+      input: {
+        prompt: instruction,
+        max_new_tokens: 1024, // Allow more tokens for potentially longer prompts
+        temperature: 0.5,   // Slightly conservative temperature for refinement
+        top_p: 0.9,
+        presence_penalty: 0,
+        frequency_penalty: 0.1 // Slightly discourage repetition
+      }
+    });
+
+    const initialData = await window.electron.proxyReplicate({
+        url: 'https://api.replicate.com/v1/models/meta/llama-4-scout-instruct/predictions',
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${REPLICATE_API_KEY}`,
+          'Content-Type': 'application/json',
+          'Prefer': 'wait'
+        },
+        body: requestBody
+    });
+
+    console.log('Replicate API initial response (Enhance User Prompt):', initialData);
+
+    if (initialData.error) {
+      throw new Error(`API error: ${initialData.error}`);
+    }
+
+    let enhancedPrompt;
+    if (initialData.status === 'processing' || initialData.status === 'starting') {
+      console.log('Polling for enhanced user prompt result, ID:', initialData.id);
+      enhancedPrompt = await pollForLlamaResult(initialData.id);
+    } else if (initialData.status === 'succeeded') {
+      enhancedPrompt = initialData.output || '';
+      if (Array.isArray(enhancedPrompt)) {
+        enhancedPrompt = enhancedPrompt.join('');
+      }
+    } else {
+      throw new Error(`Unexpected API status: ${initialData.status}`);
+    }
+    
+    // Basic cleanup
+    enhancedPrompt = enhancedPrompt.trim(); 
+
+    if (!enhancedPrompt) {
+      console.warn('No text generated from enhancement API, returning original.');
+      return userPrompt;
+    }
+    
+    console.log('Enhanced user prompt received:', enhancedPrompt);
+    return enhancedPrompt;
+
+  } catch (error) {
+    console.error('Error enhancing user prompt:', error);
+    // Return original prompt on error
+    return userPrompt; 
+  }
+}

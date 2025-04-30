@@ -248,6 +248,26 @@ export default class OMNIChatService
   // Reader instance reference for proper cleanup
   private activeReader: IChatReader | null = null;
 
+  // Add a static property to track logged model requests
+  private static loggedModelRequests = new Set();
+  
+  // Add a static property to track specialized model usage to prevent excessive logging
+  private static specializedModelLastLogged: Record<string, number> = {};
+  
+  // Helper function to check if we should log model info (rate limit logging)
+  private shouldLogModelInfo(modelKey: string): boolean {
+    const now = Date.now();
+    const lastLogged = OMNIChatService.specializedModelLastLogged[modelKey] || 0;
+    
+    // Only log once per 10 seconds per model type
+    if (now - lastLogged > 10000) {
+      OMNIChatService.specializedModelLastLogged[modelKey] = now;
+      return true;
+    }
+    
+    return false;
+  }
+
   constructor(context: IChatContext) {
     super(context);
     this.provider = OMNI;
@@ -286,8 +306,12 @@ export default class OMNIChatService
     
     let readerInstance: IChatReader;
     
+    // Enhanced logging for model detection
+    const isOMNIAgent = modelName === 'anthropic/claude-3.7-sonnet:beta';
+    debug(`Model info - Name: ${modelName}, Label: ${model.label}, agentEnabled: ${!!model.agentEnabled}, using OMNI Agent reader: ${isOMNIAgent}`);
+    
     // Select the appropriate reader based on the model
-    if (modelName === 'anthropic/claude-3.7-sonnet:beta' || model.agentEnabled) {
+    if (isOMNIAgent) {
       debug('Using OMNI Agent reader for Claude 3.7 Sonnet');
       readerInstance = new OMNIAgentReader(reader);
     } else if (modelName.startsWith('anthropic/')) {
@@ -345,10 +369,24 @@ export default class OMNIChatService
       if (this.activeReader) {
         try {
           debug('Cleaning up active reader');
+          // Call cleanup method if available
+          if (typeof this.activeReader.cleanup === 'function') {
+            this.activeReader.cleanup();
+          }
           // Clear the reference
           this.activeReader = null;
         } catch (err) {
           console.error('Error cleaning up reader:', err);
+        }
+      }
+      
+      // Force garbage collection if available
+      if (typeof global.gc === 'function') {
+        try {
+          global.gc();
+          debug('Forced garbage collection');
+        } catch (err) {
+          debug('Error during forced garbage collection:', err);
         }
       }
       
@@ -363,18 +401,47 @@ export default class OMNIChatService
    * Handle chat with proper resource cleanup
    */
   public async chat(messages: IChatRequestMessage[]): Promise<void> {
-    debug('Starting chat with OMNI provider');
+    // Only log at a reasonable frequency
+    const modelName = this.context.getModel().name;
+    const shouldLog = this.shouldLogModelInfo(`chat_${modelName}`);
+    
+    if (shouldLog) {
+      debug('Starting chat with OMNI provider');
+    }
     
     // Reset cleanup flag for new chat
     this.hasCleanedUp = false;
     
     try {
+      // Additional logging and memory management for specialized models
+      const { specializedModel } = useSettingsStore.getState();
+      if (specializedModel) {
+        if (shouldLog) {
+          debug(`Using specialized model: ${specializedModel} - ensuring clean resources`);
+        }
+        // Ensure clean resources before starting
+        await this.releaseResources();
+      }
+      
       await super.chat(messages);
     } catch (error) {
       debug('Error in OMNI chat:', error);
       // Ensure cleanup happens on error
       await this.releaseResources();
       throw error;
+    } finally {
+      // For specialized models, we want to be extra careful about cleanup
+      const { specializedModel } = useSettingsStore.getState();
+      if (specializedModel) {
+        if (shouldLog) {
+          debug(`Specialized model chat completed, performing extra cleanup for: ${specializedModel}`);
+        }
+        
+        // Use a setTimeout to ensure cleanup happens after all processing
+        setTimeout(() => {
+          this.releaseResources();
+        }, 100);
+      }
     }
   }
 
@@ -390,8 +457,13 @@ export default class OMNIChatService
       // Get the current model
       const model = this.context.getModel();
       
-      // Add debugging for model selection
-      console.log(`Final model selection - Name: ${model.name}, Label: ${model.label}, SpecializedModel: ${specializedModel || 'None'}`);
+      // Add debugging for model selection - but only once per specialized model to avoid memory leaks
+      const logKey = `${model.name}_${specializedModel || 'none'}`;
+      const shouldLog = this.shouldLogModelInfo(logKey);
+      
+      if (shouldLog) {
+        console.log(`Final model selection - Name: ${model.name}, Label: ${model.label}, SpecializedModel: ${specializedModel || 'None'}`);
+      }
       
       // Extract payload fields
       const {
@@ -420,15 +492,17 @@ export default class OMNIChatService
         // Double-check for specializedModel
         if (specializedModel) {
           // Verify the model matches expected specialized model
-          const expectedModelMap: {[key: string]: string} = {
-            'Deep-Searcher-R1': 'perplexity/sonar-reasoning-pro',
+          const specializedModelMap: Record<string, string> = {
+            'Deep-Searcher-Pro': 'perplexity/sonar-reasoning-pro',
             'Deep-Thinker-R1': 'perplexity/r1-1776',
-            'Flash-2.0': 'google/gemini-2.0-flash-001'
+            'Flash 2.5': 'google/gemini-2.5-flash-preview:thinking',
           };
           
-          const expectedModel = expectedModelMap[specializedModel];
+          const expectedModel = specializedModelMap[specializedModel];
           if (expectedModel && model.name !== expectedModel) {
-            console.warn(`Model mismatch: Expected ${expectedModel} for ${specializedModel}, but got ${model.name}. Forcing correct model.`);
+            if (shouldLog) {
+              console.warn(`Model mismatch: Expected ${expectedModel} for ${specializedModel}, but got ${model.name}. Forcing correct model.`);
+            }
             extendedPayload.model = expectedModel;
           }
         }
@@ -467,16 +541,28 @@ export default class OMNIChatService
         finalUrl = urlJoin('api/v1/chat/completions', base);
       }
       
-      debug('Making request to API URL:', finalUrl.toString());
+      if (shouldLog) {
+        debug('Making request to API URL:', finalUrl.toString());
+      }
       
       // Log the final payload for debugging
       if (model.agentEnabled || modelName === 'anthropic/claude-3.7-sonnet:beta') {
-        console.log('OMNI Agent: Final payload structure:', Object.keys(extendedPayload).join(', '));
+        if (shouldLog) {
+          debug('OMNI Agent: Final payload structure:', Object.keys(extendedPayload).join(', '));
+        }
       }
       
-      // Additional logging for specialized models
-      if (specializedModel) {
-        console.log(`Specialized model request - Model: ${model.name}, Payload model: ${extendedPayload.model}`);
+      // Additional logging for specialized models - but only once per request
+      if (specializedModel && shouldLog) {
+        debug(`Specialized model request - Model: ${model.name}, Payload model: ${extendedPayload.model}`);
+      }
+      
+      // Ensure OMNI Agent uses the correct model and has agentEnabled flag
+      if (model.label === 'Agent02' && extendedPayload.model !== 'anthropic/claude-3.7-sonnet:beta') {
+        if (shouldLog) {
+          console.warn('OMNI Agent model mismatch detected - forcing correct model');
+        }
+        extendedPayload.model = 'anthropic/claude-3.7-sonnet:beta';
       }
       
       const response = await fetch(finalUrl.toString(), {

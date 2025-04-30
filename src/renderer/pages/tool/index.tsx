@@ -35,12 +35,14 @@ import InstallDialog from './InstallDialog';
 import MarketDrawer from './MarketDrawer';
 import ImportMCPConfigDialog from 'renderer/components/ImportMCPConfigDialog';
 import useMCPServerMarketStore from 'stores/useMCPServerMarketStore';
+import { MCP_SERVER_STATE_CHANGED } from '../../../consts';
 
 const BuildingShopIcon = bundleIcon(BuildingShopFilled, BuildingShopRegular);
 
 const useStyles = makeStyles({
   pageContainer: {
     padding: '20px',
+    paddingTop: '60px',
     height: '100%',
     display: 'flex',
     flexDirection: 'column',
@@ -93,6 +95,7 @@ const useStyles = makeStyles({
     display: 'flex',
     alignItems: 'center',
     gap: '12px',
+    '-webkit-app-region': 'no-drag',
   },
   refreshButton: {
     minWidth: '32px',
@@ -100,14 +103,17 @@ const useStyles = makeStyles({
     padding: '0',
     borderRadius: '50%',
   },
-  rotateIcon: {
-    animation: 'spin 1s linear infinite',
-  },
-  '@keyframes spin': {
-    '&0%': { transform: 'rotate(0deg)' },
-    '&100%': { transform: 'rotate(360deg)' },
-  }
 });
+
+// Define the event type to match what's being dispatched
+interface MCPStateChangeEvent extends CustomEvent {
+  detail: {
+    serverKey: string;
+    isActive: boolean;
+    source: string;
+    timestamp: number;
+  };
+}
 
 export default function Tools() {
   const styles = useStyles();
@@ -115,7 +121,12 @@ export default function Tools() {
   const { loadConfig, config, isLoading, addServer, updateServer, deleteServer, activateServer, deactivateServer } = useMCPStore();
   const { fetchServers } = useMCPServerMarketStore();
   const { notifySuccess, notifyError } = useToast();
-  const [loading, setLoading] = useState(false);
+  
+  // Separate loading states: one for overall UI loading, one for individual servers
+  const [loadingUI, setLoadingUI] = useState(false);
+  const [loadingServers, setLoadingServers] = useState<Record<string, boolean>>({});
+  
+  const [updateCounter, setUpdateCounter] = useState(0);
   const [editing, setEditing] = useState(false);
   const [editingServer, setEditingServer] = useState<IMCPServer | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -126,22 +137,26 @@ export default function Tools() {
   const [showMarket, setShowMarket] = useState(false);
   const [importing, setImporting] = useState(false);
 
+  const forceUpdate = useCallback(() => {
+    setUpdateCounter(prev => prev + 1);
+  }, []);
+
   const loadMCPConfig = async (force: boolean, animate: boolean) => {
     try {
-      animate && setLoading(true);
+      animate && setLoadingUI(true);
       await loadConfig(force);
+      forceUpdate();
     } catch (error) {
       console.error(error);
     } finally {
-      animate && setLoading(false);
+      animate && setLoadingUI(false);
     }
   };
 
   const handleRefresh = () => {
-    setLoading(true);
+    setLoadingUI(true);
     loadMCPConfig(true, true);
-    // Ensure the loading animation runs for at least a moment
-    setTimeout(() => setLoading(false), 1000);
+    setTimeout(() => setLoadingUI(false), 1000);
   };
 
   const editServer = useCallback((server: IMCPServer) => {
@@ -155,7 +170,6 @@ export default function Tools() {
   }, []);
 
   const installServer = useCallback((server: IMCPServer) => {
-    // Force refresh from marketplace to ensure we have the latest version with parameters
     fetchServers(true).then(() => {
       setEditingServer(server);
       setInstalling(true);
@@ -200,14 +214,60 @@ export default function Tools() {
 
   useEffect(() => {
     loadMCPConfig(false, true);
-  }, []);
+    
+    // Use the constant instead of recreating the string
+    const handleMCPStateChange = async (event: MCPStateChangeEvent) => {
+      const { serverKey, isActive, source, timestamp } = event.detail;
+      
+      // Immediately set the loading state to true
+      setLoadingServers(prev => ({ ...prev, [serverKey]: true }));
+      
+      try {
+        // Force reload the config to get the latest data
+        await loadConfig(true);
+        
+        // Immediately update the UI
+        forceUpdate();
+        
+        // For any event source, ensure we refresh again after a short delay to catch any race conditions
+        setTimeout(async () => {
+          try {
+            await loadConfig(true);
+            forceUpdate();
+          } catch (error) {
+            console.error('Error in delayed MCP state refresh:', error);
+          } finally {
+            // Clear the loading state for this server
+            setLoadingServers(prev => ({ ...prev, [serverKey]: false }));
+          }
+        }, 250);
+      } catch (error) {
+        console.error('Error handling MCP state change in tools page:', error);
+        // Clear the loading state for this server even if there's an error
+        setLoadingServers(prev => ({ ...prev, [serverKey]: false }));
+      }
+    };
+    
+    // Cast the event handler to EventListener
+    window.addEventListener(MCP_SERVER_STATE_CHANGED, handleMCPStateChange as unknown as EventListener);
+    
+    return () => {
+      window.removeEventListener(MCP_SERVER_STATE_CHANGED, handleMCPStateChange as unknown as EventListener);
+    };
+  }, [forceUpdate, loadConfig]);
+
+  useEffect(() => {
+    if (updateCounter > 0) {
+      loadMCPConfig(true, false);
+    }
+  }, [updateCounter]);
 
   return (
     <div className={styles.pageContainer}>
       <div className={styles.pageHeader}>
         <div className={styles.pageTitleSection}>
           <div className={styles.pageTitle}>
-            <h1 className={styles.toolsHeading}>{t('Common.Tools')}</h1>
+            <h1 className="text-2xl">{t('Common.Tools')}</h1>
           </div>
           <div className={styles.subtitle}>
             <Text>{t('Common.MCPServers')}</Text>
@@ -218,14 +278,14 @@ export default function Tools() {
         <div className={styles.rightSection}>
           <Button
             appearance="subtle"
-            icon={<ArrowSyncCircleRegular className={loading ? styles.rotateIcon : undefined} />}
+            icon={<ArrowSyncCircleRegular className={loadingUI ? "refresh-spin-animation" : undefined} />}
             onClick={handleRefresh}
-            disabled={loading}
+            disabled={loadingUI}
             title={t('Common.Action.Reload')}
             className={styles.refreshButton}
           />
           
-          <div className={styles.pageActions}>
+          <div className={`${styles.pageActions} ${styles.rightSection}`}>
             <Button
               appearance="outline"
               icon={<BuildingShopIcon />}
@@ -264,6 +324,7 @@ export default function Tools() {
             onEdit={editServer}
             onDelete={toDeleteServer}
             onInspect={inspectServer}
+            loadingServers={loadingServers}
           />
         )}
       </div>

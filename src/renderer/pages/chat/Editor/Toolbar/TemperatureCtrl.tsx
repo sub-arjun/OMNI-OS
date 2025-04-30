@@ -8,6 +8,7 @@ import {
   Slider,
   SliderOnChangeData,
   PopoverProps,
+  Tooltip,
 } from '@fluentui/react-components';
 import {
   bundleIcon,
@@ -72,27 +73,40 @@ export default function TemperatureCtrl({
   return (
     <Popover trapFocus withArrow open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger disableButtonEnhancement>
-        <Button
-          size="small"
-          title="Mod+Shift+5"
-          aria-label={t('Common.Temperature')}
-          appearance="subtle"
-          icon={<TemperatureIcon className="mr-0" />}
-          className="justify-start text-color-secondary flex-shrink-0"
-          style={{
-            padding: 1,
-            minWidth: 30,
-            borderColor: 'transparent',
-            boxShadow: 'none',
-          }}
+        <Tooltip
+          content={
+            <div>
+              <div style={{ fontWeight: 'bold', marginBottom: '3px' }}>{t('Common.Temperature')}</div>
+              <div>{t('Tooltip.TemperatureDesc')} {t('Tooltip.TemperatureShortcut')}</div>
+              <div style={{ marginTop: '3px', fontSize: '12px' }}>
+                {t('Tooltip.CurrentValue', { value: temperature?.toFixed(2) || 'N/A' })}
+              </div>
+            </div>
+          }
+          relationship="description"
+          positioning="above"
         >
-          <span className="latin">{temperature}</span>
-        </Button>
+          <Button
+            size="small"
+            aria-label={t('Common.Temperature')}
+            appearance="subtle"
+            icon={<TemperatureIcon className="mr-0" />}
+            className="justify-center text-color-secondary flex-shrink-0"
+            style={{
+              padding: 1,
+              minWidth: 30,
+              borderColor: 'transparent',
+              boxShadow: 'none',
+            }}
+          >
+            <span className="latin">{temperature?.toFixed(2)}</span>
+          </Button>
+        </Tooltip>
       </PopoverTrigger>
       <PopoverSurface aria-labelledby="temperature">
-        <div className="w-80">
-          <Field label={`${t('Common.Temperature')} (${temperature})`}>
-            <div className="flex items-center p-1.5">
+        <div className="w-80 flex flex-col items-center p-2">
+          <Field label={`${t('Common.Temperature')} (${temperature?.toFixed(2)})`} className="w-full">
+            <div className="flex items-center p-1.5 w-full">
               <Label aria-hidden>{minTemperature}</Label>
               <Slider
                 id="chat-temperature"
@@ -100,12 +114,12 @@ export default function TemperatureCtrl({
                 min={minTemperature}
                 max={maxTemperature}
                 value={temperature}
-                className="flex-grow"
+                className="flex-grow mx-2"
                 onChange={updateTemperature}
               />
               <span>{maxTemperature}</span>
             </div>
-            <div className="tips text-xs">
+            <div className="tips text-xs text-center mt-1">
               {t(
                 `Higher values like ${
                   maxTemperature - 0.2

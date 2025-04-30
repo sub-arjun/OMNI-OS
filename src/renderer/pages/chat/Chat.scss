@@ -1,15 +1,13 @@
 .chat-header {
   right: 0;
   top: 0;
-  z-index: 2;
-  -webkit-app-region: drag;
+  z-index: 12;
   position: relative;
+  padding: 8px 16px;
   
-  /* Container for the action buttons */
+  /* Fixed container for the action buttons */
   .action-buttons-container {
-    position: absolute;
-    right: 16px;
-    top: 8px;
+    position: relative; /* Change from absolute to relative */
     display: flex;
     gap: 4px;
     padding: 4px 8px;
@@ -39,10 +37,13 @@
     }
   }
   
-  /* Make buttons not draggable */
+  /* Clean up button styles to prevent position issues */
   button {
-    -webkit-app-region: no-drag;
+    position: static !important; /* Reset position to avoid offsets */
     transition: all 0.2s ease;
+    pointer-events: auto !important;
+    z-index: auto !important; /* Reset z-index */
+    transform: none !important; /* Ensure no transforms applied */
     
     &:hover {
       backdrop-filter: blur(8px);
@@ -607,5 +608,133 @@ div.think-body{
     background-color: #ffffff;
     color: #e74c3c;
   }
+}
+
+/* Resize handle styling */
+.resize-handle-container {
+  position: relative;
+  width: 100%;
+  height: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: row-resize;
+}
+
+.resize-handle-indicator {
+  position: absolute;
+  top: -4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 120px;
+  height: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 20;
+}
+
+.resize-handle-pill {
+  width: 54px;
+  height: 11px;
+  background-color: rgba(var(--color-accent), 0.54);
+  border-radius: 6px;
+  border: 1.5px solid rgba(var(--color-accent), 0.34);
+  box-shadow: 0 0 8px 1px rgba(var(--color-accent), 0.18), 0 1px 8px 3px rgba(0,0,0,0.09);
+  transition: all 0.16s cubic-bezier(0.4,0.2,0.2,1);
+  animation: subtle-pulse 1.5s infinite alternate;
+}
+
+@keyframes subtle-pulse {
+  0% {
+    box-shadow: 0 0 8px 1px rgba(var(--color-accent), 0.18), 0 1px 8px 3px rgba(0,0,0,0.09);
+    opacity: 1;
+  }
+  100% {
+    box-shadow: 0 0 14px 3px rgba(var(--color-accent), 0.20), 0 2px 14px 5px rgba(0,0,0,0.13);
+    opacity: 0.98;
+  }
+}
+
+@keyframes moderate-pulse {
+  0% {
+    box-shadow: 0 0 12px 2px rgba(var(--color-accent), 0.28), 0 2px 16px 6px rgba(0,0,0,0.13);
+    opacity: 1;
+  }
+  100% {
+    box-shadow: 0 0 24px 8px rgba(var(--color-accent), 0.38), 0 4px 24px 10px rgba(0,0,0,0.18);
+    opacity: 0.97;
+  }
+}
+
+
+@keyframes resize-pulse {
+  0% {
+    box-shadow: 0 0 16px 2px rgba(var(--color-accent), 0.5), 0 2px 16px 4px rgba(0,0,0,0.12);
+    opacity: 1;
+  }
+  100% {
+    box-shadow: 0 0 32px 8px rgba(var(--color-accent), 0.75), 0 4px 24px 8px rgba(0,0,0,0.18);
+    opacity: 0.92;
+  }
+}
+
+/* Add hover effects to make it more obvious */
+.resize-handle-container:hover .resize-handle-pill {
+  width: 62px;
+  height: 13px;
+  background-color: rgba(var(--color-accent), 0.62);
+  border-color: rgba(var(--color-accent), 0.52);
+  box-shadow: 0 0 16px 4px rgba(var(--color-accent), 0.22), 0 2px 16px 6px rgba(0,0,0,0.13);
+  opacity: 1;
+  animation: subtle-pulse 0.9s infinite alternate;
+} 
+
+/* Add different styling for dark mode */
+[data-theme='dark'] .resize-handle-pill {
+  background-color: rgba(var(--color-accent), 0.32);
+  border-color: rgba(var(--color-accent), 0.26);
+  box-shadow: 0 0 10px 2px rgba(var(--color-accent), 0.15), 0 1px 10px 4px rgba(0,0,0,0.12);
+} 
+
+[data-theme='dark'] .resize-handle-container:hover .resize-handle-pill {
+  background-color: rgba(var(--color-accent), 0.45);
+  border-color: rgba(var(--color-accent), 0.48);
+  box-shadow: 0 0 20px 6px rgba(var(--color-accent), 0.22), 0 2px 18px 7px rgba(0,0,0,0.16);
+  opacity: 1;
+  animation: subtle-pulse 0.9s infinite alternate;
+}
+
+/* Force no-drag region for the header and buttons */
+.no-drag-region {
+  user-select: auto !important;
+}
+
+.message table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 12px 0;
+  overflow-x: auto;
+  display: block;
+}
+.message th,
+.message td {
+  border: 1px solid rgba(var(--color-border), 0.35);
+  padding: 6px 10px;
+  text-align: left;
+  vertical-align: top;
+}
+.message thead {
+  background-color: rgba(var(--color-border), 0.15);
+}
+[data-theme='dark'] .message thead {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+.message tr:nth-child(even) {
+  background-color: rgba(var(--color-border), 0.08);
+}
+[data-theme='dark'] .message tr:nth-child(even) {
+  background-color: rgba(255, 255, 255, 0.025);
 }
 

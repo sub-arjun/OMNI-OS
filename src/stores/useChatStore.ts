@@ -41,6 +41,14 @@ if (!isPlainObject(tempStage)) {
   tempStage = pick(tempStage, Object.keys(defaultTempStage));
   console.log('tempStage', tempStage);
 }
+
+// Define the chat folder interface
+export interface IChatFolder {
+  id: string;
+  name: string;
+  createdAt: number;
+}
+
 export interface IChatStore {
   chats: IChat[];
   chat: {
@@ -55,6 +63,10 @@ export interface IChatStore {
     };
   };
   tempStage: Partial<IStage>;
+  // Chat folders
+  folders: IChatFolder[];
+  folderOperationInProgress: boolean;
+  // States
   updateStates: (
     chatId: string,
     states: { loading?: boolean; runningTool?: string | null },
@@ -74,7 +86,7 @@ export interface IChatStore {
   getChat: (id: string) => Promise<IChat>;
   // message
   createMessage: (message: Partial<IChatMessage>) => Promise<IChatMessage>;
-  appendReply: (chatId: string, reply: string, reasoning:string) => void;
+  appendReply: (msgId: string, replyDelta: string, reasoningDelta: string) => void;
   updateMessage: (
     message: { id: string } & Partial<IChatMessage>,
   ) => Promise<boolean>;
@@ -94,6 +106,12 @@ export interface IChatStore {
   }) => Promise<IChatMessage[]>;
   editStage: (chatId: string, stage: Partial<IStage>) => void;
   deleteStage: (chatId: string) => void;
+  // folder
+  createFolder: (name: string) => Promise<IChatFolder>;
+  updateFolder: (folder: { id: string, name: string }) => Promise<boolean>;
+  deleteFolder: (id: string) => Promise<boolean>;
+  fetchFolders: () => Promise<IChatFolder[]>;
+  assignChatToFolder: (chatId: string, folderId: string | null) => Promise<boolean>;
 }
 
 const useChatStore = create<IChatStore>((set, get) => ({
@@ -104,6 +122,9 @@ const useChatStore = create<IChatStore>((set, get) => ({
   states: {},
   // only for temp chat
   tempStage,
+  // folders
+  folders: [],
+  folderOperationInProgress: false,
   updateStates: (
     chatId: string,
     states: { loading?: boolean; runningTool?: string | null },
@@ -202,8 +223,8 @@ const useChatStore = create<IChatStore>((set, get) => ({
       captureException(err);
     }
     const ok = await window.electron.db.run(
-      `INSERT INTO chats (id, summary, model, systemMessage, temperature, maxCtxMessages, maxTokens, stream, prompt, input, createdAt)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?,?,?)`,
+      `INSERT INTO chats (id, summary, model, systemMessage, temperature, maxCtxMessages, maxTokens, stream, prompt, input, createdAt, folderId)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         $chat.id,
         $chat.summary,
@@ -216,6 +237,7 @@ const useChatStore = create<IChatStore>((set, get) => ({
         prompt,
         $chat.input,
         $chat.createdAt,
+        $chat.folderId || null,
       ],
     );
     if (!ok) {
@@ -294,6 +316,11 @@ const useChatStore = create<IChatStore>((set, get) => ({
         captureException(err);
       }
     }
+    if (!isUndefined(chat.folderId)) {
+      $chat.folderId = chat.folderId;
+      stats.push('folderId = ?');
+      params.push($chat.folderId || null);
+    }
     if ($chat.id && stats.length) {
       params.push($chat.id);
       await window.electron.db.run(
@@ -320,7 +347,7 @@ const useChatStore = create<IChatStore>((set, get) => ({
   },
   getChat: async (id: string) => {
     const chat = (await window.electron.db.get(
-      'SELECT id, summary, model, systemMessage, maxTokens, temperature, context, maxCtxMessages, stream, prompt, input, createdAt FROM chats where id = ?',
+      'SELECT id, summary, model, systemMessage, maxTokens, temperature, context, maxCtxMessages, stream, prompt, input, createdAt, folderId FROM chats where id = ?',
       id,
     )) as IChat;
     if (chat) {
@@ -335,8 +362,21 @@ const useChatStore = create<IChatStore>((set, get) => ({
     return chat;
   },
   fetchChat: async (limit: number = 100, offset = 0) => {
+    // Add cache with 3 second expiry to reduce database calls
+    const cacheKey = `chats-${limit}-${offset}`;
+    const cachedChats = sessionStorage.getItem(cacheKey);
+    const cacheTime = sessionStorage.getItem(`${cacheKey}-time`);
+    const now = Date.now();
+
+    // Use cache if it exists and is less than 3 seconds old
+    if (cachedChats && cacheTime && (now - parseInt(cacheTime)) < 3000) {
+      const chats = JSON.parse(cachedChats);
+      set({ chats });
+      return chats;
+    }
+
     const rows = (await window.electron.db.all(
-      'SELECT id, summary, createdAt FROM chats ORDER BY createdAt DESC limit ? offset ?',
+      'SELECT id, summary, createdAt, folderId FROM chats ORDER BY createdAt DESC limit ? offset ?',
       [limit, offset],
     )) as IChat[];
     const chats = rows.map((chat) => {
@@ -347,6 +387,11 @@ const useChatStore = create<IChatStore>((set, get) => ({
       }
       return chat;
     });
+    
+    // Cache the results
+    sessionStorage.setItem(cacheKey, JSON.stringify(chats));
+    sessionStorage.setItem(`${cacheKey}-time`, now.toString());
+    
     set({ chats });
     return chats;
   },
@@ -400,22 +445,25 @@ const useChatStore = create<IChatStore>((set, get) => ({
     }));
     return msg;
   },
-  appendReply: (msgId: string, reply: string, reasoning: string) => {
+  appendReply: (msgId: string, replyDelta: string, reasoningDelta: string) => {
     // Don't update if there's nothing new to add
-    if (!reply && !reasoning) return;
+    if (!replyDelta && !reasoningDelta) return;
     
     set(
       produce((state: IChatStore) => {
         const message = state.messages.find((msg) => msg.id === msgId);
         if (message) {
-          // Calculate what the new values would be
-          const newReply = message.reply ? `${message.reply}${reply}` : reply;
+          // Calculate what the new values would be by appending the DELTA
+          const newReply = message.reply ? `${message.reply}${replyDelta}` : replyDelta;
           const newReasoning = message.reasoning
-            ? `${message.reasoning}${reasoning}`
-            : reasoning;
+            ? `${message.reasoning}${reasoningDelta}`
+            : reasoningDelta;
           
-          // Only update if something actually changed
-          if (newReply !== message.reply || newReasoning !== message.reasoning) {
+          // Simplified check: Only update if there's actually new content to add
+          const replyChanged = newReply !== message.reply;
+          const reasoningChanged = newReasoning !== message.reasoning;
+          
+          if (replyChanged || reasoningChanged) {
             message.reply = newReply;
             message.reasoning = newReasoning;
           }
@@ -619,10 +667,22 @@ const useChatStore = create<IChatStore>((set, get) => ({
           }
           if (!isUndefined(stage.model)) {
             state.tempStage.model = stage.model || '';
+            
+            // When switching models, only update input if explicitly provided
+            // This prevents the input from being cleared when switching models
+            if (isUndefined(stage.input)) {
+              // Don't change the input when just switching models
+              // Keep existing input
+            } else {
+              state.tempStage.input = stage.input || '';
+            }
+          } else {
+            // Normal case - update input when provided
+            if (!isUndefined(stage.input)) {
+              state.tempStage.input = stage.input || '';
+            }
           }
-          if (!isUndefined(stage.input)) {
-            state.tempStage.input = stage.input || '';
-          }
+          
           if (!isUndefined(stage.maxCtxMessages)) {
             state.tempStage.maxCtxMessages = stage.maxCtxMessages;
           }
@@ -643,7 +703,16 @@ const useChatStore = create<IChatStore>((set, get) => ({
       get().editChat({ id: chatId, ...stage });
       window.electron.store.set('stage', get().tempStage);
     } else {
-      get().updateChat({ id: chatId, ...stage });
+      // For persisted chats, ensure we don't clear the input when changing models
+      const updatedStage = { ...stage };
+      
+      if (!isUndefined(updatedStage.model) && isUndefined(updatedStage.input)) {
+        // If changing model but no input provided, keep the existing input
+        const currentInput = get().chat.input || '';
+        updatedStage.input = currentInput;
+      }
+      
+      get().updateChat({ id: chatId, ...updatedStage });
     }
   },
   deleteStage: (chatId: string) => {
@@ -656,6 +725,325 @@ const useChatStore = create<IChatStore>((set, get) => ({
       window.electron.store.set('stage', defaultTempStage);
     }
   },
+  // Folder management
+  createFolder: async (name: string) => {
+    try {
+      debug('Creating folder with name:', name);
+      
+      // Set a loading state flag
+      set(
+        produce((state: IChatStore) => {
+          state.folderOperationInProgress = true;
+        })
+      );
+      
+      const folder = {
+        id: typeid('folder').toString(),
+        name,
+        createdAt: date2unix(new Date()),
+      } as IChatFolder;
+      
+      debug('Folder object created:', folder);
+      
+      // Use a transaction to ensure atomic operation
+      const ok = await window.electron.db.transaction([
+        {
+          sql: `INSERT INTO chat_folders (id, name, createdAt) VALUES (?, ?, ?)`,
+          params: [folder.id, folder.name, folder.createdAt],
+        }
+      ]);
+      
+      if (!ok) {
+        debug('Failed to insert folder into database');
+        throw new Error('Write the folder into database failed');
+      }
+      
+      debug('Successfully inserted folder into database:', folder.id);
+      
+      // Update state
+      set(
+        produce((state: IChatStore) => {
+          state.folders = state.folders ? [folder, ...state.folders] : [folder];
+          state.folderOperationInProgress = false;
+        }),
+      );
+      
+      return folder;
+    } catch (err) {
+      debug('Error in createFolder:', err);
+      
+      // Reset loading state
+      set(
+        produce((state: IChatStore) => {
+          state.folderOperationInProgress = false;
+        })
+      );
+      
+      // Rethrow to allow handling in the component
+      throw err;
+    }
+  },
+  
+  updateFolder: async (folder: { id: string, name: string }) => {
+    try {
+      debug('Update folder', folder);
+      
+      // Set a loading state flag
+      set(
+        produce((state: IChatStore) => {
+          state.folderOperationInProgress = true;
+        })
+      );
+      
+      const ok = await window.electron.db.run(
+        `UPDATE chat_folders SET name = ? WHERE id = ?`,
+        [folder.name, folder.id],
+      );
+      
+      if (ok) {
+        set(
+          produce((state: IChatStore) => {
+            if (!state.folders) {
+              state.folders = [];
+              return;
+            }
+            const index = state.folders.findIndex(f => f.id === folder.id);
+            if (index !== -1) {
+              state.folders[index].name = folder.name;
+            }
+            state.folderOperationInProgress = false;
+          }),
+        );
+        return true;
+      }
+      
+      set(
+        produce((state: IChatStore) => {
+          state.folderOperationInProgress = false;
+        })
+      );
+      
+      return false;
+    } catch (err) {
+      debug('Error updating folder:', err);
+      
+      // Reset loading state
+      set(
+        produce((state: IChatStore) => {
+          state.folderOperationInProgress = false;
+        })
+      );
+      
+      return false;
+    }
+  },
+  
+  deleteFolder: async (id: string) => {
+    try {
+      debug('Delete folder', id);
+      
+      // Set a loading state flag
+      set(
+        produce((state: IChatStore) => {
+          state.folderOperationInProgress = true;
+        })
+      );
+      
+      // Use transaction to ensure atomicity
+      const ok = await window.electron.db.transaction([
+        {
+          sql: `UPDATE chats SET folderId = NULL WHERE folderId = ?`,
+          params: [id],
+        },
+        {
+          sql: `DELETE FROM chat_folders WHERE id = ?`,
+          params: [id],
+        }
+      ]);
+      
+      if (ok) {
+        // Update UI state
+        set(
+          produce((state: IChatStore) => {
+            // Update all chats that were in this folder
+            if (state.chats) {
+              state.chats = state.chats.map(chat => {
+                if (chat.folderId === id) {
+                  return { ...chat, folderId: null };
+                }
+                return chat;
+              });
+            }
+            
+            // Remove folder
+            if (state.folders) {
+              state.folders = state.folders.filter(folder => folder.id !== id);
+            }
+            
+            state.folderOperationInProgress = false;
+          }),
+        );
+        return true;
+      }
+      
+      set(
+        produce((state: IChatStore) => {
+          state.folderOperationInProgress = false;
+        })
+      );
+      
+      return false;
+    } catch (err) {
+      debug('Error deleting folder:', err);
+      
+      // Reset loading state
+      set(
+        produce((state: IChatStore) => {
+          state.folderOperationInProgress = false;
+        })
+      );
+      
+      return false;
+    }
+  },
+  
+  fetchFolders: async () => {
+    try {
+      debug('Fetching folders...');
+      
+      // Add cache with 3 second expiry to reduce database calls
+      const cacheKey = 'folders';
+      const cachedFolders = sessionStorage.getItem(cacheKey);
+      const cacheTime = sessionStorage.getItem(`${cacheKey}-time`);
+      const now = Date.now();
+      
+      // Use cache if it exists and is less than 3 seconds old
+      if (cachedFolders && cacheTime && (now - parseInt(cacheTime)) < 3000) {
+        const folders = JSON.parse(cachedFolders);
+        set({ folders });
+        return folders;
+      }
+      
+      // Try up to 3 times if there are issues
+      let attempt = 0;
+      let rows = null;
+      let error = null;
+      
+      while (attempt < 3 && !rows) {
+        try {
+          if (attempt > 0) {
+            debug(`Retry attempt ${attempt} for fetching folders`);
+          }
+          
+          rows = (await window.electron.db.all(
+            'SELECT id, name, createdAt FROM chat_folders ORDER BY name ASC'
+          )) as IChatFolder[];
+          
+          if (!rows) {
+            throw new Error('No results returned from database query');
+          }
+        } catch (err) {
+          error = err;
+          attempt++;
+          if (attempt < 3) {
+            // Wait a bit before retrying
+            await new Promise(resolve => setTimeout(resolve, 100 * attempt));
+          }
+        }
+      }
+      
+      // If we still have no rows after retries, handle the error
+      if (!rows) {
+        debug('Failed to fetch folders after retries:', error);
+        throw error || new Error('Unknown error fetching folders');
+      }
+      
+      debug(`Successfully fetched ${rows.length} folders`);
+      
+      // Extra verification for debug purposes
+      if (rows.length > 0) {
+        debug('First folder retrieved:', rows[0]);
+      }
+      
+      // Cache the results
+      sessionStorage.setItem(cacheKey, JSON.stringify(rows));
+      sessionStorage.setItem(`${cacheKey}-time`, now.toString());
+      
+      // Always set folders, even if empty array
+      set({ folders: rows });
+      
+      return rows;
+    } catch (error) {
+      debug('Error in fetchFolders:', error);
+      
+      // Always return at least an empty array to avoid undefined
+      return [];
+    }
+  },
+  
+  assignChatToFolder: async (chatId: string, folderId: string | null) => {
+    if (chatId === tempChatId) return false;
+    
+    try {
+      debug('Assigning chat', chatId, 'to folder', folderId);
+      
+      // Set loading state
+      set(
+        produce((state: IChatStore) => {
+          state.folderOperationInProgress = true;
+        })
+      );
+      
+      // Use transaction for atomicity
+      const ok = await window.electron.db.run(
+        `UPDATE chats SET folderId = ? WHERE id = ?`,
+        [folderId, chatId],
+      );
+      
+      if (ok) {
+        set(
+          produce((state: IChatStore) => {
+            // Update current chat if it's the one being modified
+            if (state.chat.id === chatId) {
+              state.chat.folderId = folderId;
+            }
+            
+            // Update the chat in the chats array
+            state.chats = state.chats.map(chat => {
+              if (chat.id === chatId) {
+                return { ...chat, folderId };
+              }
+              return chat;
+            });
+            
+            // Reset loading state
+            state.folderOperationInProgress = false;
+          }),
+        );
+        return true;
+      }
+      
+      // Reset loading state on failure
+      set(
+        produce((state: IChatStore) => {
+          state.folderOperationInProgress = false;
+        })
+      );
+      
+      return false;
+    } catch (err) {
+      debug('Error assigning chat to folder:', err);
+      
+      // Reset loading state on error
+      set(
+        produce((state: IChatStore) => {
+          state.folderOperationInProgress = false;
+        })
+      );
+      
+      return false;
+    }
+  }
 }));
 
 export default useChatStore;

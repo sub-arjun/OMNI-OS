@@ -10,6 +10,13 @@ export default class GoogleReader extends BaseReader {
   // Track accumulated tool call arguments for streaming responses
   private accumulatedToolArgs: Record<string, string> = {};
 
+  // Add a cleanup method to properly release resources
+  public cleanup(): void {
+    // Clear accumulated tool arguments to prevent memory leaks
+    this.accumulatedToolArgs = {};
+    debug('GoogleReader resources cleaned up');
+  }
+
   protected parseReply(chunk: string): IChatResponseMessage {
     let _chunk = chunk.trim();
     try {
@@ -294,6 +301,9 @@ export default class GoogleReader extends BaseReader {
       console.error('Read error:', err);
       onError(err);
     } finally {
+      // Clean up accumulated tool args to prevent memory leaks
+      this.cleanup();
+      
       debug('Reader finished with content length:', content.length, 'tool:', tool ? tool.name : 'none');
       return {
         content,

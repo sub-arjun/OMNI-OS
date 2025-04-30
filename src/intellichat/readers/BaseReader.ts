@@ -460,4 +460,10 @@ export default abstract class BaseReader implements IChatReader {
     const parsedArgs = toolArguments.map((arg) => JSON.parse(arg));
     return merge({}, ...parsedArgs);
   }
+
+  // Implement a base cleanup method
+  public cleanup(): void {
+    // Base implementation - can be overridden by subclasses
+    // Release any resources or clear cached data here
+  }
 }

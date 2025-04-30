@@ -5,6 +5,7 @@ interface Props {
   fallback?: ReactNode;
   onError?: (error: Error, errorInfo: ErrorInfo) => void;
   componentName?: string;
+  className?: string;
 }
 
 interface State {
@@ -69,7 +70,8 @@ class ErrorBoundary extends Component<Props, State> {
       );
     }
 
-    return this.props.children;
+    // Wrap children in a div and apply className
+    return <div className={this.props.className}>{this.props.children}</div>;
   }
 }
 

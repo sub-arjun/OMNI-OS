@@ -14,6 +14,8 @@ import {
   Bookmark16Regular,
   Copy16Regular,
   Copy16Filled,
+  CheckmarkCircle16Regular,
+  CheckmarkCircle16Filled,
 } from '@fluentui/react-icons';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -32,10 +34,14 @@ const DeleteIcon = bundleIcon(Delete16Filled, Delete16Regular);
 const CopyIcon = bundleIcon(Copy16Filled, Copy16Regular);
 const BookmarkAddIcon = bundleIcon(Bookmark16Filled, Bookmark16Regular);
 const BookmarkOffIcon = bundleIcon(Bookmark16Regular, Bookmark16Filled);
+const CheckIcon = bundleIcon(CheckmarkCircle16Filled, CheckmarkCircle16Regular);
 
 export default function MessageToolbar({ message }: { message: IChatMessage }) {
   const { t } = useTranslation();
   const [delPopoverOpen, setDelPopoverOpen] = useState<boolean>(false);
+  const [copied, setCopied] = useState(false);
+  // Feedback state to show bookmarked icon temporarily
+  const [bookmarkFeedback, setBookmarkFeedback] = useState(false);
   const deleteMessage = useChatStore((state) => state.deleteMessage);
   const bookmarkMessage = useChatStore((state) => state.bookmarkMessage);
   const createBookmark = useBookmarkStore((state) => state.createBookmark);
@@ -108,8 +114,27 @@ export default function MessageToolbar({ message }: { message: IChatMessage }) {
       console.error('Error formatting citations for copy:', e);
     }
     
-    navigator.clipboard.writeText(content);
+    // Always use the fallback method for clipboard copying
+    const textarea = document.createElement('textarea');
+    textarea.value = content;
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textarea);
     notifySuccess(t('Common.Notification.Copied'));
+  };
+
+  const handleCopyClick = () => {
+    copy();
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  // Handle bookmark click with temporary feedback
+  const handleBookmarkClick = () => {
+    bookmark();
+    setBookmarkFeedback(true);
+    setTimeout(() => setBookmarkFeedback(false), 2000);
   };
 
   // Handle click away from delete popover
@@ -133,7 +158,18 @@ export default function MessageToolbar({ message }: { message: IChatMessage }) {
           />
         )}
         
-        {message.bookmarkId ? (
+        {bookmarkFeedback ? (
+          <Tooltip
+            content={t('Common.Notification.BookmarkAdded')}
+            relationship="label"
+          >
+            <Button
+              size="small"
+              icon={<Bookmark16Filled className="text-amber-500" />}
+              appearance="subtle"
+            />
+          </Tooltip>
+        ) : message.bookmarkId ? (
           <Tooltip
             content={t('Common.Action.Bookmark')}
             relationship="label"
@@ -142,7 +178,7 @@ export default function MessageToolbar({ message }: { message: IChatMessage }) {
               size="small"
               icon={<BookmarkOffIcon />}
               appearance="subtle"
-              onClick={() => unbookmark()}
+              onClick={unbookmark}
             />
           </Tooltip>
         ) : (
@@ -154,11 +190,16 @@ export default function MessageToolbar({ message }: { message: IChatMessage }) {
               size="small"
               icon={<BookmarkAddIcon />}
               appearance="subtle"
-              onClick={() => bookmark()}
+              onClick={handleBookmarkClick}
             />
           </Tooltip>
         )}
-        <Button size="small" icon={<CopyIcon />} appearance="subtle" onClick={copy} />
+        <Button
+          size="small"
+          icon={copied ? <CheckIcon className="text-green-500" /> : <CopyIcon />}
+          appearance="subtle"
+          onClick={handleCopyClick}
+        />
         <ClickAwayListener onClickAway={handleClickAway} active={delPopoverOpen}>
           <Popover withArrow open={delPopoverOpen}>
             <PopoverTrigger disableButtonEnhancement>

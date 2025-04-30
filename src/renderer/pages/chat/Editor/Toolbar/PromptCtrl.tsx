@@ -235,9 +235,9 @@ export default function PromptCtrl({
   );
 
   useEffect(() => {
-    Mousetrap.bind('mod+shift+2', openDialog);
+    Mousetrap.bind('ctrl+shift+p', openDialog);
     return () => {
-      Mousetrap.unbind('mod+shift+2');
+      Mousetrap.unbind('ctrl+shift+p');
     };
   }, [open]);
 
@@ -254,26 +254,46 @@ export default function PromptCtrl({
           <ClickAwayListener onClickAway={handleClickAway} active={open}>
             <Dialog open={open} onOpenChange={() => setPromptPickerOpen(false)}>
               <DialogTrigger disableButtonEnhancement>
-                <Button
-                  size="small"
-                  title="Mod+Shift+2"
-                  aria-label={t('Common.Prompts')}
-                  appearance="subtle"
-                  style={{ borderColor: 'transparent', boxShadow: 'none', height: '100%' }}
-                  className="flex justify-start items-center text-color-secondary gap-1 prompt-button-main"
-                  onClick={openDialog}
-                  icon={<PromptIcon className="flex-shrink-0" />}
+                <Tooltip
+                  content={
+                    <div>
+                      <div style={{ fontWeight: 'bold', marginBottom: '3px' }}>{t('Common.Prompts')}</div>
+                      <div>Apply reusable templates and conversation starters (Ctrl+Shift+P)</div>
+                      {(chat.prompt as IPrompt)?.name && (
+                        <div style={{ marginTop: '3px', fontSize: '12px' }}>
+                          Active: {(chat.prompt as IPrompt)?.name}
+                        </div>
+                      )}
+                      {hasPromptVariables && (
+                        <div style={{ marginTop: '3px', fontSize: '12px', fontStyle: 'italic' }}>
+                          Contains variables that can be redefined
+                        </div>
+                      )}
+                    </div>
+                  }
+                  relationship="description"
+                  positioning="above"
                 >
-                  {(chat.prompt as IPrompt)?.name && (
-                    <span
-                      className={`flex-shrink overflow-hidden whitespace-nowrap text-ellipsis ${
-                        (chat.prompt as IPrompt)?.name ? 'min-w-8' : 'w-0'
-                      } `}
-                    >
-                      {(chat.prompt as IPrompt)?.name}
-                    </span>
-                  )}
-                </Button>
+                  <Button
+                    size="small"
+                    aria-label={t('Common.Prompts')}
+                    appearance="subtle"
+                    style={{ borderColor: 'transparent', boxShadow: 'none', height: '100%' }}
+                    className="flex justify-start items-center text-color-secondary gap-1 prompt-button-main"
+                    onClick={openDialog}
+                    icon={<PromptIcon className="flex-shrink-0" />}
+                  >
+                    {(chat.prompt as IPrompt)?.name && (
+                      <span
+                        className={`flex-shrink overflow-hidden whitespace-nowrap text-ellipsis ${
+                          (chat.prompt as IPrompt)?.name ? 'min-w-8' : 'w-0'
+                        } `}
+                      >
+                        {(chat.prompt as IPrompt)?.name}
+                      </span>
+                    )}
+                  </Button>
+                </Tooltip>
               </DialogTrigger>
               <DialogSurface>
                 <DialogBody>
@@ -383,7 +403,7 @@ export default function PromptCtrl({
                 onClick={redoPrompt}
                 title={t('Common.Redo')}
               >
-                <ArrowSyncCircleRegular className="w-3 h-3" />
+                <ArrowSyncCircleRegular className="w-5 h-5" />
               </button>
             </Tooltip>
           )}
@@ -426,11 +446,11 @@ export default function PromptCtrl({
             border-top-right-radius: 6px;
             border-bottom-right-radius: 6px;
             height: 100%;
-            padding: 0 3px;
+            padding: 0 5px;
             display: flex;
             align-items: center;
             min-width: 10px;
-            width: 13px;
+            width: 30px;
           }
         `}
       </style>

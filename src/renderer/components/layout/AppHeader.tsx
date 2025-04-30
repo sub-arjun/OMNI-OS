@@ -4,13 +4,12 @@ import {
   Popover,
   PopoverSurface,
   PopoverTrigger,
+  Tooltip,
 } from '@fluentui/react-components';
 import Mousetrap from 'mousetrap';
 import {
   PanelLeftText24Filled,
   PanelLeftText24Regular,
-  Search24Filled,
-  Search24Regular,
   Wifi124Filled,
   Wifi124Regular,
   WifiOff24Filled,
@@ -21,26 +20,29 @@ import useOnlineStatus from 'hooks/useOnlineStatus';
 import { useTranslation } from 'react-i18next';
 import useAppearanceStore from '../../../stores/useAppearanceStore';
 import './AppHeader.scss';
-import SearchDialog from '../SearchDialog';
 import TrafficLights from '../TrafficLights';
+import { FeedbackIcon } from './aside/GlobalNav';
 
 const PanelLeftIcon = bundleIcon(PanelLeftText24Filled, PanelLeftText24Regular);
-const SearchIcon = bundleIcon(Search24Filled, Search24Regular);
 const OnlineIcon = bundleIcon(Wifi124Filled, Wifi124Regular);
 const OfflineIcon = bundleIcon(WifiOff24Filled, WifiOff24Regular);
 
 export default function AppHeader() {
-  const collapsed = useAppearanceStore((state) => state.sidebar.collapsed);
+  const collapsed = useAppearanceStore((state) => state?.sidebar?.collapsed || false);
   const toggleSidebarVisibility = useAppearanceStore(
-    (state) => state.toggleSidebarVisibility
+    (state) => state?.toggleSidebarVisibility || (() => {})
   );
   const { t } = useTranslation();
-  const [searchOpen, setSearchOpen] = useState<boolean>(false);
+  const theme = useAppearanceStore((state) => state?.theme || 'light');
 
   const NetworkStatusIcon = useOnlineStatus() ? (
     <Popover withArrow size="small" closeOnScroll>
       <PopoverTrigger disableButtonEnhancement>
-        <Button icon={<OnlineIcon />} appearance="transparent" />
+        <Button 
+          icon={<OnlineIcon />} 
+          appearance="transparent" 
+          style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties} 
+        />
       </PopoverTrigger>
       <PopoverSurface>
         <div> {t('Common.Online')}</div>
@@ -49,7 +51,11 @@ export default function AppHeader() {
   ) : (
     <Popover withArrow size="small" closeOnScroll>
       <PopoverTrigger disableButtonEnhancement>
-        <Button icon={<OfflineIcon />} appearance="transparent" />
+        <Button 
+          icon={<OfflineIcon />} 
+          appearance="transparent" 
+          style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties} 
+        />
       </PopoverTrigger>
       <PopoverSurface>
         <div> {t('Common.Offline')}</div>
@@ -58,37 +64,48 @@ export default function AppHeader() {
   );
 
   useEffect(() => {
-    Mousetrap.bind('mod+f', () => setSearchOpen(true));
+    Mousetrap.bind('alt+f', () => {
+      window.electron?.openExternal?.('https://omni-os.canny.io/omni');
+      return false;
+    });
     return () => {
-      Mousetrap.unbind('mod+f');
+      Mousetrap.unbind('alt+f');
     };
   }, []);
 
   return (
-    <div>
-      <div
-        className={`app-header z-30 pl-20 pt-2.5 w-auto ${
-          collapsed ? 'md:w-[10rem]' : 'md:w-[17rem]'
-        } flex items-center`}
-      >
-        <TrafficLights></TrafficLights>
-        <div className="block md:hidden pl-1">
-          <Button
-            icon={<PanelLeftIcon />}
-            appearance="transparent"
-            onClick={() => toggleSidebarVisibility()}
-          />
-        </div>
-        <div className="pl-1">
-          <Button
-            icon={<SearchIcon />}
-            appearance="transparent"
-            onClick={() => setSearchOpen(true)}
-          />
-        </div>
-        <div className="pl-1">{NetworkStatusIcon}</div>
+    <div
+      className={`app-header z-30 pl-20 pt-3 flex items-center`}
+    >
+      <TrafficLights></TrafficLights>
+      <div className="block md:hidden pl-1">
+        <Button
+          icon={<PanelLeftIcon />}
+          appearance="transparent"
+          onClick={() => toggleSidebarVisibility()}
+          style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+        />
       </div>
-      <SearchDialog open={searchOpen} setOpen={setSearchOpen} />
+      <div className="pl-0.5">{NetworkStatusIcon}</div>
+      <div className="pl-0.5 -ml-2">
+        <Tooltip 
+          content="Give Feedback! (Alt+F)"
+          relationship="label"
+        >
+          <Button
+            appearance="transparent"
+            icon={<FeedbackIcon />}
+            size="medium"
+            onClick={() => {
+              window.electron?.openExternal?.('https://omni-os.canny.io/omni');
+            }}
+            aria-label="Give Feedback!"
+            style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties} 
+          >
+            {t('Common.Feedback')}
+          </Button>
+        </Tooltip>
+      </div>
     </div>
   );
 }

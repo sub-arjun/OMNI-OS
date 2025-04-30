@@ -24,6 +24,7 @@ import {
   DataArea24Filled,
   ReceiptSparkles24Regular,
   Settings24Regular,
+  Settings24Filled,
   SignOut24Regular,
 } from '@fluentui/react-icons';
 import { useTranslation } from 'react-i18next';
@@ -43,6 +44,7 @@ import { useToast as useToastRenderer } from '@/renderer/hooks/useToast';
 const debug = Debug('OMNI:components:layout:aside:WorkspaceMenu');
 
 const FireIcon = bundleIcon(Fire24Filled, Fire24Regular);
+const SettingsIcon = bundleIcon(Settings24Filled, Settings24Regular);
 
 export default function WorkspaceMenu({ collapsed }: { collapsed: boolean }) {
   const { t } = useTranslation();
@@ -88,17 +90,31 @@ export default function WorkspaceMenu({ collapsed }: { collapsed: boolean }) {
     <div>
       <Menu open={open} onOpenChange={onOpenChange}>
         <div
-          className={`${collapsed ? '' : 'flex items-center justify-between '}`}
+          className={`${collapsed ? '' : 'flex items-center justify-between w-full'}`}
         >
           <MenuTrigger disableButtonEnhancement>
-            <MenuButton
-              appearance="subtle"
-              style={{borderColor: 'transparent', boxShadow: 'none'}}
-              className="w-full justify-start outline-none hover:bg-black/10 dark:hover:bg-white/10"
-              onClick={() => setOpen(true)}
-            >
-              {collapsed ? null : <span className="text-3xl tracking-wide" style={{ fontSize: '2.2rem', textShadow: '0 0 3px rgba(255,255,255,0.25)' }}><span className="font-black"><strong>OMNI</strong></span></span>}
-            </MenuButton>
+            {collapsed ? (
+              <Button
+                appearance="subtle"
+                style={{borderColor: 'transparent', boxShadow: 'none'}}
+                className="w-full justify-center outline-none hover:bg-black/10 dark:hover:bg-white/10 relative"
+                onClick={() => setOpen(true)}
+                icon={<SettingsIcon className="text-gray-500" fontSize={24} />}
+              />
+            ) : (
+              <div className="flex w-full items-center justify-between">
+                <span className="text-3xl tracking-wide pl-2" style={{ fontSize: '2.2rem', textShadow: '0 0 3px rgba(255,255,255,0.25)' }}>
+                  <span className="font-black"><strong>{t('Common.AppName', 'OMNI')}</strong></span>
+                </span>
+                <Button
+                  appearance="subtle"
+                  style={{borderColor: 'transparent', boxShadow: 'none'}}
+                  className="min-w-[36px] w-[36px] h-[36px] p-0 justify-center outline-none hover:bg-black/10 dark:hover:bg-white/10 relative"
+                  onClick={() => setOpen(true)}
+                  icon={<SettingsIcon className="text-gray-500" fontSize={20} />}
+                />
+              </div>
+            )}
           </MenuTrigger>
         </div>
         <MenuPopover
@@ -147,7 +163,7 @@ export default function WorkspaceMenu({ collapsed }: { collapsed: boolean }) {
             <MenuDivider className="border-base" />
             <MenuItem
               title='mod+k'
-              icon={<Settings24Regular />}
+              icon={<SettingsIcon />}
               onClick={() => {
                 navigate('/settings');
               }}

@@ -93,14 +93,19 @@ export default function FileDrawer({
       }));
     };
     
-    window.electron.ipcRenderer.on('knowledge-import-progress', progressHandler);
+    // Store the cleanup function
+    const cleanupProgressListener = window.electron.ipcRenderer.on(
+      'knowledge-import-progress',
+      progressHandler,
+    );
 
     listFiles(collection.id).then((files: any[]) => {
       setFileList(files);
     });
 
     return () => {
-      window.electron.ipcRenderer.unsubscribe('knowledge-import-progress', progressHandler);
+      console.log("Cleaning up knowledge-import-progress listener");
+      cleanupProgressListener(); // Call the specific cleanup function
     };
   }, [collection]);
 

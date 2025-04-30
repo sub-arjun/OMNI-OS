@@ -166,16 +166,21 @@ export default function FluentApp() {
   }, []);
 
   useEffect(() => {
-    window.electron.ipcRenderer.on('native-theme-change', (_theme: unknown) => {
-      if (themeSettings === 'system') {
-        setTheme(_theme as 'light' | 'dark');
-        debug(`Theme Change to: ${_theme}`);
-      }
-    });
-    return () => {
-      window.electron.ipcRenderer.unsubscribeAll('native-theme-change');
+    const handleThemeChange = (theme: 'light' | 'dark') => {
+      setTheme(theme);
     };
-  }, [themeSettings, setTheme]);
+
+    // Use the cleanup function returned by window.electron.ipcRenderer.on
+    const cleanupThemeChangeListener = window.electron.ipcRenderer.on(
+      'native-theme-change',
+      handleThemeChange
+    );
+
+    return () => {
+      // Call the specific cleanup function
+      cleanupThemeChangeListener();
+    };
+  }, []);
 
   useEffect(() => {
     if (themeSettings === 'system') {

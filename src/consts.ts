@@ -25,3 +25,6 @@ export const SUPPORTED_IMAGE_TYPES: { [key: string]: string } = {
   jpeg: 'image/jpeg',
   png: 'image/png',
 };
+
+// Custom event name for MCP server state changes
+export const MCP_SERVER_STATE_CHANGED = 'mcp-server-state-changed';

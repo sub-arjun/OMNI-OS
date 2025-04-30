@@ -6,6 +6,7 @@ import path from 'path';
 import dotenv from 'dotenv';
 import {
   app,
+  protocol,
   dialog,
   nativeImage,
   BrowserWindow,
@@ -14,6 +15,9 @@ import {
   nativeTheme,
   Menu,
   screen,
+  session,
+  net,
+  systemPreferences,
 } from 'electron';
 import crypto from 'crypto';
 import { autoUpdater } from 'electron-updater';
@@ -44,6 +48,8 @@ import {
 } from '../consts';
 import type { IMCPConfig } from 'types/mcp';
 import mcpConfig from '../mcp.config';
+import fetch from 'node-fetch';
+import http from 'http';
 
 logging.init();
 
@@ -65,74 +71,31 @@ if (!gotTheLock) {
 const mcp = new ModuleContext();
 const store = new Store();
 
-class AppUpdater {
+export default class AppUpdater {
   constructor() {
-    autoUpdater.setFeedURL({
-      provider: 'generic',
-      url: 'https://github.com/sub-arjun/OMNI-OS/releases/latest/download/',
-    });
-
-    autoUpdater.on('update-available', () => {
-      store.set('updateInfo', {
-        isDownloading: true,
-      });
-    });
-
-    autoUpdater.on('update-not-available', () => {
-      store.delete('updateInfo');
-    });
-
-    autoUpdater.on(
-      'update-downloaded' as any,
-      (event: Event, releaseNotes: string, releaseName: string) => {
-        logging.info(event, releaseNotes, releaseName);
-        store.set('updateInfo', {
-          version: releaseName,
-          releaseNotes,
-          releaseName,
-          isDownloading: false,
-        });
-        const dialogOpts = {
-          type: 'info',
-          buttons: ['Restart', 'Later'],
-          title: 'Application Update',
-          message: process.platform === 'win32' ? releaseNotes : releaseName,
-          detail:
-            'A new version has been downloaded. Restart the application to apply the updates.',
-        } as MessageBoxOptions;
-
-        dialog.showMessageBox(dialogOpts).then((returnValue) => {
-          if (returnValue.response === 0) autoUpdater.quitAndInstall();
-        });
-
-        axiom.ingest([{ app: 'upgrade' }, { version: releaseName }]);
-      },
-    );
-
-    autoUpdater.on('error', (message) => {
-      const dialogOpts = {
-        type: 'error',
-        buttons: ['Go to website', 'Ok'],
-        title: 'Something went wrong',
-        message:
-          'There was a problem updating the application, you can try again later or download the latest version from our website.',
-      } as MessageBoxOptions;
-
-      dialog.showMessageBox(dialogOpts).then((returnValue) => {
-        if (returnValue.response === 0) {
-          shell.openExternal('https://becomeomni.com');
-        }
-      });
-      logging.captureException(message);
-    });
-    if (process.env.NODE_ENV === 'production') {
-      autoUpdater.checkForUpdates();
-    }
+    log.transports.file.level = 'info';
+    autoUpdater.logger = log;
+    autoUpdater.checkForUpdatesAndNotify();
   }
 }
+
 let downloader: Downloader;
 let mainWindow: BrowserWindow | null = null;
-const protocol = app.isPackaged ? 'app.omni' : 'app.omni.dev';
+
+// Deep-linking scheme (remains for deeplink feature)
+const appProtocol = app.isPackaged ? 'app.omni' : 'app.omni.dev';
+// HTTP port for serving production UI
+const PRODUCTION_PORT = 1212;
+
+// Ensure our deep-linking scheme is treated as secure
+protocol.registerSchemesAsPrivileged([
+  { scheme: appProtocol, privileges: { secure: true, standard: true } }
+]);
+
+// On Windows, disable MediaFoundationVideoCapture to avoid camera-caused GPU-process crashes
+if (process.platform === 'win32') {
+  app.commandLine.appendSwitch('disable-features', 'MediaFoundationVideoCapture');
+}
 
 // IPCs
 ipcMain.on('ipc-omni', async (event) => {
@@ -141,13 +104,24 @@ ipcMain.on('ipc-omni', async (event) => {
   });
 });
 
-ipcMain.on('get-store', (evt, key, defaultValue) => {
-  evt.returnValue = store.get(key, defaultValue);
+ipcMain.handle('get-store', async (_evt, key, defaultValue) => {
+  return store.get(key, defaultValue);
 });
 
-ipcMain.on('set-store', (evt, key, val) => {
+ipcMain.handle('set-store', async (_evt, key, val) => {
   store.set(key, val);
-  evt.returnValue = val;
+  // invoke requires a response, even if it's just acknowledgment
+  return true;
+});
+
+// Expose shell.openExternal to renderer
+ipcMain.handle('open-external', async (_evt, url: string) => {
+  return shell.openExternal(url);
+});
+
+// Expose media permission status to renderer
+ipcMain.handle('get-media-access-status', async (_evt, mediaType: 'camera' | 'microphone' | 'screen') => {
+  return systemPreferences.getMediaAccessStatus(mediaType);
 });
 
 ipcMain.on('minimize-app', () => {
@@ -175,7 +149,7 @@ ipcMain.handle(
 );
 
 ipcMain.handle('get-protocol', () => {
-  return protocol;
+  return appProtocol;
 });
 
 ipcMain.handle('get-device-info', async () => {
@@ -196,10 +170,6 @@ ipcMain.handle('get-app-version', () => {
 
 ipcMain.handle('ingest-event', (_, data) => {
   axiom.ingest(data);
-});
-
-ipcMain.handle('open-external', (_, data) => {
-  shell.openExternal(data);
 });
 
 ipcMain.handle('get-user-data-path', (_, paths) => {
@@ -536,7 +506,8 @@ ipcMain.handle('select-image-with-base64', async () => {
       );
       return null;
     }
-    const blob = fs.readFileSync(filePath);
+    // Use asynchronous file reading
+    const blob = await fs.promises.readFile(filePath); 
     const base64 = Buffer.from(blob).toString('base64');
     return JSON.stringify({
       name: fileInfo.name,
@@ -608,8 +579,38 @@ ipcMain.handle('test-omnibase-connection', async (_, indexName: string, namespac
 ipcMain.handle('create-omnibase-collection', async (_, name: string, indexName: string, namespace?: string) => {
   return await Knowledge.createOmniBaseCollection(name, indexName, namespace);
 });
+
+// Default prompt suggestions
+ipcMain.handle('prompts:get', async () => {
+  // Return default enterprise-focused suggestions with balanced color distribution
+  return [
+    { text: "Create a project roadmap for our next quarter", type: "blue" },
+    { text: "Analyze our market competition and suggest positioning strategy", type: "purple" },
+    { text: "Draft an email updating the team on our new initiative", type: "green" }
+  ];
+});
+
+ipcMain.handle('prompts:refresh', async () => {
+  // The refresh handler returns the same default prompts
+  return [
+    { text: "Create a project roadmap for our next quarter", type: "blue" },
+    { text: "Analyze our market competition and suggest positioning strategy", type: "purple" },
+    { text: "Draft an email updating the team on our new initiative", type: "green" }
+  ];
+});
+
 ipcMain.handle('download', (_, fileName: string, url: string) => {
+  const savePath = path.join(app.getPath('userData'), 'downloads', fileName);
+  
+  // Create the downloads directory if it doesn't exist
+  const downloadsDir = path.join(app.getPath('userData'), 'downloads');
+  if (!fs.existsSync(downloadsDir)) {
+    fs.mkdirSync(downloadsDir, { recursive: true });
+  }
+  
+  // Return the path where the file will be saved
   downloader.download(fileName, url);
+  return savePath;
 });
 ipcMain.handle('cancel-download', (_, fileName: string) => {
   downloader.cancel(fileName);
@@ -682,6 +683,7 @@ const installExtensions = async () => {
 };
 
 const createWindow = async () => {
+  log.info('[createWindow] Starting window creation...');
   if (isDebug) {
     // await installExtensions();
   }
@@ -706,7 +708,7 @@ const createWindow = async () => {
     icon: getAssetPath('icon.png'),
     webPreferences: {
       nodeIntegration: true,
-      webSecurity: false,
+      webSecurity: true,
       contextIsolation: true,
       backgroundThrottling: false,
       spellcheck: false, // Disable spellcheck to avoid locale issues
@@ -716,7 +718,13 @@ const createWindow = async () => {
     },
   });
 
-  mainWindow.loadURL(resolveHtmlPath('index.html'));
+  // Load the UI: in prod via secure custom protocol, in dev via webpack-dev-server or file
+  const indexURL = app.isPackaged
+    ? `http://localhost:${PRODUCTION_PORT}/index.html`
+    : resolveHtmlPath('index.html');
+  log.info(`[createWindow] Loading URL: ${indexURL}`);
+  mainWindow.loadURL(indexURL);
+  log.info('[createWindow] loadURL called.');
 
   // Save window state when it changes
   mainWindow.on('maximize', () => {
@@ -734,6 +742,13 @@ const createWindow = async () => {
   mainWindow.on('ready-to-show', async () => {
     if (!mainWindow) {
       throw new Error('"mainWindow" is not defined');
+    }
+    log.info('[ready-to-show] Window ready, attempting to open DevTools...');
+    
+    // For debugging in production, open the DevTools automatically when window is ready
+    if (app.isPackaged) {
+      console.log('[Main] Opening DevTools for production build');
+      mainWindow.webContents.openDevTools({ mode: 'detach' });
     }
     
     // Always set windowMaximized to true to ensure it starts maximized
@@ -759,6 +774,27 @@ const createWindow = async () => {
     fixPath();
   });
 
+  // Perform cleanup *before* the window is destroyed
+  mainWindow.on('close', () => {
+    log.debug('Window close event: Cleaning up listeners...');
+    try {
+      // Remove specific listeners attached to mainWindow
+      mainWindow?.removeAllListeners('maximize');
+      mainWindow?.removeAllListeners('unmaximize');
+      mainWindow?.removeAllListeners('ready-to-show');
+      
+      // Clean up MenuBuilder listeners
+      menuBuilder?.destroy();
+      
+      // Clean up Downloader listeners and ongoing downloads
+      downloader?.destroy();
+      log.debug('Cleanup successful before window close.');
+    } catch (error) {
+      log.error('Error during pre-close cleanup:', error);
+      // Log the error but don't prevent closing
+    }
+  });
+
   // Set up IPC handlers for window controls
   ipcMain.on('window-minimize', () => {
     mainWindow?.minimize();
@@ -777,6 +813,8 @@ const createWindow = async () => {
   });
 
   mainWindow.on('closed', () => {
+    // Only nullify the reference here, cleanup moved to 'close' event
+    log.debug('Window closed event: Nullifying mainWindow reference.');
     mainWindow = null;
   });
 
@@ -823,6 +861,18 @@ const createWindow = async () => {
       mainWindow?.webContents.send('download-progress', fileName, progress);
     },
   });
+
+  // Apply Content Security Policy
+  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    callback({
+      responseHeaders: {
+        ...details.responseHeaders,
+        'Content-Security-Policy': [
+          "default-src 'self' file: blob: data:; script-src 'self' file: blob: 'wasm-unsafe-eval' 'unsafe-eval' https://cdn.canny.io https://assets.canny.io 'unsafe-inline' https://js.sentry-cdn.com https://www.googletagmanager.com; style-src 'self' file: blob: data: 'unsafe-inline' https://assets.canny.io; img-src 'self' data: blob: file: https://canny-assets.io; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.axiom.co https://canny.io https://api.canny.io https://*.sentry.io https://*.google-analytics.com https://*.googletagmanager.com https://openrouter.ai https://api.replicate.com https://config-omni.s3.us-west-2.amazonaws.com https://skyfire.agisurge.com https://iam.bj.baidubce.com; frame-src https://changelog-widget.canny.io; font-src 'self' https://assets.canny.io data: file:; media-src *; worker-src 'self' blob: file:;"
+        ],
+      },
+    });
+  });
 };
 
 /**
@@ -835,50 +885,87 @@ if (app.dock) {
   app.dock.setIcon(dockIcon);
 }
 
-app.setName('OMNI');
-
-app
-  .whenReady()
-  .then(async () => {
+app.whenReady().then(async () => {
+  if (app.isPackaged) {
+    // Serve static files from dist/renderer via HTTP on localhost
+    const server = http.createServer((req, res) => {
+      const reqUrl = req.url === '/' ? '/index.html' : req.url || '/index.html';
+      const filePath = path.join(__dirname, '..', 'renderer', reqUrl);
+      fs.readFile(filePath, (err, data) => {
+        if (err) {
+          res.writeHead(404);
+          return res.end('Not Found');
+        }
+        const ext = path.extname(filePath).toLowerCase();
+        const map: Record<string,string> = {
+          '.html': 'text/html',
+          '.js': 'application/javascript',
+          '.css': 'text/css',
+          '.json': 'application/json',
+          '.png': 'image/png',
+          '.jpg': 'image/jpeg',
+          '.jpeg': 'image/jpeg',
+          '.svg': 'image/svg+xml',
+          '.woff2': 'font/woff2'
+        };
+        res.writeHead(200, { 'Content-Type': map[ext] || 'application/octet-stream' });
+        res.end(data);
+      });
+    });
+    server.listen(PRODUCTION_PORT, '127.0.0.1', () => {
+      session.defaultSession.setPermissionCheckHandler((_wc, perm) => perm === 'media');
+      session.defaultSession.setPermissionRequestHandler((_wc, perm, cb) => cb(perm === 'media'));
+      createWindow();
+    });
+  } else {
+    session.defaultSession.setPermissionCheckHandler((_wc, perm) => perm === 'media');
+    session.defaultSession.setPermissionRequestHandler((_wc, perm, cb) => cb(perm === 'media'));
     createWindow();
-    // Remove this if your app does not use auto updates
-    // eslint-disable-next-line
-    new AppUpdater();
-    app.on('activate', () => {
-      // On macOS it's common to re-create a window in the app when the
-      // dock icon is clicked and there are no other windows open.
-      if (mainWindow === null) createWindow();
-    });
+  }
+  // Remove this if your app does not use auto updates
+  // eslint-disable-next-line
+  new AppUpdater();
+  app.on('activate', () => {
+    // On macOS it's common to re-create a window in the app when the
+    // dock icon is clicked and there are no other windows open.
+    if (mainWindow === null) createWindow();
+  });
 
-    app.on('will-finish-launching', () => {
-      initCrashReporter();
-    });
+  app.on('will-finish-launching', () => {
+    initCrashReporter();
+  });
 
-    app.on('window-all-closed', () => {
-      // Respect the OSX convention of having the application in memory even
-      // after all windows have been closed
-      if (process.platform !== 'darwin') {
-        app.quit();
-      }
-      axiom.flush();
-    });
+  app.on('window-all-closed', () => {
+    // Respect the OSX convention of having the application in memory even
+    // after all windows have been closed
+    if (process.platform !== 'darwin') {
+      app.quit();
+    }
+    axiom.flush();
+  });
 
-    app.on('before-quit', () => {
-      ipcMain.removeAllListeners();
-      mcp.close();
-    });
+  app.on('before-quit', () => {
+    ipcMain.removeAllListeners();
+    mcp.close();
+  });
 
-    app.on(
-      'certificate-error',
-      (event, _webContents, _url, _error, _certificate, callback) => {
-        // 允许私有证书
-        event.preventDefault();
-        callback(true);
-      },
-    );
-    axiom.ingest([{ app: 'launch' }]);
-  })
-  .catch(logging.captureException);
+  app.on(
+    'certificate-error',
+    (event, _webContents, _url, _error, _certificate, callback) => {
+      // 允许私有证书
+      event.preventDefault();
+      callback(true);
+    },
+  );
+  axiom.ingest([{ app: 'launch' }]);
+  
+  // PromptsService has been removed - all prompt generation now happens directly in the renderer
+  
+  // Clean up resources on app quit
+  app.on('quit', () => {
+    // ... other cleanup code ...
+  });
+});
 
 /**
  * Register deeplink
@@ -886,12 +973,13 @@ app
  * 待观察
  */
 
-logging.info(`Registering protocol:`, protocol);
+logging.info(`Using deeplink protocol: ${appProtocol}`);
+// Initialize deeplink using our custom protocol scheme
 const deeplink = new Deeplink({
   app,
-  // @ts-ignore 虽然这时mainWindow为null,但由于是传入的引用，调用时已实例化
+  // @ts-ignore mainWindow may be null until created
   mainWindow,
-  protocol,
+  protocol: appProtocol,
   isDev: isDebug,
   debugLogging: isDebug,
 });
@@ -914,4 +1002,122 @@ process.on('uncaughtException', (error) => {
 
 process.on('unhandledRejection', (reason: any, promise) => {
   logging.captureException(reason);
+});
+
+// Handler for Replicate API proxy
+ipcMain.handle('proxy-replicate', async (event, { url, method, headers, body }) => {
+  log.info(`Received proxy request for: ${method} ${url}`);
+  try {
+    // Use Electron's net module for requests from the main process
+    const request = net.request({ url, method });
+    
+    // Add headers
+    if (headers) {
+      for (const key in headers) {
+        if (Object.prototype.hasOwnProperty.call(headers, key)) {
+          request.setHeader(key, headers[key]);
+        }
+      }
+    }
+    
+    // Handle response
+    const responsePromise = new Promise((resolve, reject) => {
+      request.on('response', (response) => {
+        let responseData = '';
+        response.on('data', (chunk) => {
+          responseData += chunk.toString();
+        });
+        response.on('end', () => {
+          try {
+            const jsonResponse = JSON.parse(responseData);
+            log.info(`Proxy request successful for: ${url}, Status: ${response.statusCode}`);
+            // Include status code if needed by caller, though Replicate response usually has status field
+            // resolve({ ...jsonResponse, statusCode: response.statusCode }); 
+            resolve(jsonResponse);
+          } catch (e) {
+            log.error(`Failed to parse JSON response for ${url}:`, e, `Data: ${responseData.substring(0, 100)}...`);
+            reject(new Error('Failed to parse JSON response'));
+          }
+        });
+        response.on('error', (error) => {
+          log.error(`Proxy response error for ${url}:`, error);
+          reject(error);
+        });
+      });
+
+      request.on('error', (error) => {
+        log.error(`Proxy request error for ${url}:`, error);
+        reject(error);
+      });
+    });
+
+    // Send body if present
+    if (body && (method === 'POST' || method === 'PUT')) {
+      request.write(body);
+    }
+
+    // End the request
+    request.end();
+    
+    // Await and return the result
+    return await responsePromise;
+
+  } catch (error: any) {
+    log.error(`Error in proxy-replicate handler for ${url}:`, error);
+    throw new Error(`Error invoking remote method 'proxy-replicate': ${error.message}`);
+  }
+});
+
+// IPC handler for fetching audio data
+ipcMain.handle('fetch-audio-data', async (event, url: string) => {
+  log.info(`Fetching audio data from: ${url}`);
+  try {
+    const response = await fetch(url); // Use node-fetch
+    if (!response.ok) {
+      log.error(`Failed to fetch audio from ${url}. Status: ${response.status} ${response.statusText}`);
+      throw new Error(`Failed to fetch audio: ${response.statusText}`);
+    }
+
+    // Determine MIME type from response headers if possible, default to audio/wav
+    const contentType = response.headers.get('content-type') || 'audio/wav';
+    log.info(`Audio content type: ${contentType}`);
+
+    const buffer = await response.arrayBuffer();
+    const base64 = Buffer.from(buffer).toString('base64');
+    const dataUrl = `data:${contentType};base64,${base64}`;
+    log.info(`Successfully converted audio to data URL (length: ${dataUrl.length})`);
+    return dataUrl;
+  } catch (error: any) {
+    log.error(`Error fetching or converting audio from ${url}:`, error);
+    throw new Error(`Failed to process audio URL: ${error.message}`);
+  }
+});
+
+// Handler to fetch remote config, bypassing renderer CORS
+ipcMain.handle('fetch-remote-config', async (event, url: string) => {
+  log.info(`Received request to fetch remote config: ${url}`);
+  try {
+    const response = await fetch(url, {
+      // Rely on Cache-Control/Pragma headers instead of non-standard 'cache' option
+      headers: {
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache'
+      }
+    });
+
+    if (!response.ok) {
+      log.error(`Failed to fetch remote config from ${url}. Status: ${response.status} ${response.statusText}`);
+      // Throw an error that can be caught by the renderer
+      throw new Error(`Failed to fetch config: ${response.status} ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    log.info(`Successfully fetched remote config from ${url}`);
+    return data; // Return the parsed JSON data
+
+  } catch (error: any) {
+    log.error(`Error fetching remote config from ${url}:`, error);
+    // Re-throw the error so the renderer's catch block is triggered
+    throw new Error(`Network error fetching config: ${error.message}`);
+  }
 });

@@ -242,174 +242,64 @@ export default abstract class NextCharService {
         const [client, toolName] = readResult.tool.name.split('--');
         this.traceTool(chatId, toolName, '');
         
-        // Identify the model family for specialized handling
-        const isOpenAI = client.toLowerCase().includes('openai');
-        const isGrok = client.toLowerCase().includes('grok') || client.toLowerCase().includes('x-ai');
-        const isAnthropicClaude = client.toLowerCase().includes('anthropic') || client.toLowerCase().includes('claude');
-        const isGemini = client.toLowerCase().includes('google') || client.toLowerCase().includes('gemini');
-        
-        // Enhanced logging with model context
-        debug(`Tool call from ${isOpenAI ? 'OpenAI' : isGrok ? 'Grok' : isAnthropicClaude ? 'Claude' : isGemini ? 'Gemini' : 'unknown'} model: ${readResult.tool.name}`, {
+        // Log the raw arguments received from the reader
+        debug(`Tool call received: ${readResult.tool.name}`, {
           argsType: typeof readResult.tool.args,
-          argsValue: readResult.tool.args,
-          argsEmpty: !readResult.tool.args || 
-                     (typeof readResult.tool.args === 'object' && 
-                      Object.keys(readResult.tool.args).length === 0)
+          argsValue: readResult.tool.args
         });
         
-        // Check if this is a search-related tool
-        const isSearchTool = toolName.toLowerCase().includes('search') || 
-                            readResult.tool.name.toLowerCase().includes('search') ||
-                            readResult.tool.name.toLowerCase().includes('tavily');
+        // --- Simplified Argument Handling ---
+        // Assume the reader has parsed args correctly. 
+        // Pass them directly to mcp.callTool for validation.
+        const processedArgs = readResult.tool.args;
         
-        // Critical fix for OpenAI's format which may send an empty object 
-        // with the intent to search for the last text message
-        if (isSearchTool && isOpenAI && 
-            typeof readResult.tool.args === 'object' && 
-            Object.keys(readResult.tool.args).length === 0) {
-          
-          // The model intends to search for the last thing the user mentioned
-          const lastUserMsg = [...messages].reverse().find(m => m.role === 'user');
-          if (lastUserMsg && typeof lastUserMsg.content === 'string' && lastUserMsg.content.trim()) {
-            const userQuery = lastUserMsg.content.trim();
-            debug('OpenAI model sent empty args for search - using last user message:', userQuery);
-            
-            // Special handling for user explicitly providing a search term
-            if (userQuery.includes('crypto news')) {
-              debug('Found "crypto news" in user message, using as search query');
-              readResult.tool.args = { query: 'crypto news' };
-            }
-          }
-        }
+        debug('Arguments passed to MCP:', processedArgs);
         
-        // Process arguments based on their format and source model
-        let processedArgs = readResult.tool.args;
-        
-        // Parse string arguments consistently across all models
-        if (typeof processedArgs === 'string') {
-          const trimmedArgs = processedArgs.trim();
-          
-          // Special case for simple input like "crypto news"
-          if (trimmedArgs && !trimmedArgs.includes('{') && !trimmedArgs.includes(':')) {
-            if (isSearchTool) {
-              processedArgs = { query: trimmedArgs };
-              debug('Using plain text as search query:', trimmedArgs);
-            }
-          }
-          // Complete JSON objects
-          else if (trimmedArgs.startsWith('{') && trimmedArgs.endsWith('}')) {
-            try {
-              processedArgs = JSON.parse(trimmedArgs);
-              debug('Parsed complete JSON string arguments');
-            } catch (e) {
-              // If parsing fails, use as query for search tools
-              if (isSearchTool) {
-                processedArgs = { query: trimmedArgs };
-                debug('Using unparseable JSON string as search query');
-              }
-            }
-          }
-          // Partial JSON with query markers (common in streaming responses)
-          else if (trimmedArgs.includes('query') || trimmedArgs.includes('quer')) {
-            processedArgs = { query: trimmedArgs };
-            debug('Found partial query in string arguments');
-          } 
-          // Direct string for search tools that came from the model (not the user)
-          else if (isSearchTool) {
-            processedArgs = { query: trimmedArgs };
-            debug('Using string directly as search query from model');
-          }
-        }
-        
-        // Special handling for when we find "crypto news" in the args or raw text
-        if (isSearchTool && processedArgs) {
-          const argsStr = JSON.stringify(processedArgs).toLowerCase();
-          if (argsStr.includes('crypto news')) {
-            processedArgs = { query: 'crypto news' };
-            debug('Found "crypto news" in arguments, using as direct query');
-          }
-        }
-        
-        // Handle empty arguments for search tools - DON'T use user's message
-        if (isSearchTool && 
-            (!processedArgs || 
-             typeof processedArgs !== 'object' || 
-             !processedArgs.query || 
-             processedArgs.query === "")) {
-          
-          debug('Missing search query from model');
-          
-          // Special case for when we know the user wants crypto news
-          const lastUserMsg = [...messages].reverse().find(m => m.role === 'user');
-          if (lastUserMsg && 
-             typeof lastUserMsg.content === 'string' && 
-             lastUserMsg.content.toLowerCase().includes('crypto news')) {
-            
-            debug('User explicitly mentioned crypto news, using as query');
-            processedArgs = { query: 'crypto news' };
-          }
-          else {
-            // Instead of using user input, respond back to the model requesting a proper query
-            messages.push({
-              role: 'system',
-              content: `To use the search tool, you need to provide a specific search query. Please try again with a detailed query rather than an empty search.`
-            });
-            
-            // Skip the tool call and continue the conversation
-            const _messages = [...messages] as IChatRequestMessage[];
-            await this.chat(_messages);
-            return;
-          }
-        }
-        
-        debug('Final processed args:', JSON.stringify(processedArgs));
-        
-        // Call the tool with the processed arguments from the model (not user input)
+        // Call the tool via MCP
         debug(`Calling MCP tool: ${client} / ${toolName} with args:`, processedArgs);
         const toolCallsResult = await window.electron.mcp.callTool({
           client,
           name: readResult.tool.name,
-          args: processedArgs,
+          args: processedArgs, // Pass directly
         });
         
-        // Log the processed arguments for tracing
+        // Log the arguments sent for tracing
         this.traceTool(
           chatId,
           'arguments',
-          JSON.stringify(processedArgs, null, 2),
+          // Ensure args are stringified for logging, handle null/undefined
+          JSON.stringify(processedArgs ?? null, null, 2),
         );
         
-        // Handle any errors from the tool call
+        // Handle tool call errors
         if (toolCallsResult.isError) {
           const toolError =
-            toolCallsResult.content.length > 0
+            toolCallsResult.content && toolCallsResult.content.length > 0
               ? toolCallsResult.content[0]
-              : { error: 'Unknown error with tool call' };
+              : { error: 'Unknown error executing tool' };
           
-          // Log the error
+          // Use debug for logging within this service
+          debug(`Tool call failed for ${toolName}:`, toolError);
           this.traceTool(chatId, 'error', JSON.stringify(toolError, null, 2));
           
-          // For empty arguments that caused errors, add a specific message to help the model
-          const errorMessage = 
-            typeof processedArgs === 'undefined' || 
-            processedArgs === null || 
-            (typeof processedArgs === 'object' && Object.keys(processedArgs).length === 0)
-              ? `${toolError.error || 'Error'} - This tool requires arguments. Please try again with valid parameters.`
-              : toolError.error || 'Error calling tool';
-          
-          // Add error message to chat as system message
+          // Send error back to the model
           messages.push({
             role: 'system',
-            content: `Error using tool ${toolName}: ${errorMessage} Please try again with valid parameters.`
+            content: `Error using tool ${toolName}: ${toolError.error}. Please check the tool documentation and correct your request.`
           });
-        } else {
-          // Log successful response
+          
+          // Skip making tool messages and continue chat with the error
+          const _messages = [...messages] as IChatRequestMessage[];
+          await this.chat(_messages);
+          return; // Stop further processing for this turn
+        }
+        
+        // Log successful tool response
           this.traceTool(
             chatId,
             'response',
             JSON.stringify(toolCallsResult, null, 2),
           );
-        }
         
         // Continue the conversation with tool results
         const _messages = [

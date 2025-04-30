@@ -8,6 +8,7 @@ import {
   SpinButtonChangeEvent,
   SpinButtonOnChangeData,
   PopoverProps,
+  Tooltip,
 } from '@fluentui/react-components';
 import Mousetrap from 'mousetrap';
 import {
@@ -79,31 +80,44 @@ export default function MaxTokens({
   };
 
   return (
-    <Popover open={open} trapFocus withArrow onOpenChange={handleOpenChange}>
-      <PopoverTrigger>
-        <Button
-          size="small"
-          title="Mod+Shift+4"
-          aria-label={t('Common.MaxTokens')}
-          appearance="subtle"
-          onClick={(e) => setOpen((prevOpen) => !prevOpen)}
-          icon={<NumberSymbolSquareIcon />}
-          className="justify-start text-color-secondary flex-shrink-0"
-          style={{
-            padding: 1,
-            minWidth: 20,
-            borderColor: 'transparent',
-            boxShadow: 'none',
-          }}
+    <Popover withArrow trapFocus open={open} onOpenChange={handleOpenChange}>
+      <PopoverTrigger disableButtonEnhancement>
+        <Tooltip
+          content={
+            <div>
+              <div style={{ fontWeight: 'bold', marginBottom: '3px' }}>{t('Common.MaxTokens')}</div>
+              <div>{t('Tooltip.MaxTokensDesc')} {t('Tooltip.MaxTokensShortcut')}</div>
+              <div style={{ marginTop: '3px', fontSize: '12px' }}>
+                {t('Tooltip.CurrentValue', { value: maxTokens > 0 ? maxTokens : 'Default' })}
+              </div>
+            </div>
+          }
+          relationship="description"
+          positioning="above"
         >
-          {maxTokens || null}
-        </Button>
+          <Button
+            size="small"
+            appearance="subtle"
+            aria-label={t('Common.MaxTokens')}
+            icon={<NumberSymbolSquareIcon className="mr-0" />}
+            className="justify-center text-color-secondary flex-shrink-0"
+            style={{
+              padding: 1,
+              minWidth: 30,
+              borderColor: 'transparent',
+              boxShadow: 'none',
+            }}
+          >
+            <span className="latin">{maxTokens > 0 ? maxTokens : '_'}</span>
+          </Button>
+        </Tooltip>
       </PopoverTrigger>
       <PopoverSurface aria-labelledby="max tokens">
-        <div className="w-64">
+        <div className="w-64 flex flex-col items-center p-2">
           <Field
-            label={t('Common.MaxTokens') + '(≤' + modelMaxTokens + ')'}
+            label={t('Common.MaxTokens') + ' (≤' + modelMaxTokens + ')'}
             style={{ borderColor: 'transparent', boxShadow: 'none' }}
+            className="w-full flex flex-col items-center"
           >
             <SpinButton
               precision={0}
@@ -119,13 +133,12 @@ export default function MaxTokens({
                   setOpen(false);
                 }
               }}
-              placeholder={`${
-                t('Common.NoMoreThan') as string
-              } ${modelMaxTokens}`}
+              placeholder={`${t('Common.NoMoreThan') as string} ${modelMaxTokens}`}
               onChange={updateMaxTokens}
+              className="mb-1"
             />
           </Field>
-          <div className="mt-1.5 text-xs tips">
+          <div className="mt-1.5 text-xs tips text-center">
             {t(`Toolbar.Tip.MaxTokens`)}
           </div>
         </div>

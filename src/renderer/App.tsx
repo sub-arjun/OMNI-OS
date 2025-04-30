@@ -12,6 +12,7 @@ import './i18n';
 import { createRoot } from 'react-dom/client';
 import { StrictMode } from 'react';
 import { initSuppressResizeObserverErrors } from '../utils/suppressResizeObserverErrors';
+import useSettingsStore from 'stores/useSettingsStore';
 
 // Apply ResizeObserver suppression immediately, before anything else
 initSuppressResizeObserverErrors();
@@ -38,10 +39,14 @@ export default function App() {
   const { notifyError } = useToast();
   const { t } = useTranslation();
   const { createFile } = useKnowledgeStore();
+  const loadSettings = useSettingsStore((state) => state.loadSettings);
 
   useEffect(() => {
     // Apply suppression again in case our component mounts after some errors occurred
     initSuppressResizeObserverErrors();
+    
+    // Load settings from electron-store asynchronously
+    loadSettings(); 
     
     loadAuthData();
     Mousetrap.prototype.stopCallback = () => {
@@ -49,7 +54,9 @@ export default function App() {
     };
     const subscription = onAuthStateChange();
     window.electron.mcp.init();
-    window.electron.ipcRenderer.on(
+
+    // Store cleanup functions returned by 'on'
+    const cleanupMcpServerLoaded = window.electron.ipcRenderer.on(
       'mcp-server-loaded',
       async (serverNames: any) => {
         debug('🚩 MCP Server Loaded:', serverNames);
@@ -57,8 +64,7 @@ export default function App() {
         updateLoadingState(false);
       },
     );
-
-    window.electron.ipcRenderer.on('sign-in', async (authData: any) => {
+    const cleanupSignIn = window.electron.ipcRenderer.on('sign-in', async (authData: any) => {
       if (authData.accessToken && authData.refreshToken) {
         const { error } = await setSession(authData);
         if (error) {
@@ -69,12 +75,8 @@ export default function App() {
         notifyError(t('Auth.Notification.LoginCallbackFailed'));
       }
     });
-
-    /**
-     * 当知识库导入任务完成时触发
-     * 放這是为了避免组件卸载后无法接收到事件
-     */
-    window.electron.ipcRenderer.on(
+    
+    const cleanupKnowledgeImport = window.electron.ipcRenderer.on(
       'knowledge-import-success',
       (data: unknown) => {
         const { collectionId, file, numOfChunks } = data as any;
@@ -89,12 +91,13 @@ export default function App() {
     );
 
     return () => {
-      window.electron.ipcRenderer.unsubscribeAll('mcp-server-loaded');
-      window.electron.ipcRenderer.unsubscribeAll('sign-in');
-      window.electron.ipcRenderer.unsubscribeAll('knowledge-import-success');
+      // Call the specific cleanup functions returned by 'on'
+      cleanupMcpServerLoaded();
+      cleanupSignIn();
+      cleanupKnowledgeImport();
       subscription.unsubscribe();
     };
-  }, [loadAuthData, onAuthStateChange]);
+  }, [loadAuthData, onAuthStateChange, loadSettings]);
 
   return <FluentApp />;
 }

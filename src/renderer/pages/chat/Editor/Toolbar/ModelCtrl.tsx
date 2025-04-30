@@ -20,7 +20,7 @@ import {
   SwitchProps,
 } from '@fluentui/react-components';
 import type { MenuCheckedValueChangeEvent } from '@fluentui/react-components';
-import { Info16Regular, ChevronUp16Regular } from '@fluentui/react-icons';
+import { Info16Regular, ChevronUp16Regular, Dismiss16Regular } from '@fluentui/react-icons';
 import Mousetrap from 'mousetrap';
 import { IChat, IChatContext } from 'intellichat/types';
 import { useEffect, useMemo, useState, useRef } from 'react';
@@ -163,9 +163,9 @@ export default function ModelCtrl({
       if (specializedModel) {
         // Find the specialized model in allModels
         const model = allModels.find(m => 
-          (specializedModel === 'Deep-Searcher-R1' && (m.label === 'Sonar Reasoning' || m.name === 'perplexity/sonar-reasoning-pro')) ||
+          (specializedModel === 'Deep-Searcher-Pro' && (m.label === 'Sonar Reasoning' || m.name === 'perplexity/sonar-reasoning-pro')) ||
           (specializedModel === 'Deep-Thinker-R1' && (m.label === 'R1-1776' || m.name === 'perplexity/r1-1776')) ||
-          (specializedModel === 'Flash-2.0' && (m.label === 'Flash-2.0' || m.name === 'google/gemini-2.0-flash-001'))
+          (specializedModel === 'Flash 2.5' && (m.label === 'Flash 2.5' || m.name === 'google/gemini-2.5-flash-preview:thinking'))
         );
         
         if (model) {
@@ -211,8 +211,15 @@ export default function ModelCtrl({
   ) => {
     if (!chat?.id || !editStage) return;
     
+    // Get current input value to preserve it
+    const currentInput = useChatStore.getState().chat.input || '';
+    
     const $model = data.checkedItems[0];
-    editStage(chat.id, { model: $model });
+    editStage(chat.id, { 
+      model: $model,
+      // Preserve the current input text
+      input: currentInput 
+    });
     
     try {
       window.electron?.ingestEvent?.([{ app: 'switch-model' }, { model: $model }]);
@@ -260,14 +267,14 @@ export default function ModelCtrl({
   useEffect(() => {
     if (models.length > 0) {
       try {
-        Mousetrap.bind('mod+shift+1', toggleDialog);
+        Mousetrap.bind('ctrl+shift+1', toggleDialog);
       } catch (error) {
         console.error('Error binding mousetrap:', error);
       }
     }
     return () => {
       try {
-        Mousetrap.unbind('mod+shift+1');
+        Mousetrap.unbind('ctrl+shift+1');
       } catch (error) {
         console.error('Error unbinding mousetrap:', error);
       }
@@ -308,7 +315,7 @@ export default function ModelCtrl({
           previousWidth = availableWidth;
           
           // Set collapsed state based on available width
-          const shouldCollapse = availableWidth < 900;
+          const shouldCollapse = availableWidth < 1100;
           console.log(`ModelCtrl: Width ${availableWidth}px - should${shouldCollapse ? '' : ' not'} collapse`);
           
           // Only update state if it actually changed
@@ -474,7 +481,7 @@ export default function ModelCtrl({
     </div>
   );
 
-  return models && models.length ? (
+  return (
     <ClickAwayListener onClickAway={handleClickAway} active={open}>
       <Menu
         hasCheckmarks
@@ -483,34 +490,86 @@ export default function ModelCtrl({
         checkedValues={{ model: [activeModel.label as string] }}
       >
         <MenuTrigger disableButtonEnhancement>
+          <Tooltip
+            content={
+              <div>
+                <div style={{ fontWeight: 'bold', marginBottom: '3px' }}>{t('Common.Model')}</div>
+                <div>Select an AI model for different capabilities (Ctrl+Shift+1)</div>
+                <div style={{ marginTop: '3px', fontSize: '12px' }}>
+                  Current: {providerName === 'Ollama' ? 'OMNI Edge' : providerName} / {
+                    specializedModel === 'Deep-Searcher-Pro' ? 'DeepSearch-Pro' : 
+                    specializedModel === 'Deep-Thinker-R1' ? 'DeepThought-R1' : 
+                    specializedModel === 'Flash 2.5' ? 'Flash 2.5' : 
+                    activeModel.label
+                  }
+                </div>
+                {activeModel.contextWindow && (
+                  <div style={{ marginTop: '3px', fontSize: '12px' }}>
+                    Context: {Math.round(activeModel.contextWindow/1000)}K tokens
+                  </div>
+                )}
+              </div>
+            }
+            relationship="description"
+            positioning="above"
+          >
           <Button
             aria-label={t('Common.Model')}
             size="small"
             appearance="subtle"
-            title="Mod+Shift+1"
             onClick={toggleDialog}
-            style={{ borderColor: 'transparent', boxShadow: 'none', padding: 1 }}
-            className="text-gray-900 dark:text-white flex justify-start items-center"
+            style={{
+              // Use blue border highlight when Agent02 is active
+              borderColor: (!specializedModel && autoEnabled) 
+                ? (theme === 'dark' ? 'rgba(96, 165, 250, 0.6)' : 'rgba(59, 130, 246, 0.7)') // Blue border color
+                : 'transparent',
+              borderWidth: '0.5px', // Make border thinner (was 1px)
+              borderStyle: 'solid', 
+              boxShadow: 'none', // Remove box-shadow highlight
+              padding: '4px 8px',
+              borderRadius: '6px',
+              backgroundColor: 'transparent', // Ensure background is transparent
+              transition: 'border-color 0.2s ease',
+              // Required for glint
+              position: 'relative', 
+              overflow: 'hidden'
+            }}
+            // Apply glint class conditionally
+            className={`text-gray-900 dark:text-white flex justify-start items-center model-menu-trigger ${
+              (!specializedModel && autoEnabled) ? 'agent-glint-active' : ''
+            }`}
           >
-            {autoEnabled && autoModel && activeModel.autoEnabled ? (
+            {/* OMNI Agent View (Selected by default or when autoEnabled is true and no specialized model) */}
+            {(autoEnabled && autoModel && !specializedModel) ? (
               <div style={{ display: 'flex', alignItems: 'center' }}>
                 {isCollapsed ? (
-                  <Popover
-                    open={iconPopupOpen}
-                    onOpenChange={(e, data) => setIconPopupOpen(data.open)}
-                  >
+                  <Popover open={iconPopupOpen} onOpenChange={(e, data) => setIconPopupOpen(data.open)}>
                     <PopoverTrigger>
-                      <Button
-                        size="small"
-                        appearance="subtle"
-                        className="p-1 mr-1 popup-trigger"
-                        icon={<ChevronUp16Regular />}
+                      <div
+                        role="button"
+                        tabIndex={0}
+                        className="p-1 mr-1 popup-trigger cursor-pointer"
                         onClick={toggleIconPopup}
-                      />
+                        onKeyDown={(e) => e.key === 'Enter' && toggleIconPopup(e as any)}
+                        style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                      >
+                        <ChevronUp16Regular />
+                      </div>
                     </PopoverTrigger>
                     <PopoverSurface>
                       <div className="popup-title">OMNI Attributes</div>
-                      <AttributeIcons inPopup={true} />
+                      <div className="icon-popup-container">
+                        <SecureStatusIndicator provider={providerName} withTooltip={true} />
+                        <SearchStatusIndicator provider={providerName} model={activeModel.name} withTooltip={true} />
+                        <ReasoningStatusIndicator provider={providerName} model={activeModel.name} withTooltip={true} />
+                        <FastResponseStatusIndicator provider={providerName} model={activeModel.name} withTooltip={true} />
+                        <ToolStatusIndicator provider={providerName} model={activeModel.name} withTooltip={true} />
+                        <AgenticStatusIndicator provider={providerName} model={activeModel.name} withTooltip={true} />
+                        <UncensoredStatusIndicator provider={providerName} model={activeModel.name} withTooltip={true} />
+                        <MuricaStatusIndicator provider={providerName} model={activeModel.name} withTooltip={true} />
+                        <ArjunsFavoriteStatusIndicator provider={providerName} model={activeModel.name} withTooltip={true} />
+                        <LongContextStatusIndicator model={activeModel.name} provider={providerName} withTooltip={true} />
+                      </div>
                     </PopoverSurface>
                   </Popover>
                 ) : (
@@ -522,224 +581,154 @@ export default function ModelCtrl({
                   {providerName === 'Ollama' ? 'OMNI Edge' : providerName}
                   {providerName !== 'Ollama' && ' /'}
                 </span>
-                <span className={theme === 'dark' ? 'text-white font-medium' : 'text-gray-900 font-medium'}>OMNI Agent</span>
-                <span className={theme === 'dark' ? 'text-gray-200' : 'text-gray-700'}> ✨</span>
+                <span 
+                  className={`ml-1 ${theme === 'dark' ? 'text-white' : 'text-gray-900'} font-semibold`}
+                  style={{ fontWeight: 600 }}
+                >
+                  {activeModel.label}
+                </span>
+                <div className={`learn-button ${theme === 'dark' ? 'dark-theme' : ''}`}>
+                  Learn
+                </div>
               </div>
             ) : (
+              /* Specialized Model View (or fallback if auto is disabled/unavailable) */
               <div className="flex items-center">
-                <div className="flex flex-row justify-start items-center mr-1">
-                  {isCollapsed ? (
-                    <Popover
-                      open={iconPopupOpen}
-                      onOpenChange={(e, data) => setIconPopupOpen(data.open)}
-                    >
-                      <PopoverTrigger>
-                        <Button
-                          size="small"
-                          appearance="subtle"
-                          className="p-1 mr-1 popup-trigger"
-                          icon={<ChevronUp16Regular />}
-                          onClick={toggleIconPopup}
-                        />
-                      </PopoverTrigger>
-                      <PopoverSurface>
-                        <div className="popup-title">OMNI Attributes</div>
-                        <AttributeIcons inPopup={true} />
-                      </PopoverSurface>
-                    </Popover>
-                  ) : (
-                    <AttributeIcons />
-                  )}
-                </div>
+                {/* Icons - Show collapsed version always? Or based on activeModel? */}
+                {/* Let's show collapsed icons for specialized models too for consistency */} 
+                 <div className="flex flex-row justify-start items-center mr-1">
+                   {isCollapsed ? (
+                     <Popover open={iconPopupOpen} onOpenChange={(e, data) => setIconPopupOpen(data.open)}>
+                       {/* ... Popover Trigger ... */}
+                       <PopoverSurface>
+                          {/* ... Popover Content ... */}
+                       </PopoverSurface>
+                     </Popover>
+                   ) : (
+                     <AttributeIcons /> // Show full icons if not collapsed
+                   )}
+                 </div>
+                {/* Model Name Section */}
                 <div className="flex-shrink overflow-hidden whitespace-nowrap text-ellipsis min-w-12">
+                  {/* Provider Name */}
                   <span className={theme === 'dark' ? 'text-white' : 'text-gray-800'}>
                     {providerName === 'Ollama' ? 'OMNI Edge' : providerName} /
                   </span>
+                  {/* Specialized/Active Model Label */}
                   <span className={theme === 'dark' ? 'text-white font-medium' : 'text-gray-900 font-medium'}>
-                    {specializedModel === 'Deep-Searcher-R1' ? 'DeepSearch-Pro' : 
-                     specializedModel === 'Deep-Thinker-R1' ? 'DeepThought-R1' : 
-                     specializedModel === 'Flash-2.0' ? 'Flash-2.0' : 
-                     activeModel.label}
+                    {/* Always display the label from the truly active model */}
+                    {activeModel.label}
                   </span>
+                  {/* Mapping (if exists) */}
                   {modelMapping[activeModel.label || ''] && (
                     <span className={theme === 'dark' ? 'text-gray-300' : 'text-gray-500'}>
                       ‣{modelMapping[activeModel.label || '']}
                     </span>
                   )}
                 </div>
+                {/* Learn Button */}
+                <div className={`learn-button ${theme === 'dark' ? 'dark-theme' : ''}`}>
+                  Learn
+                </div>
               </div>
             )}
-            <div 
-              className="hover:bg-blue-700 text-white"
-              style={{
-                fontSize: '10px',
-                padding: '3px 10px',
-                borderRadius: '4px',
-                height: '20px',
-                minWidth: 'auto',
-                marginLeft: '6px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '2px',
-                backgroundColor: 'rgba(59, 130, 246, 0.75)',
-                color: 'white',
-                cursor: 'pointer'
-              }}
-            >
-              Learn
-            </div>
+            {/* Info Icon Tooltip (always uses activeModel) */}
             {activeModel.description && (
-              <Tooltip
-                content={activeModel.description as string}
-                relationship="label"
-              >
-                <Button
-                  icon={<Info16Regular />}
-                  size="small"
-                  appearance="subtle"
-                  className={theme === 'dark' ? 'text-white' : 'text-gray-700'}
-                />
+              <Tooltip content={activeModel.description as string} relationship="label">
+                 {/* ... Info Icon ... */}
               </Tooltip>
             )}
           </Button>
+          </Tooltip>
         </MenuTrigger>
-        <MenuPopover className="model-menu-popup">
+        <MenuPopover className={`model-menu-popup ${theme === 'dark' ? 'dark-theme' : ''}`}>
+          {/* Close button */}
+          <div style={{ position: 'absolute', top: 8, right: 8, zIndex: 1001 }}>
+            <Button 
+              appearance="subtle" 
+              size="small" 
+              icon={<Dismiss16Regular />} 
+              aria-label="Close Menu" 
+              onClick={closeDialog} 
+            />
+          </div>
           <MenuList 
             style={{ 
-              width: '450px', 
-              ['--text-color' as any]: "white" 
+              width: '380px', 
+              ['--text-color' as any]: theme === 'dark' ? 'white' : 'inherit',
+              padding: '16px 0px 8px',
             }} 
             className={theme === 'dark' ? 'text-white' : ''}
           >
-            <div className="px-3 pt-2 text-xl font-semibold" style={{ color: textColors.primary }}>
+            <div className="px-4 pt-1 pb-3 text-xl font-semibold flex items-center" style={{ color: textColors.primary }}>
+              <div className="model-title-glow mr-2"></div>
               {providerName === 'OMNI' ? 'OMNI AI' : providerName === 'Ollama' ? 'OMNI Edge' : providerName}
             </div>
             
             {autoModel && (
-              <div className="px-2 py-2 mb-2">
-                <div style={{ display: 'flex', flexDirection: 'column', width: '100%', marginBottom: '8px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', marginBottom: '8px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center' }}>
-                      <SecureStatusIndicator
-                        provider={providerName}
-                        withTooltip={true}
-                      />
-                      <ToolStatusIndicator
-                        provider={providerName}
-                        model={autoModel?.name || ''}
-                        withTooltip={true}
-                      />
-                      <AgenticStatusIndicator
-                        provider={providerName}
-                        model={autoModel?.name || ''}
-                        withTooltip={true}
-                      />
-                      <RouterStatusIndicator
-                        provider={providerName}
-                        model={autoModel?.name || ''}
-                        withTooltip={true}
-                      />
-                      <span style={{ fontSize: '1rem', fontWeight: 500, textAlign: 'center' }} className="text-gray-800 dark:text-white">&nbsp;&nbsp;✨ OMNI Agent ✨</span>
+              <div className="px-4 py-2">
+                <div style={{ display: 'flex', flexDirection: 'column', width: '100%', marginBottom: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
+                    <SecureStatusIndicator provider={providerName} withTooltip={true} />
+                    <SearchStatusIndicator provider={providerName} model={autoModel?.name || ''} withTooltip={true} />
+                    <ReasoningStatusIndicator provider={providerName} model={autoModel?.name || ''} withTooltip={true} />
+                    <ToolStatusIndicator provider={providerName} model={autoModel?.name || ''} withTooltip={true} />
+                    <AgenticStatusIndicator provider={providerName} model={autoModel?.name || ''} withTooltip={true} />
+                    <span style={{ fontSize: '1rem', fontWeight: 600 }} className={theme === 'dark' ? 'text-white' : 'text-gray-900'}>
+                      &nbsp;Agent02
+                    </span>
+                  </div>
+                  
+                  <div className="mb-3">
+                    <div style={{ fontSize: '0.95rem', fontWeight: 600, color: textColors.primary }} className="mb-1">
+                      dddw2a with tool use, reasoning traces, and vision capabilities
                     </div>
                   </div>
-                  <div className="mb-2">
-                    <div 
-                      style={{ 
-                        fontSize: '0.95rem', 
-                        fontWeight: 600,
-                        color: textColors.primary
-                      }}
-                    >
-                      Elite model with tool use, reasoning traces, and vision capabilities
-                    </div>
-                    <div className="text-xs text-gray-500 dark:text-white">
-                      <span className="opacity-80">Powered by {providerName === 'OMNI' ? 'OMNI OS' : providerName === 'Ollama' ? 'OMNI Edge' : providerName}</span>
-                    </div>
-                  </div>
-                  <div style={{ paddingLeft: '4px', marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    <span style={{ 
-                      fontSize: '0.95rem', 
-                      fontWeight: 700,
-                      border: '1px solid #9ca3af',
-                      padding: '4px 8px',
-                      borderRadius: '4px',
-                      marginBottom: '4px',
-                      display: 'inline-block',
-                      width: 'fit-content',
-                      background: 'rgba(255,255,255,0.05)',
-                      color: textColors.primary
-                    }}
-                    className="dark:border-gray-400 dark:bg-gray-700"
-                  >
-                    Advanced capabilities:
-                  </span>
-                    <div className="dark:bg-gray-800 bg-gray-100" style={{ display: 'flex', gap: '12px', marginLeft: '4px', padding: '6px 10px', borderRadius: '6px', flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: '0.9rem', fontWeight: 500 }} className="text-blue-600 dark:text-blue-300">Tool Use</span>
+                  
+                  <div className={`capabilities-card ${theme === 'dark' ? 'dark-theme' : ''}`}>
+                    <div style={{ display: 'flex', gap: '14px', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '0.9rem', fontWeight: 500 }} className="capability-tag tool-use">Tool Use</span>
                       <span className="text-gray-400 dark:text-gray-400">•</span>
-                      <span style={{ fontSize: '0.9rem', fontWeight: 500 }} className="text-purple-600 dark:text-purple-300">Reasoning</span>
+                      <span style={{ fontSize: '0.9rem', fontWeight: 500 }} className="capability-tag reasoning">Reasoning</span>
                       <span className="text-gray-400 dark:text-gray-400">•</span>
-                      <span style={{ fontSize: '0.9rem', fontWeight: 500 }} className="text-violet-600 dark:text-violet-300">Agentic</span>
-                      <span className="text-gray-400 dark:text-gray-400">•</span>
-                      <span style={{ fontSize: '0.9rem', fontWeight: 500 }} className="text-green-600 dark:text-green-300">Adaptivity</span>
-                    </div>
-                    <div className="mt-2 text-xs text-gray-600 dark:text-gray-300 p-3 bg-blue-50 dark:bg-blue-900/30 rounded-md border border-blue-200 dark:border-blue-500">
-                      <p className="font-medium text-blue-700 dark:text-blue-300">Designed for complex tasks and applications</p>
-                      <p className="mt-1">OMNI Agent dynamically decides whether to think and how much to think based on the complexity of your task.</p>
+                      <span style={{ fontSize: '0.9rem', fontWeight: 500 }} className="capability-tag agentic">Agentic</span>
                     </div>
                   </div>
                 </div>
                 
-                <div className="border-t border-gray-200 dark:border-gray-700 my-4"></div>
-                
-                {/* Only show specialized model section for non-Ollama providers */}
                 {providerName !== 'Ollama' && (
-                  <>
-                    <div className="px-1 text-sm text-gray-700 dark:text-gray-200">
-                      <p className="font-bold text-base mb-3" style={{ color: textColors.primary }}>
-                        Choose specialized models:
-                      </p>
-                      <div className="grid grid-cols-1 gap-3">
-                        <div className="flex items-start p-2 rounded-md bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-                          <span className="text-purple-500 dark:text-purple-300 text-lg mr-2">🔍</span>
-                          <div>
-                            <div className="font-medium text-gray-800 dark:text-white">DeepSearch</div>
-                            <div className="text-xs text-gray-600 dark:text-gray-300">For internet research & factual inquiries</div>
-                          </div>
+                  <div className="section-divider">
+                    <p className="font-bold text-sm mb-3 px-1" style={{ color: textColors.primary }}>
+                      Specialized models:
+                    </p>
+                    
+                    <div className="grid grid-cols-1 gap-3">
+                      <div className={`model-card deepsearch-card no-hover ${theme === 'dark' ? 'dark-theme' : ''}`}>
+                        <span className="model-icon">🔍</span>
+                        <div>
+                          <div className="model-name">DeepSearch</div>
+                          <div className="model-description">For internet research & factual inquiries</div>
                         </div>
-                        <div className="flex items-start p-2 rounded-md bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-                          <span className="text-rose-500 dark:text-rose-300 text-lg mr-2">💭</span>
-                          <div>
-                            <div className="font-medium text-gray-800 dark:text-white">DeepThought</div>
-                            <div className="text-xs text-gray-600 dark:text-gray-300">For complex reasoning & analysis</div>
-                          </div>
+                      </div>
+                      
+                      <div className={`model-card deepthought-card no-hover ${theme === 'dark' ? 'dark-theme' : ''}`}>
+                        <span className="model-icon">💭</span>
+                        <div>
+                          <div className="model-name">DeepThought</div>
+                          <div className="model-description">For complex reasoning & analysis</div>
                         </div>
-                        <div className="flex items-start p-2 rounded-md bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-                          <span className="text-orange-500 dark:text-orange-300 text-lg mr-2">⚡</span>
-                          <div>
-                            <div className="font-medium text-gray-800 dark:text-white">Flash</div>
-                            <div className="text-xs text-gray-600 dark:text-gray-300">For speed and processing long documents</div>
-                          </div>
+                      </div>
+                      
+                      <div className={`model-card flash-card no-hover ${theme === 'dark' ? 'dark-theme' : ''}`}>
+                        <span className="model-icon">⚡</span>
+                        <div>
+                          <div className="model-name">Flash</div>
+                          <div className="model-description">For speed and processing long documents</div>
                         </div>
                       </div>
                     </div>
-                    
-                    {/* Additional divider line before secure hosting section */}
-                    <div className="border-t border-gray-200 dark:border-gray-700 my-3"></div>
-                  </>
-                )}
-                
-                {/* Secure Hosting Section */}
-                <div className="p-3 bg-green-50 dark:bg-green-900/30 rounded-md border border-green-200 dark:border-green-500">
-                  <div className="flex items-center">
-                    <div className="text-green-600 dark:text-green-300 mr-2">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
-                      </svg>
-                    </div>
-                    <p className="text-xs text-green-700 dark:text-green-300 font-medium">Secure US hosting with no-train policy</p>
                   </div>
-                </div>
+                )}
               </div>
             )}
           </MenuList>
@@ -749,117 +738,236 @@ export default function ModelCtrl({
       <style>
         {`
           .icon-popup-container {
-            padding: 8px;
+            padding: 10px;
             display: flex;
             flex-wrap: wrap;
-            gap: 5px;
-            max-width: 250px;
+            gap: 6px;
+            max-width: 260px;
           }
           
           .popup-title {
             font-weight: 600;
             font-size: 14px;
             color: var(--colorNeutralForeground1);
-            padding: 8px 8px 4px 8px;
-            border-bottom: 1px solid var(--colorNeutralStroke1);
-            margin-bottom: 8px;
+            padding: 10px 10px 6px;
+            border-bottom: 1px solid rgba(var(--color-border), 0.15);
+            margin-bottom: 10px;
             text-align: center;
+            letter-spacing: 0.02em;
           }
           
-          @media (max-width: 700px) {
-            .model-selector-text {
-              max-width: 150px;
-              white-space: nowrap;
-              overflow: hidden;
-              text-overflow: ellipsis;
-            }
+          .model-menu-popup {
+            border-radius: 14px;
+            border: 1px solid rgba(var(--color-bg-surface-2), 0.5);
+            box-shadow: 
+              0 10px 25px -5px rgba(0, 0, 0, 0.2),
+              0 8px 10px -6px rgba(0, 0, 0, 0.1),
+              0 0 0 1px rgba(var(--color-bg-surface-2), 0.1);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            z-index: 1000;
+            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease;
+            max-height: 85vh;
+            overflow-y: auto;
+            width: 380px !important;
+            position: absolute !important;
+            left: 20% !important;
+            transform: none !important;
+            top: 100% !important;
+            margin-top: 10px !important;
+            right: auto !important;
+            max-width: 90vw;
+            color: inherit;
+          }
+          
+          /* Dark theme specific styles */
+          .model-menu-popup.dark-theme {
+            background-color: #1f2937 !important;
+            border-color: rgba(255, 255, 255, 0.1) !important;
+            color: white !important;
+          }
+          
+          .model-menu-popup.dark-theme .fui-MenuList {
+            background-color: transparent !important;
+            color: white !important;
+          }
+          
+          .model-menu-popup.dark-theme .fui-MenuItem {
+            color: white !important;
+          }
+          
+          .model-card {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+            background-color: #f5f7f9;
+            border: 1px solid rgba(0, 0, 0, 0.05);
+          }
+          
+          .model-card.dark-theme {
+            background-color: #2d3748 !important;
+            border-color: rgba(255, 255, 255, 0.1) !important;
+          }
+          
+          .model-card .model-name {
+            font-weight: 600;
+            font-size: 0.95rem;
+            color: #333;
+          }
+          
+          .model-card.dark-theme .model-name {
+            color: white !important;
+          }
+          
+          .model-card .model-description {
+            font-size: 0.85rem;
+            color: #4b5563;
+            margin-top: 2px;
+          }
+          
+          .model-card.dark-theme .model-description {
+            color: #d1d5db !important;
+          }
+          
+          .capability-tag {
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            display: inline-block;
+          }
+          
+          .capability-tag.tool-use {
+            background-color: rgba(16, 185, 129, 0.1);
+            color: rgb(5, 150, 105);
+          }
+          
+          .capability-tag.reasoning {
+            background-color: rgba(139, 92, 246, 0.1);
+            color: rgb(124, 58, 237);
+          }
+          
+          .capability-tag.agentic {
+            background-color: rgba(59, 130, 246, 0.1);
+            color: rgb(37, 99, 235);
+          }
+          
+          .dark-theme .capability-tag.tool-use {
+            background-color: rgba(16, 185, 129, 0.2);
+            color: rgb(52, 211, 153);
+          }
+          
+          .dark-theme .capability-tag.reasoning {
+            background-color: rgba(139, 92, 246, 0.2);
+            color: rgb(167, 139, 250);
+          }
+          
+          .dark-theme .capability-tag.agentic {
+            background-color: rgba(59, 130, 246, 0.2);
+            color: rgb(96, 165, 250);
+          }
+          
+          .capabilities-card {
+            background-color: #f5f7f9;
+            border-radius: 8px;
+            padding: 8px 12px;
+            border: 1px solid rgba(0, 0, 0, 0.05);
+          }
+          
+          .capabilities-card.dark-theme {
+            background-color: #2d3748 !important;
+            border-color: rgba(255, 255, 255, 0.1) !important;
+          }
+          
+          .deepsearch-card {
+            background-color: rgba(59, 130, 246, 0.05);
+            border-color: rgba(59, 130, 246, 0.2);
+          }
+          
+          .deepsearch-card.dark-theme {
+            background-color: rgba(59, 130, 246, 0.1) !important;
+            border-color: rgba(59, 130, 246, 0.3) !important;
+          }
+          
+          .deepthought-card {
+            background-color: rgba(139, 92, 246, 0.05);
+            border-color: rgba(139, 92, 246, 0.2);
+          }
+          
+          .deepthought-card.dark-theme {
+            background-color: rgba(139, 92, 246, 0.1) !important;
+            border-color: rgba(139, 92, 246, 0.3) !important;
+          }
+          
+          .flash-card {
+            background-color: rgba(249, 115, 22, 0.05);
+            border-color: rgba(249, 115, 22, 0.2);
+          }
+          
+          .flash-card.dark-theme {
+            background-color: rgba(249, 115, 22, 0.1) !important;
+            border-color: rgba(249, 115, 22, 0.3) !important;
+          }
+          
+          .learn-button {
+            background-color: #f3f4f6;
+            color: #4b5563;
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 1px 6px;
+            border-radius: 4px;
+            margin-left: 12px;
+            border: 1px solid #e5e7eb;
+          }
+          
+          .learn-button.dark-theme {
+            background-color: #374151;
+            color: #d1d5db;
+            border-color: #4b5563;
+          }
+          
+          .model-title-glow {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #0ea5e9, #8b5cf6);
+            box-shadow: 0 0 12px rgba(14, 165, 233, 0.4);
+          }
+
+          /* Glint Animation */
+          @keyframes glint {
+            0% { transform: translateX(-100%) skewX(-20deg); opacity: 0.5; }
+            5% { opacity: 0.8; }
+            10% { transform: translateX(100%) skewX(-20deg); opacity: 0; }
+            100% { transform: translateX(100%) skewX(-20deg); opacity: 0; }
+          }
+
+          .agent-glint-active {
+            position: relative; /* Needed for pseudo-element positioning */
+            overflow: hidden;   /* Hide pseudo-element outside bounds */
+          }
+
+          .agent-glint-active::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 40%; 
+            height: 100%;
+            background: linear-gradient(to right, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.4) 50%, rgba(255, 255, 255, 0) 100%);
+            opacity: 0;
+            transform: translateX(-100%) skewX(-20deg);
+            /* Slower animation, long delay */
+            animation: glint 6s ease-in-out 5s infinite; /* Increase duration */
+            z-index: 1; 
           }
         `}
       </style>
     </ClickAwayListener>
-  ) : (
-    <Text size={200} className={theme === 'dark' ? 'text-white' : 'text-gray-900'}>
-      {autoEnabled && autoModel && activeModel.autoEnabled ? (
-        <div style={{ display: 'flex', alignItems: 'center' }}>
-          <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
-            <AttributeIcons />
-          </div>
-          <span className={theme === 'dark' ? 'text-gray-200' : 'text-gray-700'}>
-            {providerName === 'Ollama' ? 'OMNI Edge' : providerName}
-            {providerName !== 'Ollama' && ' /'}
-          </span>
-          <span className={theme === 'dark' ? 'text-white font-medium' : 'text-gray-900 font-medium'}>OMNI Agent</span>
-          <span className={theme === 'dark' ? 'text-gray-200' : 'text-gray-700'}> ✨</span>
-          {providerName !== 'Ollama' && (
-            <div 
-              className="hover:bg-blue-700 text-white"
-              style={{
-                fontSize: '10px',
-                padding: '3px 10px',
-                borderRadius: '4px',
-                height: '20px',
-                minWidth: 'auto',
-                marginLeft: '6px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '2px',
-                backgroundColor: 'rgba(59, 130, 246, 0.75)',
-                color: 'white',
-                cursor: 'pointer'
-              }}
-            >
-              Learn
-            </div>
-          )}
-        </div>
-      ) : (
-        <span className="flex justify-start items-center gap-1">
-          <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
-            <AttributeIcons />
-          </div>
-          <span className={theme === 'dark' ? 'text-white' : 'text-gray-800'}>
-            {providerName === 'Ollama' ? 'OMNI Edge' : providerName}
-            {providerName !== 'Ollama' && ' /'}
-          </span>
-          {providerName !== 'Ollama' && (
-            <span className={theme === 'dark' ? 'text-white font-medium' : 'text-gray-900 font-medium'}>
-              {specializedModel === 'Deep-Searcher-R1' ? 'DeepSearch' : 
-               specializedModel === 'Deep-Thinker-R1' ? 'DeepThought' : 
-               specializedModel === 'Flash-2.0' ? 'Flash' : 
-               activeModel.label}
-            </span>
-          )}
-          {providerName !== 'Ollama' && modelMapping[activeModel.label || ''] && (
-            <span className={theme === 'dark' ? 'text-gray-300' : 'text-gray-500'}>
-              ‣{modelMapping[activeModel.label || '']}
-            </span>
-          )}
-          {providerName !== 'Ollama' && (
-            <div 
-              className="hover:bg-blue-700 text-white"
-              style={{
-                fontSize: '10px',
-                padding: '3px 10px',
-                borderRadius: '4px',
-                height: '20px',
-                minWidth: 'auto',
-                marginLeft: '6px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '2px',
-                backgroundColor: 'rgba(59, 130, 246, 0.75)',
-                color: 'white',
-                cursor: 'pointer'
-              }}
-            >
-              Learn
-            </div>
-          )}
-        </span>
-      )}
-    </Text>
   );
 }
 

@@ -96,9 +96,13 @@ export default function Grid({ collections }: { collections: any[] }) {
     () =>
       collections
         .map((collection) => {
+          const updatedAtTimestamp = typeof collection.updatedAt === 'number' && !isNaN(collection.updatedAt) 
+            ? collection.updatedAt 
+            : date2unix(new Date());
+          
           collection.updatedAt = {
-            value: fmtDateTime(unix2date(collection.updatedAt as number)),
-            timestamp: collection.updatedAt,
+            value: fmtDateTime(unix2date(updatedAtTimestamp)),
+            timestamp: updatedAtTimestamp,
           };
           return collection;
         })

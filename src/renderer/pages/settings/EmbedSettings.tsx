@@ -54,7 +54,11 @@ export default function EmbedSettings() {
     'tokenizer_config.json': 0,
     'tokenizer.json': 0,
   });
+  const [downloadError, setDownloadError] = useState<string>('');
+  const [downloadProgress, setDownloadProgress] = useState(0);
+  const embeddingModelFileName = 'model_quantized.onnx';
 
+  // Track overall downloading state from individual file states
   const isDownloading = useMemo(() => {
     return Object.values(downloading).some((item) => item);
   }, [downloading]);
@@ -63,6 +67,25 @@ export default function EmbedSettings() {
     return Object.values(fileStatus).every((item) => item);
   }, [fileStatus]);
 
+  // Define the missing loadModelStatus function
+  const loadModelStatus = async () => {
+    try {
+      if (window.electron?.embeddings?.getModelFileStatus) {
+        const status = await window.electron.embeddings.getModelFileStatus();
+        setFileStatus({
+          'model_quantized.onnx': status['model_quantized.onnx'] || false,
+          'config.json': status['config.json'] || false,
+          'tokenizer_config.json': status['tokenizer_config.json'] || false,
+          'tokenizer.json': status['tokenizer.json'] || false,
+        });
+        return status;
+      }
+    } catch (error) {
+      console.error('Error checking model status:', error);
+    }
+    return {};
+  };
+
   useEffect(() => {
     if (!Object.values(downloading).some((item) => item)) {
       setCancelling(false);
@@ -70,57 +93,68 @@ export default function EmbedSettings() {
   }, [downloading]);
 
   useEffect(() => {
-    window.electron.embeddings.getModelFileStatus().then((fileStatus: any) => {
-      setFileStatus(fileStatus);
-    });
-    window.electron.ipcRenderer.on('download-started', (fileName: unknown) => {
-      setDownloading((prev) => ({ ...prev, [fileName as string]: true }));
-    });
-    window.electron.ipcRenderer.on(
+    loadModelStatus();
+    
+    // Store the cleanup functions returned by 'on'
+    const cleanupDownloadStarted = window.electron.ipcRenderer.on(
+      'download-started',
+      (fileName: unknown) => {
+        if (fileName === embeddingModelFileName) {
+          setDownloading(prev => ({...prev, [embeddingModelFileName]: true}));
+          setDownloadProgress(0);
+          setDownloadError('');
+        }
+      },
+    );
+    const cleanupDownloadProgress = window.electron.ipcRenderer.on(
       'download-progress',
-      (fileName: unknown, value: unknown) => {
-        debug(`${fileName}:${(value as number).toFixed(2)}`);
-        setProgress((prev = {}) => ({
-          ...prev,
-          [fileName as string]: value as number,
-        }));
-      }
+      (fileName: unknown, progress: unknown) => {
+        if (fileName === embeddingModelFileName) {
+          setDownloadProgress(progress as number);
+        }
+      },
     );
-    window.electron.ipcRenderer.on(
+    const cleanupDownloadCompleted = window.electron.ipcRenderer.on(
       'download-completed',
-      (fileName: unknown, filePath: unknown) => {
-        debug(`${fileName}: completed`);
-        window.electron.embeddings
-          .saveModelFile(fileName as string, filePath as string)
-          .then(() => {
-            setFileStatus((prev) => ({ ...prev, [fileName as string]: true }));
-            setDownloading((prev) => ({
-              ...prev,
-              [fileName as string]: false,
-            }));
-          })
-          .catch(() => {
-            notifyError(t('Settings.Embeddings.Notification.ModelSaveFailedError'));
-          });
-      }
+      async (fileName: unknown, savePath: unknown) => {
+        const name = fileName as string;
+        // Mark this file as no longer downloading
+        setDownloading(prev => ({ ...prev, [name]: false }));
+        // Set progress to 100% for this file
+        setProgress(prev => ({ ...prev, [name]: 1 }));
+        try {
+          if (window.electron?.embeddings?.saveModelFile) {
+            await window.electron.embeddings.saveModelFile(name, savePath as string);
+            // After saving, refresh all status flags
+            await loadModelStatus();
+          } else {
+            throw new Error('Electron embeddings API not available.');
+          }
+        } catch (error: any) {
+          console.error(`Error saving embedding model file ${name}:`, error);
+          setDownloadError(`Failed to save ${name}: ${error.message}`);
+        }
+      },
     );
-    window.electron.ipcRenderer.on(
+    const cleanupDownloadFailed = window.electron.ipcRenderer.on(
       'download-failed',
-      (fileName: unknown, filePath: unknown, state: unknown) => {
-        debug(`${fileName}: failed`);
-        setDownloading((prev) => ({
-          ...prev,
-          [fileName as string]: false,
-        }));
-      }
+      (fileName: unknown, savePath: unknown, state: unknown) => {
+        if (fileName === embeddingModelFileName) {
+          setDownloading(prev => ({...prev, [embeddingModelFileName]: false}));
+          setDownloadError(`Download failed: ${state}`);
+          console.error('Download failed:', state, savePath);
+        }
+      },
     );
+
     return () => {
-      window.electron.ipcRenderer.unsubscribeAll('download-started');
-      window.electron.ipcRenderer.unsubscribeAll('download-progress');
-      window.electron.ipcRenderer.unsubscribeAll('download-completed');
-      window.electron.ipcRenderer.unsubscribeAll('download-failed');
+      // Call the specific cleanup functions
+      cleanupDownloadStarted();
+      cleanupDownloadProgress();
+      cleanupDownloadCompleted();
+      cleanupDownloadFailed();
     };
-  }, []);
+  }, []); // Remove loadModelStatus from dependencies to avoid circular dependency
 
   function downloadModel() {
     setProgress({

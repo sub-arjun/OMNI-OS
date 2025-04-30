@@ -22,6 +22,7 @@ export default function Sidebar({ chatId }: { chatId: string }) {
   const trace = useMemo(() => messages[chatId] || [], [messages, chatId]);
 
   const handleClose = () => {
+    console.log('Sidebar: handleClose called');
     toggleChatSidebarVisibility();
   };
 
@@ -50,9 +51,8 @@ export default function Sidebar({ chatId }: { chatId: string }) {
 
   return (
     <aside
-      className={`right-sidebar ml-5 -mr-5 z-20 pt-2.5 flex-shrink-0 border-l w-72 ${
-        chatSidebar.show ? 'hidden sm:flex' : 'hidden'
-      }  inset-y-0 top-0 flex-col duration-300 md:relative pl-2`}
+      className={`right-sidebar ml-5 -mr-5 z-20 pt-2.5 flex-shrink-0 border-l w-72 
+                  inset-y-0 top-0 flex flex-col duration-300 md:relative pl-2`}
       style={glassStyles}
     >
       {/* Glass reflection effect */}
@@ -61,16 +61,8 @@ export default function Sidebar({ chatId }: { chatId: string }) {
       <div className="flex justify-between items-center text-gray-300 dark:text-gray-400 font-bold text-lg mb-2 pr-2">
         <div className="flex items-center">
           <Info24Regular className="mr-2 text-color-tertiary" />
-          {t('Common.Inspector')}
+          {t('Common.ToolInspector', 'Tool Inspector')}
         </div>
-        <Button
-          appearance="subtle"
-          icon={<Dismiss24Regular />}
-          size="small"
-          onClick={handleClose}
-          aria-label="Close inspector"
-          title="Close inspector"
-        />
       </div>
       
       <div className="h-full overflow-x-hidden overflow-y-auto break-all -ml-2.5 relative z-10">

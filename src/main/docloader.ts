@@ -37,7 +37,7 @@ class OfficeLoader extends BaseLoader {
 
 class PdfLoader extends BaseLoader {
   async read(filePath: fs.PathLike): Promise<string> {
-    const dataBuffer = fs.readFileSync(filePath);
+    const dataBuffer = await fs.promises.readFile(filePath);
     const data = await pdf(dataBuffer);
     return data.text;
   }

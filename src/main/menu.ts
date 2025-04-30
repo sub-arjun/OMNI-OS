@@ -273,4 +273,9 @@ export default class MenuBuilder {
 
     return templateDefault;
   }
+
+  destroy(): void {
+    this.mainWindow?.webContents?.removeAllListeners('context-menu');
+    console.log('MenuBuilder context-menu listener removed.');
+  }
 }

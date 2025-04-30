@@ -22,13 +22,13 @@ export default {
     },
     models: {
         'Agent': {
-        name: 'anthropic/claude-3.7-sonnet:beta',
-        label: 'OMNI Agent',
-        contextWindow: 200000,
-        maxTokens: 6000,
-        defaultMaxTokens: 4000,
-        inputPrice: 0.003,
-        outputPrice: 0.015,
+        name: 'google/gemini-2.5-pro-preview-03-25',
+        label: 'Agent02',
+        contextWindow: 1050000,
+        maxTokens: 66000,
+        defaultMaxTokens: 60000,
+        inputPrice: 0,
+        outputPrice: 0,
         vision: {
           enabled: true,
           allowBase64: true,
@@ -37,13 +37,16 @@ export default {
         toolEnabled: true,
         reasoningEnabled: true,
         agentEnabled: true,
+        jsonModelEnabled: true,
+        fastResponseEnabled: true,
+        longContextEnabled: true,
         isDefault: true,
-        description: ``,  // Remove description so it doesn't show in tooltip
-        group: 'OMNI' as ChatModelGroup,
+        description: ``,
+        group: 'Gemini' as ChatModelGroup,
       },
       'Deep-Searcher-Pro': {
         name: 'perplexity/sonar-reasoning-pro',
-        label: 'Sonar Reasoning',
+        label: 'Deep-Searcher-Pro',
         contextWindow: 127000,
         maxTokens: 4096,
         defaultMaxTokens: 4000,
@@ -64,7 +67,7 @@ export default {
       },
       'Deep-Thinker-R1': {
         name: 'perplexity/r1-1776',
-        label: 'R1-1776',
+        label: 'Deep-Thinker-R1',
         contextWindow: 128000,
         maxTokens: 8192,
         defaultMaxTokens: 8000,
@@ -84,8 +87,9 @@ export default {
         description: `✨ Finetuned to remove propaganda and aligned to American values with strong reasoning capabilities.\n\n📊 For experts: High-performance model with extensive 128K context, optimized for accurate, bias-free analysis from an American perspective.`,
         group: 'DeepSeek' as ChatModelGroup,
       },
-      'Flash-2.0': {
-        name: 'google/gemini-2.0-flash-001',
+      'Flash 2.5': {
+        name: 'google/gemini-2.5-flash-preview:thinking',
+        label: 'Flash-2.5-BigBrain',
         contextWindow: 1048576,
         maxTokens: 8192,
         defaultMaxTokens:8000,
@@ -95,10 +99,11 @@ export default {
         toolEnabled: true,
         fastResponseEnabled: true,
         longContextEnabled: true,
+        reasoningEnabled: true,
         vision:{
           enabled:true,
         },
-        description: `✨ Very fast responses and can handle extremely long documents.\n\n📊 For experts: Ultra-efficient with 1M+ context window, ideal for document processing and time-sensitive applications.`,
+        description: `✨ Very fast responses with enhanced reasoning abilities and thinking mode. Can handle extremely long documents.\n\n📊 For experts: Ultra-efficient with 1M+ context window and thinking capabilities, ideal for complex reasoning tasks and time-sensitive applications.`,
         group: 'Gemini' as ChatModelGroup,
       },
       //Disabled due to uncensoring

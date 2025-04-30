@@ -40,11 +40,12 @@ import {
   WrenchScrewdriver20Filled,
   WrenchScrewdriver20Regular,
 } from '@fluentui/react-icons';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import useMCPStore from 'stores/useMCPStore';
 import useToast from 'hooks/useToast';
 import { IMCPServer } from 'types/mcp';
+import { MCP_SERVER_STATE_CHANGED } from '../../../consts';
 
 const EditIcon = bundleIcon(EditFilled, EditRegular);
 const DeleteIcon = bundleIcon(DeleteFilled, DeleteRegular);
@@ -62,18 +63,93 @@ export default function Grid({
   onEdit,
   onDelete,
   onInspect,
+  loadingServers = {},
 }: {
   servers: IMCPServer[];
   onEdit: (server: IMCPServer) => void;
   onDelete: (server: IMCPServer) => void;
   onInspect: (server: IMCPServer) => void;
+  loadingServers?: Record<string, boolean>;
 }) {
   const { t } = useTranslation();
   const { notifyError } = useToast();
-  const { activateServer, deactivateServer } = useMCPStore((state) => state);
-  const [loading, setLoading] = useState<{ [key: string]: boolean }>({});
+  const { activateServer, deactivateServer, loadConfig } = useMCPStore((state) => state);
+  const [localServers, setLocalServers] = useState<IMCPServer[]>(servers);
+  
+  // Update localServers when the props change
+  useEffect(() => {
+    setLocalServers(servers);
+  }, [servers]);
 
   const [innerHeight, setInnerHeight] = useState(window.innerHeight);
+  
+  // Move all hooks to the top level to ensure consistent ordering
+  const { targetDocument } = useFluent();
+  // Always call useScrollbarWidth, even if targetDocument might be undefined
+  const scrollbarWidth = useScrollbarWidth({ targetDocument });
+
+  // Function to dispatch a global MCP state change event
+  const dispatchMCPStateChangeEvent = useCallback((serverKey: string, isActive: boolean) => {
+    // Create a custom event that other components can listen for
+    const event = new CustomEvent(MCP_SERVER_STATE_CHANGED, { 
+      detail: { 
+        serverKey, 
+        isActive, 
+        source: 'grid',
+        timestamp: Date.now() 
+      }
+    });
+    window.dispatchEvent(event);
+    
+    // Dispatch a second time after a delay to catch race conditions
+    setTimeout(() => {
+      const delayedEvent = new CustomEvent(MCP_SERVER_STATE_CHANGED, { 
+        detail: { 
+          serverKey, 
+          isActive, 
+          source: 'grid-delayed',
+          timestamp: Date.now() 
+        }
+      });
+      window.dispatchEvent(delayedEvent);
+    }, 200);
+  }, []);
+  
+  // Listen for MCP state changes from ToolCtrl
+  useEffect(() => {
+    const handleMCPStateChange = async (event: CustomEvent) => {
+      const { serverKey, isActive, source } = event.detail;
+      
+      // Only proceed if the event came from ToolCtrl to avoid loops
+      if (source && (source.startsWith('toolctrl') || source === 'toolctrl-delayed')) {
+        try {
+          // Force reload of config data
+          await loadConfig(true);
+          
+          // Update local server state to reflect changes immediately
+          setLocalServers(prev => 
+            prev.map(server => 
+              server.key === serverKey ? { ...server, isActive } : server
+            )
+          );
+          
+          // Do another update after a delay to catch any race conditions
+          setTimeout(async () => {
+            await loadConfig(true);
+            setLocalServers(servers); // Use the updated servers prop
+          }, 250);
+        } catch (error) {
+          console.error('Error handling MCP state change:', error);
+        }
+      }
+    };
+    
+    window.addEventListener(MCP_SERVER_STATE_CHANGED, handleMCPStateChange as unknown as EventListener);
+    
+    return () => {
+      window.removeEventListener(MCP_SERVER_STATE_CHANGED, handleMCPStateChange as unknown as EventListener);
+    };
+  }, [loadConfig, servers]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -85,7 +161,8 @@ export default function Grid({
     };
   }, []);
 
-  const columns: TableColumnDefinition<IMCPServer>[] = [
+  // Define columns with memoization to prevent unnecessary recalculations
+  const columns = useMemo<TableColumnDefinition<IMCPServer>[]>(() => [
     createTableColumn<IMCPServer>({
       columnId: 'name',
       compare: (a: IMCPServer, b: IMCPServer) => {
@@ -99,7 +176,7 @@ export default function Grid({
           <TableCell>
             <TableCellLayout truncate>
               <div className="flex flex-start items-center flex-grow overflow-y-hidden">
-                {loading[item.key] ? (
+                {loadingServers[item.key] ? (
                   <CircleHintHalfVertical16Filled className="animate-spin -mb-1" />
                 ) : item.isActive ? (
                   <Circle16Filled className="text-green-500 -mb-0.5" />
@@ -173,23 +250,27 @@ export default function Grid({
             </TableCellLayout>
             <TableCellActions>
               <Switch
-                disabled={loading[item.key]}
+                disabled={loadingServers[item.key]}
                 checked={item.isActive}
                 aria-label={t('Common.State')}
                 onChange={async (ev: any, data: any) => {
                   if (data.checked) {
                     try {
-                      setLoading((prev) => ({ ...prev, [item.key]: true }));
+                      // Dispatch event first to trigger loading state immediately
+                      dispatchMCPStateChangeEvent(item.key, true);
+                      
+                      // Then activate the server
                       await activateServer(item.key);
                     } catch (error: any) {
                       notifyError(
                         error.message || t('MCP.ServerActivationFailed'),
                       );
-                    } finally {
-                      setLoading((prev) => ({ ...prev, [item.key]: false }));
                     }
                   } else {
-                    deactivateServer(item.key);
+                    // For deactivation, keep the current order as it's working correctly
+                    await deactivateServer(item.key);
+                    // Dispatch event to notify other components
+                    dispatchMCPStateChangeEvent(item.key, false);
                   }
                 }}
               />
@@ -198,26 +279,27 @@ export default function Grid({
         );
       },
     }),
-  ];
+  ], [t, loadingServers, onEdit, onDelete, onInspect, activateServer, deactivateServer, dispatchMCPStateChangeEvent, notifyError]);
 
-  const renderRow: RowRenderer<IMCPServer> = ({ item, rowId }, style) => (
-    <DataGridRow<IMCPServer> key={rowId} style={style}>
-      {({ renderCell }) => <DataGridCell>{renderCell(item)}</DataGridCell>}
-    </DataGridRow>
-  );
-  const { targetDocument } = useFluent();
-  const scrollbarWidth = useScrollbarWidth({ targetDocument });
+  // Memoize renderRow function to avoid recreating on every render
+  const renderRow = useMemo<RowRenderer<IMCPServer>>(() => 
+    ({ item, rowId }, style) => (
+      <DataGridRow<IMCPServer> key={rowId} style={style}>
+        {({ renderCell }) => <DataGridCell>{renderCell(item)}</DataGridCell>}
+      </DataGridRow>
+    ), 
+  []);
 
   return (
     <div className="w-full pr-4">
       <DataGrid
-        items={servers}
+        items={localServers}
         columns={columns}
         focusMode="cell"
         sortable
         size="small"
         className="w-full"
-        getRowId={(item) => item.id}
+        getRowId={(item) => item.id || item.key} // Use key as fallback if id doesn't exist
       >
         <DataGridHeader style={{ paddingRight: scrollbarWidth }}>
           <DataGridRow>

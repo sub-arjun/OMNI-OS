@@ -80,14 +80,15 @@ function MessageField({
           />
         </div>
         {isSystemMessage && (
-          <div className="flex justify-end mt-2 mb-2">
+          <div className="flex justify-end mt-2 mb-3">
             <Button
               icon={enhancingPrompt ? <Spinner size="tiny" /> : <SparkleRegular />}
-              appearance="subtle"
+              appearance="primary"
               disabled={enhancingPrompt || !value || typeof value !== 'string' || value.trim() === ''}
               onClick={handleEnhanceSystemPrompt}
-              className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm"
-              size="small"
+              className="px-3 py-2 transform hover:scale-105 transition-transform duration-200"
+              size="medium"
+              iconPosition="before"
             >
               {t('Common.EnhanceSystemPrompt')}
             </Button>

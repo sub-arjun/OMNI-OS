@@ -1,13 +1,13 @@
 {
   "name": "OMNI",
   "productName": "OMNI",
-  "version": "1.0.4",
+  "version": "1.0.10",
   "description": "A Secure Desktop AI Assistant & MCP Client for industrial enterprises",
   "main": "src/main/main.ts",
   "repository": "https://github.com/sub-arjun/OMNI-OS.git",
   "author": {
     "name": "Arjun",
-    "email": "support@becomeomni.com",
+    "email": "arjun@latent-labs.ai",
     "url": "https://becomeomni.com"
   },
   "license": "Apache-2.0",
@@ -24,11 +24,6 @@
     "start:main": "cross-env NODE_ENV=development DEBUG=5ire:* NODE_OPTIONS=\"--import tsx\" electronmon .",
     "start:preload": "cross-env NODE_ENV=development DEBUG=5ire:* webpack --config ./.erb/configs/webpack.config.preload.dev.ts",
     "start:renderer": "cross-env NODE_ENV=development DEBUG=5ire:* webpack serve --config ./.erb/configs/webpack.config.renderer.dev.ts",
-    "test": "jest"
-  },
-  "browserslist": [],
-  "prettier": {
-    "singleQuote": true,
     "overrides": [
       {
         "files": [
@@ -85,6 +80,10 @@
     "image-size": "^2.0.0",
     "marker": "^0.1.2",
     "mermaid": "^11.4.1",
+    "openai": "^4.20.1",
+    "react-dnd": "^16.0.1",
+    "react-dnd-html5-backend": "^16.0.1",
+    "react-toastify": "^11.0.5",
     "sanitize-html": "^2.14.0",
     "xlsx": "^0.18.5"
   },
@@ -226,7 +225,8 @@
     "compression": "maximum",
     "asar": true,
     "asarUnpack": [
-      "**/node_modules/**/*"
+      "**/node_modules/**/*",
+      "**/ffmpeg.dll"
     ],
     "protocols": [
       {
@@ -325,6 +325,10 @@
       {
         "from": "./public/images",
         "to": "./images"
+      },
+      {
+        "from": "node_modules/@electron/ffmpeg/ffmpeg.dll",
+        "to": "ffmpeg.dll"
       }
     ]
   },

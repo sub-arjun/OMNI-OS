@@ -66,11 +66,15 @@ const ExportPromptDialog = ({ open, setOpen, jsonData }: ExportPromptDialogProps
   }, [open, jsonData]);
 
   const copyToClipboard = () => {
-    navigator.clipboard.writeText(jsonData).then(() => {
-      console.log('Copied to clipboard, data length:', jsonData.length);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
+    // Always use the fallback method for clipboard copying
+    const textarea = document.createElement('textarea');
+    textarea.value = jsonData;
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textarea);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   return (

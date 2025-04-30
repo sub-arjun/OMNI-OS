@@ -58,13 +58,6 @@ export default function ChatSettingsDrawer({
 
   const editStage = useChatStore((state) => state.editStage);
 
-  const onSearchKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (!event.shiftKey && event.key === 'Enter') {
-      event.preventDefault();
-      setOpen(false);
-    }
-  };
-
   const onSystemMessageChange = (ev: ChangeEvent<HTMLTextAreaElement>) => {
     setSystemMessage(ev.target.value);
     updateSystemMessage(ev);
@@ -73,29 +66,25 @@ export default function ChatSettingsDrawer({
   const updateSystemMessage = useMemo(
     () =>
       debounce((ev: ChangeEvent<HTMLTextAreaElement>) => {
-        const systemMessage = ev.target.value;
-        editStage(activeChat.id, { systemMessage });
+        editStage(activeChat.id, {
+          systemMessage: ev.target.value,
+        });
+        debug('updated system message', ev.target.value);
       }, 1000),
-    [activeChat?.id],
+    [activeChat?.id, editStage],
   );
 
-  const handleEnhanceSystemPrompt = async () => {
+  const handleEnhancePrompt = async () => {
+    setEnhancingPrompt(true);
     try {
-      if (!systemMessage || systemMessage.trim() === '') {
-        notifyError(t('Common.EnhanceSystemMessageError'));
-        return;
-      }
-
-      setEnhancingPrompt(true);
-
-      const enhancedSystemPrompt = await enhanceSystemPrompt(systemMessage);
-      
-      setSystemMessage(enhancedSystemPrompt);
-      editStage(activeChat.id, { systemMessage: enhancedSystemPrompt });
+      const enhancedPrompt = await enhanceSystemPrompt(systemMessage);
+      setSystemMessage(enhancedPrompt);
+      updateSystemMessage.flush();
+      editStage(activeChat.id, { systemMessage: enhancedPrompt });
       notifySuccess(t('Common.SystemMessageEnhanced'));
     } catch (error) {
-      console.error('Error enhancing system message:', error);
       notifyError(t('Common.EnhanceSystemMessageError'));
+      console.error('Failed to enhance prompt:', error);
     } finally {
       setEnhancingPrompt(false);
     }
@@ -125,23 +114,8 @@ export default function ChatSettingsDrawer({
           </DrawerHeaderTitle>
         </DrawerHeader>
         <DrawerBody className="mt-2.5 flex flex-col gap-2 relative">
-          {activeChat.isPersisted ? (
-            <div className="mb-2.5">
-              <Input
-                id="inchat-search"
-                contentBefore={<Search24Regular />}
-                placeholder={t('Chat.InConversationSearch')}
-                className="w-full"
-                value={keyword}
-                onKeyDown={onSearchKeyDown}
-                onChange={(e, data) => {
-                  setKeyword(activeChat?.id, data.value);
-                }}
-              />
-            </div>
-          ) : null}
           <div className="mb-1.5">
-            <Divider>{t('Common.Settings')}</Divider>
+            <Divider>{t('Common.SystemPrompt')}</Divider>
           </div>
           <div className="mb-4 relative">
             <Field label={t('Common.SystemMessage')} className="w-full">
@@ -153,19 +127,26 @@ export default function ChatSettingsDrawer({
                   resize="vertical"
                   className="w-full min-w-[360px]"
                   style={{ width: '100%' }}
+                  onKeyDown={(e) => e.stopPropagation()}
+                  onClick={(e) => e.stopPropagation()}
+                  onFocus={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                  }}
                 />
               </div>
-              <div className="flex justify-between items-center">
+              <div className="flex justify-between items-center mt-2 mb-3">
                 <Label htmlFor="system-message" size="large">
                   {t('ChatSettings.SystemMessage')}
                 </Label>
                 <Button
                   icon={enhancingPrompt ? <Spinner size="tiny" /> : <SparkleRegular />}
-                  appearance="subtle"
+                  appearance="primary"
                   disabled={!systemMessage || enhancingPrompt}
-                  onClick={handleEnhanceSystemPrompt}
-                  className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm"
-                  size="small"
+                  onClick={handleEnhancePrompt}
+                  className="px-3 py-2 transform hover:scale-105 transition-transform duration-200"
+                  size="medium"
+                  iconPosition="before"
                 >
                   {t('Common.EnhanceSystemPrompt')}
                 </Button>

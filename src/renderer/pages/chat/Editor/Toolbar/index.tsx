@@ -1,5 +1,5 @@
 import { Toolbar } from '@fluentui/react-components';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import useChatContext from 'hooks/useChatContext';
 import ModelCtrl from './ModelCtrl';
 import DeepSearchCtrl from './DeepSearchCtrl';
@@ -13,64 +13,35 @@ import StreamCtrl from './StreamCtrl';
 import KnowledgeCtrl from './KnowledgeCtrl';
 import CtxNumCtrl from './CtxNumCtrl';
 import SpeechCtrl from './SpeechCtrl';
-import { Button, Popover, PopoverSurface, PopoverTrigger } from '@fluentui/react-components';
-import { ChevronUp16Regular, Settings16Regular } from '@fluentui/react-icons';
+import ToolCtrl from './ToolCtrl';
+import { Button, Popover, PopoverSurface, PopoverTrigger, Tooltip } from '@fluentui/react-components';
+import { BrainCircuit20Regular } from '@fluentui/react-icons';
 import SpecializedModelsCtrl from './SpecializedModelsCtrl';
 import ErrorBoundary from 'renderer/components/ErrorBoundary';
+import Spinner from 'renderer/components/Spinner';
+import useChatStore from 'stores/useChatStore';
+import { useTranslation } from 'react-i18next';
+
+interface EditorToolbarProps {
+  onConfirm: () => void;
+}
 
 export default function EditorToolbar({
   onConfirm,
-}: {
-  onConfirm: () => void;
-}) {
+}: EditorToolbarProps) {
   const ctx = useChatContext();
   const provider = ctx.getProvider();
-  const chat = ctx.getActiveChat();
+  const activeChat = ctx.getActiveChat();
+  const states = useChatStore().getCurState();
+  const chatLoading = states.loading;
+  const { t } = useTranslation();
   const model = ctx.getModel();
   const hasVisionSupport = model?.vision?.enabled || false;
-  
-  // Check if current provider is Ollama/OMNI Edge
   const isOllamaProvider = provider.name === 'Ollama';
   
-  // State for responsive collapsing
-  const [isParametersCollapsed, setIsParametersCollapsed] = useState(false);
+  // State for parameters popup
   const [parametersPopupOpen, setParametersPopupOpen] = useState(false);
   const toolbarRef = useRef<HTMLDivElement>(null);
-  
-  // Check available space for parameters section
-  useEffect(() => {
-    const checkSpace = () => {
-      const toolbar = document.querySelector('.editor-toolbar');
-      const availableWidth = toolbar?.clientWidth || window.innerWidth;
-      
-      // If width is below threshold, collapse parameters
-      setIsParametersCollapsed(availableWidth < 1000);
-    };
-    
-    // Set up ResizeObserver
-    const resizeObserver = new ResizeObserver(() => {
-      checkSpace();
-    });
-    
-    // Observe toolbar element
-    const toolbar = document.querySelector('.editor-toolbar');
-    if (toolbar) {
-      resizeObserver.observe(toolbar);
-    }
-    
-    // Also listen for window resize
-    window.addEventListener('resize', checkSpace);
-    
-    // Initial check
-    checkSpace();
-    setTimeout(checkSpace, 100);
-    setTimeout(checkSpace, 500);
-    
-    return () => {
-      window.removeEventListener('resize', checkSpace);
-      resizeObserver.disconnect();
-    };
-  }, []);
   
   // Handle parameters popup
   const toggleParametersPopup = (e: React.MouseEvent) => {
@@ -99,111 +70,104 @@ export default function EditorToolbar({
     };
   }, [parametersPopupOpen]);
 
-  return (
-    <div className="py-1.5 bg-brand-surface-1 relative toolbar-wrapper">
+  // Wrap renderToolbar in useCallback
+  const renderToolbar = useCallback(() => {
+    // Determine flags inside useCallback based on dependencies
+    const hasModelSelect = true; // Assuming always true, adjust if needed
+    const hasPromptSelect = true; // Assuming always true, adjust if needed
+    const hasParams = true; // Assuming always true, adjust if needed
+
+    return (
       <Toolbar
         ref={toolbarRef}
         aria-label="Default"
         size="small"
-        className="flex items-center gap-3 ml-2 editor-toolbar"
+        className="flex items-center gap-3 editor-toolbar"
       >
-        {/* Section 1: Model selector with error boundary */}
-        <ErrorBoundary
-          componentName="ModelCtrl"
-          fallback={
-            <div className="flex items-center px-2 py-1 text-sm text-gray-600 dark:text-gray-400 border border-gray-300 dark:border-gray-700 rounded">
-              Model selector unavailable
-            </div>
-          }
-        >
-          <ModelCtrl ctx={ctx} chat={chat} />
-        </ErrorBoundary>
+        {/* Section 1: Model selector */}
+        {hasModelSelect && (
+          <ErrorBoundary componentName="ModelCtrl">
+            <ModelCtrl ctx={ctx} chat={activeChat} />
+          </ErrorBoundary>
+        )}
         
-        {/* Section 2: Model toggles (Deep Search, etc.) */}
+        {/* Section 2: Model toggles */}
         {!isOllamaProvider && (
           <>
             <div className="flex items-center gap-2 border-l border-gray-300 dark:border-gray-700 pl-2">
               <ErrorBoundary componentName="SpecializedModelsCtrl">
-                <SpecializedModelsCtrl ctx={ctx} chat={chat} />
+                <SpecializedModelsCtrl ctx={ctx} chat={activeChat} />
               </ErrorBoundary>
             </div>
             <div className="border-l border-gray-300 dark:border-gray-700 h-6"></div>
           </>
         )}
         
-        {/* Section 3: Speech and Image controls (moved before prompts) */}
-        <div className="flex items-center gap-2">
-          <ErrorBoundary componentName="SpeechCtrl">
-            <SpeechCtrl ctx={ctx} chat={chat} />
-          </ErrorBoundary>
-          {hasVisionSupport && (
-            <ErrorBoundary componentName="ImgCtrl">
-              <ImgCtrl ctx={ctx} chat={chat} />
-            </ErrorBoundary>
-          )}
-        </div>
-        
-        {/* Divider after speech and image controls */}
-        <div className="border-l border-gray-300 dark:border-gray-700 h-6"></div>
-        
-        {/* Section 4: Prompts and Knowledge */}
+        {/* Section 4: Tools, Prompts and Knowledge */}
+        <ErrorBoundary componentName="ToolCtrl">
+          <ToolCtrl ctx={ctx} chat={activeChat} />
+        </ErrorBoundary>
         <ErrorBoundary componentName="PromptCtrl">
-          <PromptCtrl ctx={ctx} chat={chat} />
+          <PromptCtrl ctx={ctx} chat={activeChat} />
         </ErrorBoundary>
         <ErrorBoundary componentName="KnowledgeCtrl">
-          <KnowledgeCtrl ctx={ctx} chat={chat} />
+          <KnowledgeCtrl ctx={ctx} chat={activeChat} />
         </ErrorBoundary>
         
-        {/* Divider between sections */}
         <div className="border-l border-gray-300 dark:border-gray-700 h-6"></div>
         
-        {/* Section 5: Model parameters - collapsible */}
-        {isParametersCollapsed ? (
+        {/* Section 5: Model parameters */}
+        {hasParams && (
           <div className="flex items-center">
             <Popover
               open={parametersPopupOpen}
               onOpenChange={(e, data) => setParametersPopupOpen(data.open)}
             >
               <PopoverTrigger>
-                <Button
-                  size="small"
-                  appearance="subtle"
-                  className="p-1 mr-1 parameters-trigger"
-                  icon={<Settings16Regular />}
-                  onClick={toggleParametersPopup}
-                />
+                <Tooltip content="Model Parameters" relationship="description" positioning="above">
+                  <Button size="small" appearance="subtle" className="p-1 mr-1 parameters-trigger" icon={<BrainCircuit20Regular />} onClick={toggleParametersPopup} />
+                </Tooltip>
               </PopoverTrigger>
               <PopoverSurface className="parameters-popup">
                 <div className="popup-title">Model Parameters</div>
                 <div className="parameters-popup-container">
-                  <MaxTokensCtrl ctx={ctx} chat={chat} onConfirm={onConfirm} />
-                  <TemperatureCtrl ctx={ctx} chat={chat} />
-                  <CtxNumCtrl ctx={ctx} chat={chat} />
+                  <MaxTokensCtrl ctx={ctx} chat={activeChat} onConfirm={onConfirm} />
+                  <TemperatureCtrl ctx={ctx} chat={activeChat} />
+                  <CtxNumCtrl ctx={ctx} chat={activeChat} />
                   {provider.chat.options.streamCustomizable && (
-                    <StreamCtrl ctx={ctx} chat={chat} />
+                    <StreamCtrl ctx={ctx} chat={activeChat} />
                   )}
                 </div>
               </PopoverSurface>
             </Popover>
           </div>
-        ) : (
-          <div className="flex items-center gap-2">
-            <MaxTokensCtrl ctx={ctx} chat={chat} onConfirm={onConfirm} />
-            <TemperatureCtrl ctx={ctx} chat={chat} />
-            <CtxNumCtrl ctx={ctx} chat={chat} />
-            {provider.chat.options.streamCustomizable && (
-              <StreamCtrl ctx={ctx} chat={chat} />
-            )}
-          </div>
         )}
       </Toolbar>
-      
+    );
+  // Add dependencies for useCallback
+  }, [
+    toolbarRef, ctx, activeChat, isOllamaProvider, parametersPopupOpen, 
+    setParametersPopupOpen, onConfirm, provider, t, toggleParametersPopup
+  ]);
+
+  return (
+    <div className="py-1.5 bg-brand-surface-1 relative toolbar-wrapper">
+      {renderToolbar()}
       <style>
         {`
           .toolbar-wrapper {
             position: relative;
             z-index: 10;
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            width: 100%;
+            padding-left: 0;
+            padding-right: 0;
+          }
+          
+          .editor-toolbar {
+            width: 100% !important;
+            padding-left: 8px !important;
+            padding-right: 8px !important;
           }
           
           .parameters-popup-container {

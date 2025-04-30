@@ -868,7 +868,7 @@ export default class Knowledge {
       }
       
       // Use API key from environment or hardcoded for development
-      const apiKey = process.env.LLAMA_CLOUD_API_KEY || ;
+      const apiKey = process.env.LLAMA_CLOUD_API_KEY || '';
       
       log.debug(`Initializing OMNIBase index: ${indexName}`);
         

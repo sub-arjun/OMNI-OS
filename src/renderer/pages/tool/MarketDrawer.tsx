@@ -125,7 +125,14 @@ export default function ToolMarketDrawer({
   }, [servers, filter]);
 
   return (
-    <Drawer open={open} position="end" separator size="medium">
+    <Drawer
+      type="overlay"
+      separator
+      open={open}
+      onOpenChange={(_, { open }) => setOpen(open)}
+      position="end"
+      style={{ width: '400px' }}
+    >
       <DrawerHeader className="border-none">
         <DrawerHeaderTitle
           action={

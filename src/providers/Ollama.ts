@@ -1,5 +1,18 @@
 import { ChatModelGroup, IServiceProvider } from './types';
 
+// Helper function to safely access electron store
+const getDefaultModel = () => {
+  try {
+    if (typeof window !== 'undefined' && window.electron?.store) {
+      return window.electron.store.get('settings.ollama.currentModel', 'llama3');
+    }
+    return 'llama3';
+  } catch (error) {
+    console.error('Error accessing electron store:', error);
+    return 'llama3';
+  }
+};
+
 export default {
   name: 'Ollama',
   displayName: 'OMNI Edge',
@@ -10,7 +23,7 @@ export default {
     apiBaseCustomizable: true,
   },
   // Store the current model name for persistence
-  currentModel: window.electron?.store?.get('settings.ollama.currentModel', 'llama3') || 'llama3',
+  currentModel: getDefaultModel(),
   chat: {
     apiSchema: ['base', 'model'],
     docs: {

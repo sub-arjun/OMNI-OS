@@ -13,6 +13,22 @@ import { IChatModel } from 'providers/types';
 
 const debug = Debug('OMNI-OS:hooks:useChatContext');
 
+// Add a cache to track recent logs to prevent excessive logging
+const recentLogTimestamps: Record<string, number> = {};
+
+// Helper to determine if we should log based on time since last log
+const shouldLog = (key: string, intervalMs = 10000): boolean => {
+  const now = Date.now();
+  const lastLog = recentLogTimestamps[key] || 0;
+  
+  if (now - lastLog > intervalMs) {
+    recentLogTimestamps[key] = now;
+    return true;
+  }
+  
+  return false;
+};
+
 export default function useChatContext(): IChatContext {
   const { getProvider: getChatProvider, getChatModel } = useProvider();
 
@@ -49,10 +65,18 @@ export default function useChatContext(): IChatContext {
         const ollamaModel = window.electron?.store?.get('settings.ollama.currentModel', null);
         
         if (ollamaModel) {
-          console.log(`Using Ollama model from dedicated storage: ${ollamaModel}`);
+          // Only log occasionally to prevent console spam
+          if (shouldLog('ollama_model')) {
+            console.log(`Using Ollama model from dedicated storage: ${ollamaModel}`);
+          }
+          
+          // Fix the type issue by casting to string first
+          const modelName = String(ollamaModel);
+          const modelLabel = String(ollamaModel);
+          
           return {
-            name: ollamaModel,
-            label: ollamaModel,
+            name: modelName,
+            label: modelLabel,
             contextWindow: 8192,
             maxTokens: 4000,
             defaultMaxTokens: 4000,
@@ -65,7 +89,9 @@ export default function useChatContext(): IChatContext {
         
         // Make sure we have a valid model name
         if (!api.model || api.model.trim() === '' || api.model === 'default') {
-          console.warn('No model specified for Ollama, using default');
+          if (shouldLog('ollama_default')) {
+            console.warn('No model specified for Ollama, using default');
+          }
           const defaultOllamaModel = 'llama3';
           // Store the default in our dedicated storage
           window.electron.store.set('settings.ollama.currentModel', defaultOllamaModel);
@@ -85,8 +111,10 @@ export default function useChatContext(): IChatContext {
         // Save to dedicated storage
         window.electron.store.set('settings.ollama.currentModel', api.model);
         
-        // Log for debugging
-        console.log(`Using Ollama model from API settings: ${api.model}`);
+        // Log for debugging, but only occasionally
+        if (shouldLog('ollama_api_model')) {
+          console.log(`Using Ollama model from API settings: ${api.model}`);
+        }
         
         // Use the model name from settings
         return {
@@ -107,67 +135,38 @@ export default function useChatContext(): IChatContext {
         try {
           let specializedModelObj: IChatModel | undefined;
           
-          // Find the specialized model based on its type
-          if (specializedModel === 'Deep-Searcher-R1') {
-            // Look for Deep-Searcher-Pro model instead of Sonar Reasoning
-            specializedModelObj = getChatModel(api.provider, 'Deep-Searcher-Pro');
-            if (specializedModelObj) {
-              console.log(`Found Deep-Searcher-Pro model: ${specializedModelObj.name}`);
-            } else {
-              console.log('Deep-Searcher-Pro model not found, checking by model name');
-              // Fall back to direct model name lookup if needed
-              const provider = getChatProvider(api.provider);
-              if (provider?.chat?.models) {
-                // Look through all models manually
-                for (const key in provider.chat.models) {
-                  const model = provider.chat.models[key];
-                  if (model.name === 'perplexity/sonar-reasoning-pro') {
-                    specializedModelObj = model;
-                    console.log(`Found model by name: ${model.name}`);
-                    break;
-                  }
-                }
-              }
+          // Map specialized model names to actual model names
+          if (specializedModel === 'Deep-Searcher-Pro') {
+            specializedModelObj = getChatModel('OMNI', 'perplexity/sonar-reasoning-pro');
+            // Only log if we need to (once every 10 seconds)
+            if (shouldLog('deep_searcher_pro_model')) {
+              console.log('Found Deep-Searcher-Pro model:', specializedModelObj?.name);
             }
           } else if (specializedModel === 'Deep-Thinker-R1') {
-            specializedModelObj = getChatModel(api.provider, 'Deep-Thinker-R1');
-            if (!specializedModelObj || !specializedModelObj.name) {
-              // Fall back to direct model name lookup if needed
-              const provider = getChatProvider(api.provider);
-              if (provider?.chat?.models) {
-                // Look through all models manually
-                for (const key in provider.chat.models) {
-                  const model = provider.chat.models[key];
-                  if (model.name === 'perplexity/r1-1776') {
-                    specializedModelObj = model;
-                    break;
-                  }
-                }
-              }
+            specializedModelObj = getChatModel('OMNI', 'perplexity/r1-1776');
+            // Only log occasionally
+            if (shouldLog('deep_thinker_r1_model')) {
+              console.log('Using specialized model: Deep-Thinker-R1, Name:', specializedModelObj?.name, 'Label:', specializedModelObj?.label);
             }
-          } else if (specializedModel === 'Flash-2.0') {
-            specializedModelObj = getChatModel(api.provider, 'Flash-2.0');
-            if (!specializedModelObj || !specializedModelObj.name) {
-              // Fall back to direct model name lookup if needed
-              const provider = getChatProvider(api.provider);
-              if (provider?.chat?.models) {
-                // Look through all models manually
-                for (const key in provider.chat.models) {
-                  const model = provider.chat.models[key];
-                  if (model.name === 'google/gemini-2.0-flash-001') {
-                    specializedModelObj = model;
-                    break;
-                  }
-                }
-              }
+          } else if (specializedModel === 'Flash 2.5') {
+            specializedModelObj = getChatModel('OMNI', 'google/gemini-2.5-flash-preview:thinking');
+            // Only log occasionally
+            if (shouldLog('flash_25_model')) {
+              console.log('Using specialized model: Flash 2.5, Name:', specializedModelObj?.name, 'Label:', specializedModelObj?.label);
             }
           }
           
           if (specializedModelObj && specializedModelObj.name) {
-            console.log(`Using specialized model: ${specializedModel}, Name: ${specializedModelObj.name}, Label: ${specializedModelObj.label}`);
+            // Only log occasionally
+            if (shouldLog('specialized_model_' + specializedModel)) {
+              console.log(`Using specialized model: ${specializedModel}, Name: ${specializedModelObj.name}, Label: ${specializedModelObj.label}`);
+            }
             return specializedModelObj;
           } else {
-            console.log(`Could not find specialized model for ${specializedModel}, falling back to default`);
+            // Only log occasionally
+            if (shouldLog('specialized_model_fallback')) {
+              console.log(`Could not find specialized model for ${specializedModel}, falling back to default`);
+            }
           }
         } catch (err) {
           console.error('Error finding specialized model:', err);

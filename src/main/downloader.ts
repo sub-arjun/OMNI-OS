@@ -7,6 +7,8 @@ export default class Downloader {
   private win: any;
   private downloads: { [key: string]: any } = {};
   private onFailed: Function | undefined;
+  private willDownloadHandler: (evt: any, item: any) => void;
+
   constructor(
     win: any,
     { onStart, onCompleted, onFailed, onProgress } = {
@@ -19,7 +21,7 @@ export default class Downloader {
     this.win = win;
     this.onFailed = onFailed;
 
-    this.win.webContents.session.on('will-download', (evt: any, item: any) => {
+    this.willDownloadHandler = (evt: any, item: any) => {
       const fileName = item.getFilename();
       const savePath = path.join(
         app.getPath('userData'),
@@ -64,7 +66,9 @@ export default class Downloader {
         }
         delete this.downloads[fileName];
       });
-    });
+    };
+
+    this.win.webContents.session.on('will-download', this.willDownloadHandler);
   }
 
   download(fileName: string, url: string) {
@@ -91,5 +95,16 @@ export default class Downloader {
       item.cancelled = true;
       log.warn('Download not started yet, set to be cancelled on start');
     }
+  }
+
+  destroy(): void {
+    if (this.win && this.win.webContents && this.win.webContents.session) {
+      this.win.webContents.session.off('will-download', this.willDownloadHandler);
+      console.log('Downloader will-download listener removed.');
+    }
+    Object.keys(this.downloads).forEach(fileName => {
+      this.cancel(fileName);
+    });
+    this.downloads = {};
   }
 }

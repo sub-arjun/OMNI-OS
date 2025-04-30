@@ -13,7 +13,8 @@ import {
   Radio,
   RadioGroup,
   makeStyles,
-  Text
+  Text,
+  Tooltip
 } from '@fluentui/react-components';
 import Mousetrap from 'mousetrap';
 import {
@@ -147,6 +148,19 @@ export default function ImgCtrl({ ctx, chat }: ImgCtrlProps) {
   // Static values
   const visionEnabled = !!model?.vision?.enabled;
   
+  // Debug: log dialog and image-type changes
+  useEffect(() => {
+    console.log('[ImgCtrl] open:', open, 'imgType:', imgType, 'imgBase64 set?', !!imgBase64);
+  }, [open, imgType, imgBase64]);
+  
+  // Debug: log when image type radio changes
+  const debugHandleTypeChange = useCallback((_: any, data: any) => {
+    console.log('[ImgCtrl] handleTypeChange ->', data.value);
+    setImgType(data.value);
+    setErrMsg('');
+    setImgBase64('');
+  }, []);
+  
   // Initialize component
   useEffect(() => {
     // Set mounted flag
@@ -154,7 +168,7 @@ export default function ImgCtrl({ ctx, chat }: ImgCtrlProps) {
     
     // Setup keyboard shortcut
     if (visionEnabled) {
-      Mousetrap.bind('mod+shift+7', () => setOpen(true));
+      Mousetrap.bind('ctrl+shift+7', () => setOpen(true));
       
       // Set initial image type based on model capabilities
       const allowUrl = model?.vision?.allowUrl;
@@ -173,7 +187,7 @@ export default function ImgCtrl({ ctx, chat }: ImgCtrlProps) {
         stopMediaStream(streamRef.current);
         streamRef.current = null;
       }
-      Mousetrap.unbind('mod+shift+7');
+      Mousetrap.unbind('ctrl+shift+7');
       Mousetrap.unbind('esc');
     };
   }, [visionEnabled, model?.vision]);
@@ -199,7 +213,8 @@ export default function ImgCtrl({ ctx, chat }: ImgCtrlProps) {
   }, [open, imgType, imgBase64]);
   
   // Start webcam safely
-  const startWebcam = useCallback(() => {
+  const startWebcam = useCallback(async () => {
+    console.log('[ImgCtrl] startWebcam called');
     // Clean up any existing stream first
     stopWebcam();
     
@@ -209,6 +224,16 @@ export default function ImgCtrl({ ctx, chat }: ImgCtrlProps) {
       return;
     }
     
+    // Check Windows camera permission
+    const status = await window.electron.getMediaAccessStatus('camera');
+    if (status !== 'granted') {
+      setWebcamState(prev => ({ ...prev, hasPermission: false }));
+      setErrMsg(t('Camera access was denied. Please enable access in Windows Settings.'));
+      await window.electron.openExternal('ms-settings:privacy-webcam');
+      return;
+    }
+    
+    console.log('[ImgCtrl] Secure context:', window.isSecureContext, 'mediaDevices:', !!navigator.mediaDevices);
     navigator.mediaDevices.getUserMedia({ 
       video: { 
         width: { ideal: 1280 },
@@ -230,9 +255,21 @@ export default function ImgCtrl({ ctx, chat }: ImgCtrlProps) {
       }
     }).catch(error => {
       console.error('Error accessing webcam:', error);
+      if (mountedRef.current) setErrMsg(`Webcam error: ${error.name} - ${error.message}`);
       if (mountedRef.current) {
         setWebcamState(prev => ({ ...prev, hasPermission: false }));
+        
+        // Handle specific error types more gracefully
+        if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
+          // This typically happens when the camera is already in use by another application
+          setErrMsg(t('Camera is already in use by another application. Please close other applications using the camera and try again.'));
+        } else if (error.name === 'NotFoundError') {
+          setErrMsg(t('No camera was found on your device.'));
+        } else if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+          setErrMsg(t('Camera access was denied. Please allow access to use this feature.'));
+        } else {
         setErrMsg(t('Could not access webcam. Please check permissions.'));
+        }
       }
     });
   }, [t]);
@@ -356,11 +393,7 @@ export default function ImgCtrl({ ctx, chat }: ImgCtrlProps) {
   }, []);
   
   // Change image type
-  const handleTypeChange = useCallback((_: any, data: any) => {
-    setImgType(data.value);
-    setErrMsg('');
-    setImgBase64('');
-  }, []);
+  const handleTypeChange = debugHandleTypeChange;
   
   // Reset webcam
   const handleRetakePhoto = useCallback(() => {
@@ -476,17 +509,37 @@ export default function ImgCtrl({ ctx, chat }: ImgCtrlProps) {
     <ClickAwayListener onClickAway={() => open && setOpen(false)} active={open}>
       <Dialog open={open}>
         <DialogTrigger disableButtonEnhancement>
-          <Button
-            aria-label={t('Common.Image')}
-            title="Mod+Shift+6"
-            size="small"
-            appearance="subtle"
-            iconPosition="before"
-            style={{ boxShadow: 'none', borderColor: 'transparent' }}
-            className="justify-start text-color-secondary"
-            onClick={() => setOpen(true)}
-            icon={<ImageAddIcon />}
-          ></Button>
+          <Tooltip
+            content={
+              <div>
+                <div style={{ fontWeight: 'bold', marginBottom: '3px' }}>{t('Common.Image')}</div>
+                <div>Attach an image to the chat (Ctrl+Shift+7)</div>
+              </div>
+            }
+            relationship="description"
+            positioning="before"
+          >
+            <Button
+              size="small"
+              title="Ctrl+Shift+7"
+              aria-label={t('Common.Image')}
+              appearance="subtle"
+              icon={<ImageAddIcon />}
+              className="justify-start"
+              onClick={() => setOpen(true)}
+              style={{ 
+                borderColor: 'transparent', 
+                boxShadow: 'none', 
+                padding: 0,
+                height: '32px',
+                width: '32px',
+                minWidth: '32px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            />
+          </Tooltip>
         </DialogTrigger>
         <DialogSurface aria-labelledby="add image">
           <DialogBody>

@@ -3,7 +3,7 @@ import {
   Tooltip,
 } from '@fluentui/react-components';
 import { BrainCircuit20Regular, BrainCircuit20Filled, Search16Regular } from '@fluentui/react-icons';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { IChat, IChatContext } from 'intellichat/types';
 import useChatStore from 'stores/useChatStore';
@@ -31,6 +31,39 @@ const PurpleBrainFilledIcon = (props: React.SVGProps<SVGSVGElement>) => (
   />
 );
 
+// Track active timeouts to clean them up properly
+const activeTimeouts: Set<NodeJS.Timeout> = new Set();
+
+// Helper function to create a timeout that is automatically tracked for cleanup
+const createTrackedTimeout = (callback: () => void, delay: number): NodeJS.Timeout => {
+  const timeoutId = setTimeout(() => {
+    callback();
+    activeTimeouts.delete(timeoutId);
+  }, delay);
+  activeTimeouts.add(timeoutId);
+  return timeoutId;
+};
+
+// Helper function to clean up all tracked timeouts
+const cleanupAllTimeouts = () => {
+  activeTimeouts.forEach(id => {
+    clearTimeout(id);
+  });
+  activeTimeouts.clear();
+};
+
+// Track if we're currently in a model transition to prevent duplicate operations
+let isTransitioning = false;
+
+// Keep a debounce timeout for message checking
+let messageCheckTimeout: NodeJS.Timeout | null = null;
+
+// Use a global variable to track last successful state updates
+const lastStateChange = {
+  time: 0,
+  modelType: ''
+};
+
 export default function DeepSearchCtrl({
   ctx,
   chat,
@@ -48,8 +81,32 @@ export default function DeepSearchCtrl({
   const messages = useChatStore((state) => state.messages);
   const { getProvider, getChatModels } = useProvider();
   
+  // Use refs to track current state to avoid stale closures
+  const isEnabledRef = useRef(false);
+  const lastUpdateRef = useRef(0);
+  
+  // Update ref when specialized model changes
+  useEffect(() => {
+    isEnabledRef.current = specializedModel === 'Deep-Searcher-Pro';
+  }, [specializedModel]);
+  
+  // Store previous message count to compare
+  const prevMessageCountRef = useRef(0);
+  
+  // Cleanup timeouts when component unmounts
+  useEffect(() => {
+    return () => {
+      cleanupAllTimeouts();
+      if (messageCheckTimeout) {
+        clearTimeout(messageCheckTimeout);
+        messageCheckTimeout = null;
+      }
+      isTransitioning = false;
+    };
+  }, []);
+  
   // Check if Deep Search is currently enabled
-  const deepSearchEnabled = specializedModel === 'Deep-Searcher-R1';
+  const deepSearchEnabled = specializedModel === 'Deep-Searcher-Pro';
   
   // Store the current system message, temperature, and other settings
   const systemMessageRef = useRef<string | null | undefined>(null);
@@ -57,18 +114,44 @@ export default function DeepSearchCtrl({
   const maxTokensRef = useRef<number | null | undefined>(undefined);
   const maxCtxMessagesRef = useRef<number | undefined>(undefined);
   
-  // Get the Deep-Searcher-R1 model
-  const provider = getProvider('OMNI');
-  const allModels = getChatModels(provider.name) || [];
+  // Get the Deep-Searcher-Pro model - memoize to prevent frequent recalculation
+  const provider = useMemo(() => getProvider('OMNI'), [getProvider]);
+  const allModels = useMemo(() => getChatModels(provider.name) || [], [getChatModels, provider.name]);
+  
   // Use the correct model name/label from OMNI.ts
-  const deepSearcherModel = allModels.find(model => 
-    model.name === 'perplexity/sonar-reasoning-pro' || 
-    model.label === 'Sonar Reasoning' || 
-    model.label === 'Deep-Searcher-Pro'
+  const deepSearcherModel = useMemo(() => 
+    allModels.find(model => 
+      model.name === 'perplexity/sonar-reasoning-pro' || 
+      model.label === 'Sonar Reasoning' || 
+      model.label === 'Deep-Searcher-Pro'
+    ),
+    [allModels]
   );
   
-  // Handle button click
-  const toggleDeepSearch = () => {
+  // Safe state update function with rate limiting
+  const safeSetSpecializedModel = useCallback((modelType: string | null) => {
+    const now = Date.now();
+    // Prevent updates too close together (within 3 seconds)
+    if (now - lastStateChange.time < 3000 && lastStateChange.modelType === modelType) {
+      return false; // Skip this update, it's too soon
+    }
+    
+    // Update global tracker
+    lastStateChange.time = now;
+    lastStateChange.modelType = modelType || '';
+    
+    // Update the state
+    setSpecializedModel(modelType);
+    return true; // Update was processed
+  }, [setSpecializedModel]);
+  
+  // Handle button click with debounce to prevent double-triggers
+  const toggleDeepSearch = useCallback(() => {
+    if (isTransitioning) return;
+    
+    isTransitioning = true;
+    setTimeout(() => { isTransitioning = false; }, 1000);
+    
     if (!deepSearchEnabled) {
       // Enable Deep Search
       
@@ -85,7 +168,7 @@ export default function DeepSearchCtrl({
       maxCtxMessagesRef.current = chat.maxCtxMessages;
       
       // Update the specialized model
-      setSpecializedModel('Deep-Searcher-R1');
+      safeSetSpecializedModel('Deep-Searcher-Pro');
       
       // Ensure AUTO is disabled
       setAutoEnabled(false);
@@ -104,18 +187,21 @@ export default function DeepSearchCtrl({
     } else {
       // Disable Deep Search
       
+      // Clean up all tracked timeouts to prevent memory leaks
+      cleanupAllTimeouts();
+      
       // Clear the specialized model
-      setSpecializedModel(null);
+      safeSetSpecializedModel(null);
       
-      // Enable OMNI Agent (previously AUTO/Agent)
+      // Enable Agent02 (previously AUTO/Agent)
       setAutoEnabled(true);
       
-      // Get the OMNI Agent model
+      // Get the Agent02 model
       const agentModel = allModels.find(model => model.autoEnabled === true || model.agentEnabled === true);
       
-      // Switch back to OMNI Agent model
+      // Switch back to Agent02 model
       if (agentModel) {
-        // Switch to OMNI Agent model with the same settings
+        // Switch to Agent02 model with the same settings
         editStage(chat.id, { 
           model: agentModel.label,
           // Keep the same settings
@@ -126,59 +212,109 @@ export default function DeepSearchCtrl({
         });
       }
     }
-  };
+  }, [deepSearchEnabled, ctx, chat.id, chat.maxCtxMessages, deepSearcherModel, allModels, editStage, safeSetSpecializedModel, setAutoEnabled]);
   
-  // Add effect to ensure the specialized model is applied to the current chat
+  // Optimized effect for message count tracking - uses debounce and ref comparison to minimize renders
   useEffect(() => {
-    // When specializedModel changes and Deep Search is enabled, apply it to the current chat
-    if (deepSearchEnabled && deepSearcherModel && chat?.id) {
-      editStage(chat.id, { 
-        model: deepSearcherModel.label
-      });
+    // Throttle updates to avoid infinite loops
+    const now = Date.now();
+    if (now - lastUpdateRef.current < 1000) {
+      return; // Skip this update cycle if less than 1 second since last update
     }
-  }, [deepSearchEnabled, deepSearcherModel, chat?.id, editStage]);
-  
-  // Track message count to detect when a new message is added
-  useEffect(() => {
-    setMessageCount(messages.length);
-  }, [messages]);
-  
-  // When message count increases and deep search is enabled, disable it and switch back
-  useEffect(() => {
-    const currentMessages = useChatStore.getState().messages;
-    if (!deepSearchEnabled || currentMessages.length <= messageCount) {
-      return;
+    lastUpdateRef.current = now;
+    
+    // Clear any existing timeout
+    if (messageCheckTimeout) {
+      clearTimeout(messageCheckTimeout);
     }
     
-    // Check if we have both prompt messages and replies
-    const userMessageCount = currentMessages.filter(m => m.prompt && m.prompt.trim() !== '').length;
-    const assistantMessageCount = currentMessages.filter(m => m.reply && m.reply.trim() !== '').length;
-    
-    // Only switch back if we've received a response
-    if (userMessageCount > 0 && assistantMessageCount > 0 && assistantMessageCount >= userMessageCount - 1) {
-      // Disable deep search
-      setSpecializedModel(null);
+    // Debounce the message count check to reduce frequency
+    messageCheckTimeout = setTimeout(() => {
+      const currentMessages = useChatStore.getState().messages;
+      const currentCount = currentMessages.length;
       
-      // Enable OMNI Agent (previously AUTO)
-      setAutoEnabled(true);
-      
-      // Get the OMNI Agent model (previously AUTO)
-      const agentModel = allModels.find(model => model.autoEnabled === true || model.agentEnabled === true);
-      
-      // Switch back to OMNI Agent model
-      if (agentModel) {
-        // Switch to OMNI Agent model with the same settings
-        editStage(chat.id, { 
-          model: agentModel.label,
-          // Keep the same settings
-          systemMessage: systemMessageRef.current,
-          temperature: temperatureRef.current,
-          maxTokens: maxTokensRef.current,
-          maxCtxMessages: maxCtxMessagesRef.current
-        });
+      // Only update state if necessary (different count)
+      if (currentCount !== prevMessageCountRef.current) {
+        prevMessageCountRef.current = currentCount;
+        
+        // Use setTimeout to further decouple the state update
+        setTimeout(() => {
+          setMessageCount(currentCount);
+        }, 0);
+        
+        // Check for auto-disable immediately if deep search is enabled
+        if (isEnabledRef.current && currentCount > messageCount) {
+          // We have a new message
+          
+          // Check if we have both prompt messages and replies
+          const userMessageCount = currentMessages.filter(m => m.prompt && m.prompt.trim() !== '').length;
+          const assistantMessageCount = currentMessages.filter(m => m.reply && m.reply.trim() !== '').length;
+          
+          // Only switch back if we've received a response
+          if (userMessageCount > 0 && assistantMessageCount > 0 && assistantMessageCount >= userMessageCount - 1) {
+            if (isTransitioning) return;
+            isTransitioning = true;
+            
+            // Disable deep search after a short delay
+            createTrackedTimeout(() => {
+              // Avoid state updates if component is unmounting or already transitioning
+              if (!isEnabledRef.current) {
+                isTransitioning = false;
+                return;
+              }
+              
+              // Disable deep search
+              const updated = safeSetSpecializedModel(null);
+              
+              // Only continue with other changes if the model update went through
+              if (updated) {
+                // Enable Agent02
+                setAutoEnabled(true);
+                
+                // Get the Agent02 model
+                const agentModel = allModels.find(model => model.autoEnabled === true || model.agentEnabled === true);
+                
+                // Switch back to Agent02 model
+                if (agentModel) {
+                  // Use a slight delay to avoid rapid sequential updates
+                  setTimeout(() => {
+                    editStage(chat.id, { 
+                      model: agentModel.label,
+                      systemMessage: systemMessageRef.current,
+                      temperature: temperatureRef.current,
+                      maxTokens: maxTokensRef.current,
+                      maxCtxMessages: maxCtxMessagesRef.current
+                    });
+                  }, 100);
+                }
+              }
+              
+              // Reset transition flag
+              setTimeout(() => {
+                isTransitioning = false;
+              }, 1000);
+              
+              // Force cleanup to recover memory
+              if (typeof globalThis.gc === 'function') {
+                try {
+                  globalThis.gc();
+                } catch (e) {
+                  // Ignore GC errors
+                }
+              }
+            }, 500); // Increased delay to prevent rapid state changes
+          }
+        }
       }
-    }
-  }, [messages, messageCount, deepSearchEnabled, previousModel, chat.id, editStage, setSpecializedModel, setAutoEnabled, allModels]);
+    }, 1000); // Increased debounce to 1 second
+    
+    return () => {
+      if (messageCheckTimeout) {
+        clearTimeout(messageCheckTimeout);
+        messageCheckTimeout = null;
+      }
+    };
+  }, [messages, allModels, chat.id, editStage, messageCount, setAutoEnabled, safeSetSpecializedModel]);
   
   // Always render the component, even if the model isn't found
   return (
@@ -193,7 +329,7 @@ export default function DeepSearchCtrl({
                 <li>Uses a wider range of sources for comprehensive research</li>
                 <li>Works harder to provide detailed, well-cited responses</li>
               </ul>
-              <p className="text-xs italic mt-2">Returns to OMNI Agent after one response</p>
+              <p className="text-xs italic mt-2">Returns to Agent02 after one response</p>
             </div>
           ),
         }}
@@ -204,7 +340,7 @@ export default function DeepSearchCtrl({
         <Button
           appearance={deepSearchEnabled ? "primary" : "subtle"}
           onClick={toggleDeepSearch}
-          disabled={!deepSearcherModel}
+          disabled={!deepSearcherModel || isTransitioning}
           className={deepSearchEnabled ? 'bg-purple-500 hover:bg-purple-600 text-white px-2 py-0.5 text-sm' : 'px-2 py-0.5 text-sm'}
         >
           <span className="flex items-center font-medium">

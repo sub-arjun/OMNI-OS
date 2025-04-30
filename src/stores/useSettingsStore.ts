@@ -52,56 +52,92 @@ export interface ISettingStore {
   modelMapping: IModelMapping;
   toolStates: IToolStates;
   autoEnabled: boolean;
-  setTheme: (theme: ThemeType) => void;
-  setAPI: (api: Partial<IAPISettings>) => void;
-  setModelMapping: (modelMapping: IModelMapping) => void;
+  specializedModel: string | null;
+  isSettingsLoaded: boolean;
+  setTheme: (theme: ThemeType) => Promise<void>;
+  setAPI: (api: Partial<IAPISettings>) => Promise<void>;
+  setModelMapping: (modelMapping: IModelMapping) => Promise<void>;
   setToolState: (
     providerName: string,
     modelName: string,
     state: boolean,
-  ) => void;
+  ) => Promise<void>;
   getToolState: (
     providerName: string,
     modelName: string,
   ) => boolean | undefined;
-  setAutoEnabled: (auto: boolean) => void;
-  setLanguage: (language: LanguageType) => void;
-  setFontSize: (fontSize: FontSize) => void;
-  specializedModel: string | null;
-  setSpecializedModel: (modelName: string | null) => void;
-}
-
-const settings = safeStore.get('settings', {}) as ISettings;
-let apiSettings = defaultAPI;
-if (settings.api?.activeProvider) {
-  apiSettings =
-    settings.api.providers[settings.api.activeProvider] || defaultAPI;
+  setAutoEnabled: (auto: boolean) => Promise<void>;
+  setLanguage: (language: LanguageType) => Promise<void>;
+  setFontSize: (fontSize: FontSize) => Promise<void>;
+  setSpecializedModel: (modelName: string | null) => Promise<void>;
+  loadSettings: () => Promise<void>;
 }
 
 const useSettingsStore = create<ISettingStore>((set, get) => ({
-  theme: settings?.theme || defaultTheme,
-  language: settings?.language || defaultLanguage,
-  fontSize: settings?.fontSize || defaultFontSize,
-  modelMapping: settings.modelMapping || defaultModelMapping,
-  toolStates: settings.toolStates || defaultToolStates,
-  autoEnabled: settings.autoEnabled !== false && (settings as any).autoOMNIEnabled !== false, // Default to true if not set
-  api: apiSettings,
-  specializedModel: settings.specializedModel || null, // Initialize from disk
+  theme: defaultTheme,
+  language: defaultLanguage,
+  fontSize: defaultFontSize,
+  api: defaultAPI,
+  modelMapping: defaultModelMapping,
+  toolStates: defaultToolStates,
+  autoEnabled: true,
+  specializedModel: null,
+  isSettingsLoaded: false,
+
+  loadSettings: async () => {
+    debug('Attempting to load settings from electron store...');
+    try {
+      const settings = await window.electron?.store?.get('settings', {});
+      debug('Loaded settings:', settings);
+      if (settings) {
+        let apiSettings = defaultAPI;
+        if (settings.api && settings.api.activeProvider && settings.api.providers) {
+           const activeProviderKey = String(settings.api.activeProvider) === 'OMNI Edge' 
+                                     ? 'Ollama' 
+                                     : settings.api.activeProvider;
+           apiSettings = settings.api.providers[activeProviderKey] || defaultAPI;
+           apiSettings.provider = settings.api.activeProvider; 
+        } else {
+            debug('API settings structure missing or invalid, using default.');
+        }
+
+        set({
+          theme: settings.theme || defaultTheme,
+          language: settings.language || defaultLanguage,
+          fontSize: settings.fontSize || defaultFontSize,
+          api: apiSettings,
+          modelMapping: settings.modelMapping || defaultModelMapping,
+          toolStates: settings.toolStates || defaultToolStates,
+          autoEnabled: settings.autoOMNIEnabled !== false,
+          specializedModel: settings.specializedModel || null,
+          isSettingsLoaded: true,
+        });
+        debug('Settings loaded and state updated.');
+      } else {
+        debug('No settings found in store, using defaults.');
+        set({ isSettingsLoaded: true });
+      }
+    } catch (error) {
+      console.error('Failed to load settings:', error);
+      debug('Failed to load settings, using defaults.');
+      set({ isSettingsLoaded: true });
+    }
+  },
+
   setTheme: async (theme: ThemeType) => {
     set({ theme });
-    safeStore.set('settings.theme', theme);
+    await window.electron?.store?.set('settings.theme', theme);
   },
-  setAPI: (api: Partial<IAPISettings>) => {
+  setAPI: async (api: Partial<IAPISettings>) => {
+    let finalAPI: IAPISettings = defaultAPI;
     set((state) => {
-      const provider = isNil(api.provider) ? state.api.provider : api.provider;
-      const base = isNil(api.base) ? state.api.base : api.base;
-      const key = isNil(api.key) ? state.api.key : api.key;
-      const secret = isNil(api.secret) ? state.api.secret : api.secret;
-      const model = isNil(api.model) ? state.api.model : api.model;
-      const deploymentId = isNil(api.deploymentId)
-        ? state.api.deploymentId
-        : api.deploymentId;
-      const newAPI = {
+      const provider = api.provider ?? state.api.provider;
+      const base = api.base ?? state.api.base;
+      const key = api.key ?? state.api.key;
+      const secret = api.secret ?? state.api.secret;
+      const model = api.model ?? state.api.model;
+      const deploymentId = api.deploymentId ?? state.api.deploymentId;
+      finalAPI = {
         provider,
         base,
         key,
@@ -109,78 +145,62 @@ const useSettingsStore = create<ISettingStore>((set, get) => ({
         deploymentId,
         model,
       } as IAPISettings;
-      
-      try {
-        // Map OMNI Edge to Ollama for provider lookup
-        const providerLookupKey = String(provider) === 'OMNI Edge' ? 'Ollama' : provider;
-        
-        // Debug logs for Ollama model persistence
-        if (providerLookupKey === 'Ollama') {
-          console.log(`Setting Ollama model to: ${model}`);
-        }
-        
-        const providerObj = getProvider(providerLookupKey);
-        // Safely access the apiSchema with fallback
-        const apiSchema = providerObj?.chat?.apiSchema || ['base', 'model', 'provider'];
-        
-        // Ensure we're storing the complete config including model for Ollama
-        safeStore.set('settings.api.activeProvider', provider);
-        
-        const configToStore = pick(newAPI, [...apiSchema, 'provider']);
-        console.log(`Storing config for ${providerLookupKey}:`, configToStore);
-        
-        safeStore.set(
-          `settings.api.providers.${providerLookupKey}`,
-          configToStore
-        );
-        
-        // Special handling to ensure Ollama model name is preserved correctly
-        if (providerLookupKey === 'Ollama' && model) {
-          safeStore.set(
-            `settings.api.providers.${providerLookupKey}.model`, 
-            model
-          );
-        }
-      } catch (error) {
-        console.error('Error in setAPI:', error);
-        // Just set the activeProvider without trying to save provider-specific settings
-        safeStore.set('settings.api.activeProvider', provider);
-      }
-      
-      return { api: newAPI };
+      return { api: finalAPI };
     });
+
+    try {
+      const providerLookupKey = String(finalAPI.provider) === 'OMNI Edge' ? 'Ollama' : finalAPI.provider;
+      const providerObj = getProvider(providerLookupKey);
+      const apiSchema = providerObj?.chat?.apiSchema || ['base', 'model', 'provider', 'key', 'secret', 'deploymentId'];
+      await window.electron?.store?.set('settings.api.activeProvider', finalAPI.provider);
+      const configToStore = pick(finalAPI, [...apiSchema, 'provider']);
+      await window.electron?.store?.set(
+        `settings.api.providers.${providerLookupKey}`,
+        configToStore
+      );
+      
+      if (providerLookupKey === 'Ollama' && finalAPI.model) {
+         await window.electron?.store?.set(
+           `settings.api.providers.${providerLookupKey}.model`, 
+           finalAPI.model
+         );
+       }
+      debug('API settings persisted for:', providerLookupKey);
+    } catch (error) {
+      console.error('Error persisting API settings:', error);
+    }
   },
-  setModelMapping: (modelMapping: IModelMapping) => {
+  setModelMapping: async (modelMapping: IModelMapping) => {
     set({ modelMapping });
-    safeStore.set('settings.modelMapping', modelMapping);
+    await window.electron?.store?.set('settings.modelMapping', modelMapping);
   },
-  setToolState(providerName: string, modelName: string, state: boolean) {
+  setToolState: async (providerName: string, modelName: string, state: boolean) => {
+    let newToolStates: IToolStates = {};
     set((currentState) => {
       const key = `${providerName}.${modelName}`;
-      const newToolStates = { ...currentState.toolStates, [key]: state };
-      safeStore.set('settings.toolStates', newToolStates);
+      newToolStates = { ...currentState.toolStates, [key]: state };
       return { toolStates: newToolStates };
     });
+    await window.electron?.store?.set('settings.toolStates', newToolStates);
   },
   getToolState(providerName: string, modelName: string) {
     return get().toolStates[`${providerName}.${modelName}`];
   },
-  setAutoEnabled(auto: boolean) {
+  setAutoEnabled: async (auto: boolean) => {
     set({ autoEnabled: auto });
-    safeStore.set('settings.autoOMNIEnabled', auto);
+    await window.electron?.store?.set('settings.autoOMNIEnabled', auto);
   },
-  setLanguage: (language: 'en' | 'zh' | 'system') => {
+  setLanguage: async (language: LanguageType) => {
     set({ language });
-    safeStore.set('settings.language', language);
+    await window.electron?.store?.set('settings.language', language);
   },
-  setFontSize: (fontSize: FontSize) => {
+  setFontSize: async (fontSize: FontSize) => {
     set({ fontSize });
-    safeStore.set('settings.fontSize', fontSize);
+    await window.electron?.store?.set('settings.fontSize', fontSize);
   },
-  setSpecializedModel: (modelName: string | null) => {
+  setSpecializedModel: async (modelName: string | null) => {
     set({ specializedModel: modelName });
-    // Persist the specialized model to disk
-    safeStore.set('settings.specializedModel', modelName);
+    await window.electron?.store?.set('settings.specializedModel', modelName);
   }
 }));
 

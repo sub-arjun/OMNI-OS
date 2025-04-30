@@ -1,8 +1,23 @@
-
 .app-header{
   position: fixed;
   left:0;
   top:0;
-  z-index: 1;
+  z-index: 30;
   -webkit-app-region: drag;
+  width: 100%;
+  
+  /* Properly position elements with space for the collapsed sidebar */
+  @media (min-width: 768px) {
+    padding-left: 5.5rem; /* Adjusted to match the new sidebar width (w-20 = 5rem + a bit extra for alignment) */
+  }
+}
+
+.search-icon-container {
+  margin-left: 1.5rem;
+  z-index: 35;
+  position: relative;
+  
+  button {
+    -webkit-app-region: no-drag;
+  }
 }

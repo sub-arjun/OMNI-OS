@@ -1,5 +1,6 @@
 import path from 'path';
 import fs from 'node:fs';
+import { promises as fsPromises } from 'node:fs';
 import { app } from 'electron';
 import * as logging from './logging';
 import { IMCPConfig, IMCPServer } from 'types/mcp';
@@ -111,26 +112,33 @@ export default class ModuleContext {
     await this.putConfig(config);
   }
 
-  public async getConfig() {
-    const defaultConfig = { servers: [] };
+  public async getConfig(): Promise<IMCPConfig> {
+    const defaultConfig: IMCPConfig = { servers: [] };
     try {
-      if (!fs.existsSync(this.cfgPath)) {
-        fs.writeFileSync(this.cfgPath, JSON.stringify(defaultConfig, null, 2));
+      try {
+        const configData = await fsPromises.readFile(this.cfgPath, 'utf-8');
+        const config = JSON.parse(configData);
+        if (!config.servers) {
+          config.servers = [];
+        }
+        return config;
+      } catch (readError: any) {
+        if (readError.code === 'ENOENT') {
+          await fsPromises.writeFile(this.cfgPath, JSON.stringify(defaultConfig, null, 2));
+          return defaultConfig;
+        } else {
+          throw readError;
+        }
       }
-      const config = JSON.parse(fs.readFileSync(this.cfgPath, 'utf-8'));
-      if (!config.servers) {
-        config.servers = [];
-      }
-      return config;
     } catch (err: any) {
       logging.captureException(err);
       return defaultConfig;
     }
   }
 
-  public async putConfig(config: any) {
+  public async putConfig(config: IMCPConfig): Promise<boolean> {
     try {
-      fs.writeFileSync(this.cfgPath, JSON.stringify(config, null, 2));
+      await fsPromises.writeFile(this.cfgPath, JSON.stringify(config, null, 2));
       return true;
     } catch (err: any) {
       logging.captureException(err);
@@ -332,129 +340,107 @@ export default class ModuleContext {
     args: any;
   }) {
     try {
+      // --- Basic Validation ---
       if (!name) {
+        logging.warn('Tool call rejected: Missing tool name.');
         return {
           isError: true,
-          content: [{ error: "Tool name is required. Please try again with a valid tool name." }]
+          content: [{ error: "Tool call failed: Tool name is required. Please specify a valid tool name." }]
         };
       }
       
-      // Simple parsing of the tool name
       const parts = name.split('--');
       const toolName = parts.length > 1 ? parts[1] : name;
       const clientKey = client || (parts.length > 1 ? parts[0] : '');
       
       if (!clientKey) {
+         logging.warn(`Tool call rejected for '${toolName}': Missing client key.`);
         return {
           isError: true,
-          content: [{ error: "Client key is required. Please try again with a valid client identifier." }]
+          content: [{ error: `Tool call failed for '${toolName}': Client key is required. Please specify the client.` }]
         };
       }
 
       if (!this.clients[clientKey]) {
+        logging.warn(`Tool call rejected: Client '${clientKey}' not found.`);
         return {
           isError: true,
-          content: [{ error: `Client '${clientKey}' not found. Available clients: ${Object.keys(this.clients).join(', ')}` }]
+          content: [{ error: `Tool call failed: Client '${clientKey}' not found. Available clients: ${Object.keys(this.clients).join(', ')}. Please use a valid client.` }]
         };
       }
       
-      // Identify the model family for logging purposes
-      const isOpenAI = clientKey.toLowerCase().includes('openai') || name.toLowerCase().includes('openai');
-      const isGrok = clientKey.toLowerCase().includes('grok') || clientKey.toLowerCase().includes('x-ai');
-      const isAnthropicClaude = clientKey.toLowerCase().includes('anthropic') || name.toLowerCase().includes('claude');
-      const isGemini = clientKey.toLowerCase().includes('google') || clientKey.toLowerCase().includes('gemini');
+      logging.debug(`Processing tool call: ${clientKey}/${toolName}`, { argsType: typeof args, rawArgs: args });
       
-      // Log tool call details
-      logging.debug(`Tool call: ${clientKey}/${toolName}`, {
-        modelFamily: isOpenAI ? 'OpenAI' : isGrok ? 'Grok' : isAnthropicClaude ? 'Claude' : isGemini ? 'Gemini' : 'Other',
-        argsType: typeof args
-      });
-      
-      // Prepare arguments - keep it simple
-      let toolArgs = args;
-      
-      // Handle string-based arguments that might be partial JSON
-      if (typeof toolArgs === 'string') {
-        const trimmedArgs = toolArgs.trim();
-        
-        // Handle complete and partial JSON
-        if (trimmedArgs.startsWith('{') && trimmedArgs.endsWith('}')) {
-          try {
-            // Complete JSON object
-            toolArgs = JSON.parse(trimmedArgs);
-            logging.debug('Parsed complete JSON string arguments');
-          } catch (e) {
-            // Malformed JSON, but looks like a search query
-            if (toolName.toLowerCase().includes('search')) {
-              logging.debug('Using malformed JSON as search query');
-              toolArgs = { query: trimmedArgs };
-            }
-          }
-        } 
-        // Handle partial JSON with query keywords (common in streaming responses)
-        else if (trimmedArgs.includes('query') || trimmedArgs.includes('quer')) {
-          logging.debug('Found partial query in string arguments');
-          toolArgs = { query: trimmedArgs };
-        }
-        // General string for search tools
-        else if (toolName.toLowerCase().includes('search')) {
-          logging.debug('Using string directly as search query');
-          toolArgs = { query: trimmedArgs };
-        }
+      // --- Argument Processing (Simplified) ---
+      let toolArgs: Record<string, any> | null = null;
+
+      if (typeof args === 'object' && args !== null) {
+        // Already a valid object
+        toolArgs = args;
+        logging.debug('Using provided object arguments:', toolArgs);
+      } else if (typeof args === 'string') {
+        // Attempt to parse JSON string
+        try {
+          toolArgs = JSON.parse(args);
+          logging.debug('Parsed JSON string arguments:', toolArgs);
+        } catch (e: any) {
+          // Invalid JSON string
+          logging.warn(`Failed to parse arguments string as JSON for tool '${toolName}'. Error: ${e.message}`, { argsString: args });
+          return {
+            isError: true,
+            content: [{
+              error: `Invalid tool arguments format for '${toolName}'. Expected a valid JSON object string, but received a string that could not be parsed. Please provide arguments as a valid JSON object string.`,
+              received_args: args,
+              parsing_error: e.message
+            }]
+          };
       }
-      
-      // Handle completely empty arguments case
-      if (toolArgs === null || toolArgs === undefined) {
-        toolArgs = {};
-      }
-      
-      // Ensure we have an object
-      if (typeof toolArgs !== 'object') {
-        toolArgs = { query: String(toolArgs) };
-      }
-      
-      // For search tools, require a valid query from the model
-      if (toolName.toLowerCase().includes('search') && 
-          (!toolArgs.query || toolArgs.query === "")) {
-        
-        logging.debug('Missing search query from model');
+      } else {
+         // Arguments are neither object nor string (null, undefined, number, etc.) -> Invalid
+         logging.warn(`Invalid arguments type received for tool '${toolName}': ${typeof args}. Expected object or JSON string.`);
         return {
           isError: true,
           content: [{
-            error: "Search tools require a query parameter. Please provide a specific search query.",
-            suggestion: "Try again with a detailed search query instead of an empty search."
+              error: `Invalid tool arguments format for '${toolName}'. Expected arguments as a JSON object or a valid JSON string.`,
+              received_type: typeof args,
+              received_value: args // Show the model what was received
           }]
         };
       }
       
-      // Log final arguments being sent
-      logging.debug('Final processed tool args:', toolArgs);
+      // --- Tool Execution ---
+      logging.debug(`Calling tool '${toolName}' on client '${clientKey}' with arguments:`, toolArgs);
       
-      // Call the tool
       try {
         const result = await this.clients[clientKey].callTool({
           name: toolName,
-          arguments: toolArgs
+          arguments: toolArgs // Pass the validated/parsed object
         });
+        logging.debug(`Tool '${toolName}' executed successfully.`);
         return result;
       } catch (toolError: any) {
-        // Create a meaningful error message for the model to understand and retry
-        logging.error(`Error calling ${clientKey} tool ${toolName}:`, toolError);
+        // Error during actual tool execution
+        logging.error(`Error executing tool '${toolName}' on client '${clientKey}':`, toolError);
         return {
           isError: true,
           content: [{
-            error: `Error calling ${toolName}: ${toolError.message || 'Unknown error'}. Please try again with valid parameters.`,
+            error: `Tool execution failed for '${toolName}': ${toolError.message || 'Unknown error'}. Please review the tool's requirements and correct the arguments or tool usage.`,
+            tool_name: toolName,
+            client_key: clientKey,
+            provided_args: toolArgs,
             details: String(toolError)
           }]
         };
       }
     } catch (error: any) {
-      // Format error for the model to understand
-      logging.error('Error in MCP callTool:', error);
+      // General error during processing before tool execution attempt
+      logging.error('Error processing tool call request:', error);
       return {
         isError: true,
         content: [{ 
-          error: `Failed to process tool call: ${error.message || 'Unknown error'}. Please try again.`,
+          error: `Failed to process tool call request: ${error.message || 'Unknown error'}. Please check the tool name and arguments format and try again.`,
+          original_tool_name_param: name,
+          original_args_param: args,
           details: String(error)
         }]
       };

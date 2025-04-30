@@ -15,7 +15,8 @@ import {
   BrainCircuit20Regular, 
   Flash16Regular, 
   ChevronDown16Regular,
-  DismissCircle16Regular
+  DismissCircle16Regular,
+  Globe16Regular
 } from '@fluentui/react-icons';
 import { useEffect, useState, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -23,6 +24,8 @@ import { IChat, IChatContext } from 'intellichat/types';
 import useChatStore from 'stores/useChatStore';
 import useProvider from 'hooks/useProvider';
 import useSettingsStore from 'stores/useSettingsStore';
+import useAppearanceStore from 'stores/useAppearanceStore';
+import Mousetrap from 'mousetrap';
 
 export default function SpecializedModelsCtrl({
   ctx,
@@ -39,12 +42,46 @@ export default function SpecializedModelsCtrl({
   const editStage = useChatStore((state) => state.editStage);
   const messages = useChatStore((state) => state.messages);
   const { getProvider, getChatModels } = useProvider();
+  const theme = useAppearanceStore((state) => state?.theme || 'light');
   
   // State for menu and responsive layout
   const [open, setOpen] = useState<boolean>(false);
   const [isCollapsed, setIsCollapsed] = useState<boolean>(true);
   const containerRef = useRef<HTMLDivElement>(null);
-  
+
+  // --- Sync specialized model state with chat's model on chat load/switch ---
+  useEffect(() => {
+    if (!chat || !chat.model) return;
+
+    // List of specialized model labels
+    const specializedLabels = [
+      'Deep-Searcher-Pro',
+      'Deep-Thinker-R1',
+      'Flash 2.5',
+      'Sonar Reasoning',
+      'R1-1776',
+      'google/gemini-2.5-flash-preview:thinking',
+      'perplexity/sonar-reasoning-pro',
+      'perplexity/r1-1776'
+    ];
+
+    // If the current chat's model is a specialized model, ensure store reflects it
+    if (specializedLabels.includes(chat.model)) {
+      if (specializedModel !== chat.model) {
+        setSpecializedModel(chat.model);
+        setAutoEnabled(false);
+      }
+    } else {
+      // Otherwise, ensure specializedModel is null and auto is enabled
+      if (specializedModel !== null) {
+        setSpecializedModel(null);
+        setAutoEnabled(true);
+      }
+    }
+    // Only run when chat changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chat?.id, chat?.model]);
+
   // Store current settings
   const systemMessageRef = useRef<string | null | undefined>(null);
   const temperatureRef = useRef<number | undefined>(undefined);
@@ -71,7 +108,7 @@ export default function SpecializedModelsCtrl({
   );
   
   const flashModel = useMemo(() => 
-    allModels.find(model => model.label === 'Flash-2.0' || model.name === 'google/gemini-2.0-flash-001'),
+    allModels.find(model => model.label === 'Flash 2.5' || model.name === 'google/gemini-2.5-flash-preview:thinking'),
     [allModels]
   );
   
@@ -85,8 +122,8 @@ export default function SpecializedModelsCtrl({
       const availableWidth = toolbar?.clientWidth || window.innerWidth;
       
       // If width is below threshold, collapse specialized models
-      // This should be the last component to collapse, at 800px
-      setIsCollapsed(availableWidth < 800);
+      // Increase threshold significantly to force collapse sooner
+      setIsCollapsed(availableWidth < 900);
     };
     
     // Setup ResizeObserver
@@ -121,9 +158,9 @@ export default function SpecializedModelsCtrl({
   // Get icon based on selected model
   const getIcon = () => {
     switch(specializedModel) {
-      case 'Deep-Searcher-R1': return <Search16Regular className="mr-1" style={{ color: '#0078d4' }} />;
+      case 'Deep-Searcher-Pro': return <Globe16Regular className="mr-1" style={{ color: '#0078d4' }} />;
       case 'Deep-Thinker-R1': return <BrainCircuit20Regular className="mr-1" style={{ color: '#8b5cf6' }} />;
-      case 'Flash-2.0': return <Flash16Regular className="mr-1" style={{ color: '#f97316' }} />;
+      case 'Flash 2.5': return <Flash16Regular className="mr-1" style={{ color: '#f97316' }} />;
       default: return null;
     }
   };
@@ -131,9 +168,9 @@ export default function SpecializedModelsCtrl({
   // Get display name based on selected model
   const getDisplayName = () => {
     switch(specializedModel) {
-      case 'Deep-Searcher-R1': return 'DeepSearch';
+      case 'Deep-Searcher-Pro': return 'DeepSearch';
       case 'Deep-Thinker-R1': return 'DeepThought';
-      case 'Flash-2.0': return 'Flash';
+      case 'Flash 2.5': return 'Flash';
       default: return 'Specialized';
     }
   };
@@ -143,9 +180,9 @@ export default function SpecializedModelsCtrl({
     if (!isActive) return 'px-2 py-0.5 text-sm';
     
     switch(modelType) {
-      case 'Deep-Searcher-R1': return 'bg-blue-500 hover:bg-blue-600 text-white px-2 py-0.5 text-sm'; // Blue
-      case 'Deep-Thinker-R1': return 'bg-purple-500 hover:bg-purple-600 text-white px-2 py-0.5 text-sm'; // Purple
-      case 'Flash-2.0': return 'bg-orange-500 hover:bg-orange-600 text-white px-2 py-0.5 text-sm'; // Orange
+      case 'Deep-Searcher-Pro': return `${theme === 'dark' ? 'bg-blue-600' : 'bg-blue-500'} ${theme === 'dark' ? 'hover:bg-blue-700' : 'hover:bg-blue-600'} text-white px-2 py-0.5 text-sm`; // Blue
+      case 'Deep-Thinker-R1': return `${theme === 'dark' ? 'bg-purple-600' : 'bg-purple-500'} ${theme === 'dark' ? 'hover:bg-purple-700' : 'hover:bg-purple-600'} text-white px-2 py-0.5 text-sm`; // Purple
+      case 'Flash 2.5': return `${theme === 'dark' ? 'bg-orange-600' : 'bg-orange-500'} ${theme === 'dark' ? 'hover:bg-orange-700' : 'hover:bg-orange-600'} text-white px-2 py-0.5 text-sm`; // Orange
       default: return 'px-2 py-0.5 text-sm';
     }
   };
@@ -160,6 +197,9 @@ export default function SpecializedModelsCtrl({
   
   // Switch model
   const switchToModel = (modelType: string | null, modelObj: any) => {
+    // Get current input value to preserve it
+    const currentInput = useChatStore.getState().chat.input || '';
+    
     if (modelType) {
       // Enable specialized model
       setSpecializedModel(modelType);
@@ -175,20 +215,22 @@ export default function SpecializedModelsCtrl({
           systemMessage: systemMessageRef.current,
           temperature: temperatureRef.current,
           maxTokens: maxTokensRef.current,
-          maxCtxMessages: maxCtxMessagesRef.current
+          maxCtxMessages: maxCtxMessagesRef.current,
+          // Preserve the current input text
+          input: currentInput
         });
       }
     } else {
       // Disable specialized model
       setSpecializedModel(null);
       
-      // Enable OMNI Agent
+      // Enable Agent02
       setAutoEnabled(true);
       
-      // Get the OMNI Agent model
+      // Get the Agent02 model
       const agentModel = allModels.find(model => model.autoEnabled === true || model.agentEnabled === true);
       
-      // Switch back to OMNI Agent model
+      // Switch back to Agent02 model
       if (agentModel) {
         editStage(chat.id, { 
           model: agentModel.label,
@@ -196,7 +238,9 @@ export default function SpecializedModelsCtrl({
           systemMessage: systemMessageRef.current,
           temperature: temperatureRef.current,
           maxTokens: maxTokensRef.current,
-          maxCtxMessages: maxCtxMessagesRef.current
+          maxCtxMessages: maxCtxMessagesRef.current,
+          // Preserve the current input text
+          input: currentInput
         });
       }
     }
@@ -227,85 +271,99 @@ export default function SpecializedModelsCtrl({
     }
   }, [messages, messageCount]);
   
-  // When message count increases and a specialized model is enabled, disable it and switch back
+  // Set up keyboard shortcuts for specialized models
   useEffect(() => {
-    // Only run this effect when the message count changes
-    if (!specializedModel || messages.length <= messageCount) {
-      return;
-    }
+    // Alt+0: Always switch to Agent mode
+    Mousetrap.bind('alt+0', () => {
+      // Always switch to Agent mode
+      handleSelect(null, null);
+      return false;
+    });
     
-    // Check if we have at least one user message and one assistant message
-    // This ensures we only switch back after getting a response from the model
-    const userMessageCount = messages.filter(m => m.prompt && m.prompt.trim() !== '').length;
-    const assistantMessageCount = messages.filter(m => m.reply && m.reply.trim() !== '').length;
-    
-    // Only switch back if we've received a response (assistant message count matches user message count)
-    if (userMessageCount > 0 && assistantMessageCount > 0 && assistantMessageCount >= userMessageCount - 1) {
-      // Create a local variable to avoid multiple state updates
-      const newMessageCount = messages.length;
-      
-      // Only perform state updates if we have a valid model to switch to
-      const agentModel = allModels.find(model => model.autoEnabled === true || model.agentEnabled === true);
-      
-      if (agentModel) {
-        // Batch state updates by using a single useEffect execution
-        // First update the message count to prevent re-entry
-        setMessageCount(newMessageCount);
-        
-        // Then update model states
-        setSpecializedModel(null);
-        setAutoEnabled(true);
-        
-        // Finally update the chat model
-        editStage(chat.id, { 
-          model: agentModel.label,
-          // Keep the same settings
-          systemMessage: systemMessageRef.current,
-          temperature: temperatureRef.current,
-          maxTokens: maxTokensRef.current,
-          maxCtxMessages: maxCtxMessagesRef.current
-        });
+    Mousetrap.bind('alt+1', () => {
+      // If DeepSearch is already active, turn it off (go back to Agent)
+      // Otherwise, turn on DeepSearch
+      if (specializedModel === 'Deep-Searcher-Pro') {
+        // Toggle back to Agent mode
+        handleSelect(null, null);
+      } else {
+        // Switch to DeepSearch
+        handleSelect('Deep-Searcher-Pro', deepSearcherModel);
       }
-    }
-  }, [messages, specializedModel, allModels, chat.id, editStage, setSpecializedModel, setAutoEnabled, messageCount]);
+      return false;
+    });
+    
+    Mousetrap.bind('alt+2', () => {
+      // If DeepThought is already active, turn it off (go back to Agent)
+      // Otherwise, turn on DeepThought
+      if (specializedModel === 'Deep-Thinker-R1') {
+        // Toggle back to Agent mode
+        handleSelect(null, null);
+      } else {
+        // Switch to DeepThought
+        handleSelect('Deep-Thinker-R1', deepThoughtModel);
+      }
+      return false;
+    });
+    
+    Mousetrap.bind('alt+3', () => {
+      // If Flash is already active, turn it off (go back to Agent)
+      // Otherwise, turn on Flash
+      if (specializedModel === 'Flash 2.5') {
+        // Toggle back to Agent mode
+        handleSelect(null, null);
+      } else {
+        // Switch to Flash
+        handleSelect('Flash 2.5', flashModel);
+      }
+      return false;
+    });
+    
+    return () => {
+      Mousetrap.unbind('alt+0');
+      Mousetrap.unbind('alt+1');
+      Mousetrap.unbind('alt+2');
+      Mousetrap.unbind('alt+3');
+    };
+  }, [deepSearcherModel, deepThoughtModel, flashModel, specializedModel]);
   
   // Check for tooltip content based on model
   const getTooltipContent = (modelType: string | null = specializedModel) => {
     switch(modelType) {
-      case 'Deep-Searcher-R1':
+      case 'Deep-Searcher-Pro':
         return (
           <div style={{ maxWidth: "280px" }}>
-            <p className="font-bold mb-1">Internet-Connected Research</p>
+            <p className="font-bold mb-1">Internet-Connected Research (Alt+1)</p>
             <ul className="list-disc pl-4 mb-1 space-y-1">
               <li>Searches the web more intensively for current information</li>
               <li>Uses a wider range of sources for comprehensive research</li>
               <li>Works harder to provide detailed, well-cited responses</li>
+              <li className="font-semibold text-xs mt-1">Press Alt+1 again to return to Agent02</li>
             </ul>
-            <p className="text-xs italic mt-2">Returns to OMNI Agent after one response</p>
           </div>
         );
       case 'Deep-Thinker-R1':
         return (
           <div style={{ maxWidth: "280px" }}>
-            <p className="font-bold mb-1">Advanced Reasoning & Analysis</p>
+            <p className="font-bold mb-1">Advanced Reasoning & Analysis (Alt+2)</p>
             <ul className="list-disc pl-4 mb-1 space-y-1">
               <li>Expert at complex problem-solving and logical reasoning</li>
               <li>Provides thorough, step-by-step explanations</li>
               <li>Ideal for mathematics, coding, and analytical tasks</li>
+              <li className="font-semibold text-xs mt-1">Press Alt+2 again to return to Agent02</li>
             </ul>
-            <p className="text-xs italic mt-2">Returns to OMNI Agent after one response</p>
           </div>
         );
-      case 'Flash-2.0':
+      case 'Flash 2.5':
         return (
           <div style={{ maxWidth: "280px" }}>
-            <p className="font-bold mb-1">Speed & Long Context</p>
+            <p className="font-bold mb-1">Speed & Long Context (Alt+3)</p>
             <ul className="list-disc pl-4 mb-1 space-y-1">
               <li>Processes information rapidly</li>
               <li>Handles extensive documents efficiently</li>
               <li>Provides quick, concise responses</li>
+              <li className="font-semibold text-xs mt-1">Press Alt+3 again to return to Agent02</li>
             </ul>
-            <p className="text-xs italic mt-2">Returns to OMNI Agent after one response</p>
           </div>
         );
       default:
@@ -313,18 +371,19 @@ export default function SpecializedModelsCtrl({
           <div style={{ maxWidth: "280px" }}>
             <p className="font-bold mb-1">Specialized Models</p>
             <ul className="list-disc pl-4 mb-1 space-y-1">
-              <li>DeepSearch: Web research with rich citations</li>
-              <li>DeepThought: Complex reasoning & analysis</li>
-              <li>Flash: Speed and long context processing</li>
+              <li>DeepSearch: Web research (Alt+1)</li>
+              <li>DeepThought: Complex reasoning (Alt+2)</li>
+              <li>Flash: Speed & long context (Alt+3)</li>
+              <li>Agent02: Default mode (Alt+0)</li>
+              <li className="font-semibold text-xs mt-1">Each shortcut toggles between model and Agent02</li>
             </ul>
-            <p className="text-xs italic mt-2">Each returns to OMNI Agent after one response</p>
           </div>
         );
     }
   };
   
   // Render a specific model button
-  const renderModelButton = (modelType: string, modelObj: any, icon: React.ReactNode, label: string, extraElement?: React.ReactNode) => {
+  const renderModelButton = (modelType: string, modelObj: any, icon: React.ReactNode, label: string) => {
     const isActive = specializedModel === modelType;
     
     return (
@@ -336,17 +395,27 @@ export default function SpecializedModelsCtrl({
       >
         <Button
           appearance={isActive ? "primary" : "subtle"}
-          onClick={() => handleSelect(modelType, modelObj)}
+          onClick={() => handleSelect(isActive ? null : modelType, isActive ? null : modelObj)}
           disabled={!modelObj}
           className={getButtonColor(modelType, isActive)}
+          style={{ position: 'relative' }}
         >
           <span className="flex items-center font-medium">
             {icon}
             {label}
-            {modelType === 'Deep-Searcher-R1' && (
+            {modelType === 'Deep-Searcher-Pro' && (
               <span className="ml-0.5 text-[7px] font-black align-super relative top-[-2px]" style={{ color: '#ff1493' }}>PRO</span>
             )}
-            {extraElement}
+            {isActive && (
+               <DismissCircle16Regular 
+                  className="ml-1 cursor-pointer inline-block"
+                  style={{ verticalAlign: 'middle' }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleSelect(null, null);
+                  }}
+                />
+            )}
           </span>
         </Button>
       </Tooltip>
@@ -364,88 +433,113 @@ export default function SpecializedModelsCtrl({
           withArrow
           relationship="label"
         >
-          <Menu open={open} onOpenChange={(e, data) => setOpen(data.open)}>
-            <MenuTrigger disableButtonEnhancement>
-              <Button
-                appearance={hasSpecializedModel ? "primary" : "subtle"}
-                className={getButtonColor(specializedModel || '', hasSpecializedModel)}
-              >
-                <span className="flex items-center font-medium">
-                  {getIcon()}
-                  {getDisplayName()}
-                  {!hasSpecializedModel && <ChevronDown16Regular className="ml-1" />}
-                  {specializedModel === 'Deep-Searcher-R1' && (
-                    <span className="ml-0.5 text-[7px] font-black align-super relative top-[-2px]" style={{ color: '#ff1493' }}>PRO</span>
-                  )}
-                  {hasSpecializedModel && (
-                    <DismissCircle16Regular 
-                      className="ml-1 cursor-pointer" 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleSelect(null, null);
-                      }}
-                    />
-                  )}
-                </span>
-              </Button>
-            </MenuTrigger>
-            <MenuPopover>
-              <MenuList>
-                <MenuItem 
-                  icon={<Search16Regular style={{ color: '#0078d4' }} />}
-                  onClick={() => handleSelect('Deep-Searcher-R1', deepSearcherModel)}
-                  className={specializedModel === 'Deep-Searcher-R1' ? 'bg-blue-100 dark:bg-blue-900' : ''}
+          <span>
+            <Menu open={open} onOpenChange={(e, data) => setOpen(data.open)}>
+              <MenuTrigger disableButtonEnhancement>
+                <Button
+                  appearance={hasSpecializedModel ? "primary" : "subtle"}
+                  className={getButtonColor(specializedModel || '', hasSpecializedModel)}
                 >
-                  <span className="flex items-center">
-                    DeepSearch
-                    <span className="ml-0.5 text-[7px] font-black align-super relative top-[-2px]" style={{ color: '#ff1493' }}>PRO</span>
+                  <span className="flex items-center font-medium">
+                    {getIcon()}
+                    {getDisplayName()}
+                    {!hasSpecializedModel && <ChevronDown16Regular className="ml-1" />}
+                    {specializedModel === 'Deep-Searcher-Pro' && (
+                      <span className="ml-0.5 text-[7px] font-black align-super relative top-[-2px]" style={{ color: '#ff1493' }}>PRO</span>
+                    )}
+                    {hasSpecializedModel && (
+                      <DismissCircle16Regular 
+                        className="ml-1 cursor-pointer inline-block"
+                        style={{ verticalAlign: 'middle' }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleSelect(null, null);
+                        }}
+                      />
+                    )}
                   </span>
-                </MenuItem>
-                
-                <MenuItem 
-                  icon={<BrainCircuit20Regular style={{ color: '#8b5cf6' }} />}
-                  onClick={() => handleSelect('Deep-Thinker-R1', deepThoughtModel)}
-                  className={specializedModel === 'Deep-Thinker-R1' ? 'bg-purple-100 dark:bg-purple-900' : ''}
-                >
-                  DeepThought
-                </MenuItem>
-                
-                <MenuItem 
-                  icon={<Flash16Regular style={{ color: '#f97316' }} />}
-                  onClick={() => handleSelect('Flash-2.0', flashModel)}
-                  className={specializedModel === 'Flash-2.0' ? 'bg-orange-100 dark:bg-orange-900' : ''}
-                >
-                  Flash
-                </MenuItem>
-              </MenuList>
-            </MenuPopover>
-          </Menu>
+                </Button>
+              </MenuTrigger>
+              <MenuPopover className={theme === 'dark' ? 'dark-theme' : ''}>
+                <MenuList>
+                  <MenuItem 
+                    icon={<Globe16Regular style={{ color: '#0078d4' }} />}
+                    onClick={() => handleSelect('Deep-Searcher-Pro', deepSearcherModel)}
+                    className={specializedModel === 'Deep-Searcher-Pro' ? (theme === 'dark' ? 'bg-blue-900/50' : 'bg-blue-100') : ''}
+                  >
+                    <span className="flex items-center">
+                      DeepSearch
+                      <span className="ml-0.5 text-[7px] font-black align-super relative top-[-2px]" style={{ color: '#ff1493' }}>PRO</span>
+                    </span>
+                  </MenuItem>
+                  
+                  <MenuItem 
+                    icon={<BrainCircuit20Regular style={{ color: '#8b5cf6' }} />}
+                    onClick={() => handleSelect('Deep-Thinker-R1', deepThoughtModel)}
+                    className={specializedModel === 'Deep-Thinker-R1' ? (theme === 'dark' ? 'bg-purple-900/50' : 'bg-purple-100') : ''}
+                  >
+                    DeepThought
+                  </MenuItem>
+                  
+                  <MenuItem 
+                    icon={<Flash16Regular style={{ color: '#f97316' }} />}
+                    onClick={() => handleSelect('Flash 2.5', flashModel)}
+                    className={specializedModel === 'Flash 2.5' ? (theme === 'dark' ? 'bg-orange-900/50' : 'bg-orange-100') : ''}
+                  >
+                    Flash
+                  </MenuItem>
+                </MenuList>
+              </MenuPopover>
+            </Menu>
+          </span>
         </Tooltip>
       ) : (
         // Expanded view - individual buttons for each model
         <>
           {renderModelButton(
-            'Deep-Searcher-R1', 
+            'Deep-Searcher-Pro', 
             deepSearcherModel, 
-            <Search16Regular className="mr-1" style={{ color: '#0078d4' }} />, 
+            <Globe16Regular className="mr-1" style={{ color: theme === 'dark' ? '#4da3ff' : '#0078d4' }} />, 
             'DeepSearch'
           )}
           
           {renderModelButton(
             'Deep-Thinker-R1', 
             deepThoughtModel, 
-            <BrainCircuit20Regular className="mr-1" style={{ color: '#8b5cf6' }} />, 
+            <BrainCircuit20Regular className="mr-1" style={{ color: theme === 'dark' ? '#a78bfa' : '#8b5cf6' }} />, 
             'DeepThought'
           )}
           
           {renderModelButton(
-            'Flash-2.0', 
+            'Flash 2.5', 
             flashModel, 
-            <Flash16Regular className="mr-1" style={{ color: '#f97316' }} />, 
+            <Flash16Regular className="mr-1" style={{ color: theme === 'dark' ? '#fb923c' : '#f97316' }} />, 
             'Flash'
           )}
         </>
       )}
+
+      <style>{`
+        /* Dark mode styles for the specialized models popup */
+        .dark-theme.fui-MenuPopover {
+          background-color: #1f2937 !important;
+          border-color: rgba(255, 255, 255, 0.1) !important;
+          color: white !important;
+        }
+        
+        .dark-theme .fui-MenuList {
+          background-color: transparent !important;
+          color: white !important;
+        }
+        
+        .dark-theme .fui-MenuItem {
+          color: white !important;
+        }
+        
+        .dark-theme .fui-MenuItem:hover {
+          background-color: rgba(255, 255, 255, 0.1) !important;
+        }
+      `}</style>
     </div>
   );
 } 

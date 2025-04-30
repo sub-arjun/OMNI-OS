@@ -1,5 +1,6 @@
 import { app } from 'electron';
-import fs from 'fs';
+import { promises as fsPromises } from 'node:fs';
+import fs from 'node:fs';
 import path from 'path';
 import url from 'url'
 import * as logging from './logging';
@@ -24,42 +25,58 @@ export class Embedder {
   static model = 'Xenova/bge-m3';
   static instance: any = null;
 
-  public static getFileStatus(): { [key: string]: boolean } {
+  public static async getFileStatus(): Promise<{ [key: string]: boolean }> {
     const status: { [key: string]: boolean } = {};
     for (const key in FILES) {
-      status[key] = fs.existsSync(FILES[key]);
+      try {
+        await fsPromises.access(FILES[key], fs.constants.F_OK);
+        status[key] = true;
+      } catch (error) {
+        status[key] = false;
+      }
     }
     return status;
   }
 
-  public static removeModel(): void {
+  public static async removeModel(): Promise<void> {
     for (const key in FILES) {
-      if (fs.existsSync(FILES[key])) {
-        fs.unlinkSync(FILES[key]);
+      try {
+        await fsPromises.unlink(FILES[key]);
+      } catch (error: any) {
+        if (error.code !== 'ENOENT') {
+          logging.error(`Error removing model file ${FILES[key]}:`, error);
+        }
       }
     }
   }
 
-  public static saveModelFile(fileName: string, filePath: string): void {
+  public static async saveModelFile(fileName: string, filePath: string): Promise<void> {
     const modelPath = FILES[fileName];
     const modelDir = path.dirname(modelPath);
 
-    if (fs.existsSync(modelPath)) {
-      fs.unlinkSync(modelPath);
-    } else {
-      if (!fs.existsSync(modelDir)) {
-        logging.debug(`${modelDir} doesn't exist, create it now.`);
-        fs.mkdirSync(modelDir, { recursive: true });
+    try {
+      await fsPromises.mkdir(modelDir, { recursive: true });
+
+      try {
+        await fsPromises.unlink(modelPath);
+      } catch (unlinkError: any) {
+        if (unlinkError.code !== 'ENOENT') {
+          logging.warn(`Could not unlink existing model file ${modelPath} before saving:`, unlinkError);
+        }
       }
+
+      await fsPromises.rename(filePath, modelPath);
+      logging.debug(`Successfully saved model file ${fileName} to ${modelPath}`);
+    } catch (error: any) {
+      logging.error(`Error saving model file ${fileName}:`, error);
+      throw new Error(`Failed to save model file ${fileName}: ${error.message}`);
     }
-    fs.renameSync(filePath, modelPath);
   }
 
   public static async getInstance(): Promise<any> {
     let transformers = null;
     if (this.instance === null) {
       if (process.env.NODE_ENV === 'production') {
-        // In production, we need to use dynamic import to load the transformers
         const basePath = path.dirname(path.dirname(path.dirname(__dirname)));
         const modelPath = path.join(
           basePath,
@@ -92,7 +109,6 @@ function sleep() {
   });
 }
 
-// The run function is used by the `transformers:run` event handler.
 export async function embed(
   texts: string[],
   progressCallback?: (total: number, done: number) => void

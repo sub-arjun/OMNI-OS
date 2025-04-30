@@ -77,8 +77,50 @@ if (process.platform !== 'win32') {
   process.setFdLimit(4096);
 }
 
-// 设置V8内存限制
-v8.setFlagsFromString('--max-old-space-size=4096');
+// 设置V8内存限制 - Increased from 4GB to 6GB for better performance
+v8.setFlagsFromString('--max-old-space-size=6144');
+
+// Add AudioContext tracking for memory management
+contextBridge.exposeInMainWorld('_audioContextManagement', {
+  registerAudioContext: (audioContext: AudioContext) => {
+    if (!window._openAudioContexts) {
+      window._openAudioContexts = [];
+    }
+    window._openAudioContexts.push(audioContext);
+    console.log(`Registered new AudioContext. Total: ${window._openAudioContexts.length}`);
+    
+    // Set a limit of active contexts - close old ones if we exceed the limit
+    const MAX_AUDIO_CONTEXTS = 5;
+    if (window._openAudioContexts.length > MAX_AUDIO_CONTEXTS) {
+      const oldContext = window._openAudioContexts.shift();
+      if (oldContext && oldContext.state !== 'closed') {
+        try {
+          oldContext.close().catch(err => console.warn('Error closing old AudioContext:', err));
+        } catch (e) {
+          console.warn('Error closing old AudioContext:', e);
+        }
+      }
+    }
+    
+    return audioContext;
+  },
+  
+  cleanupAudioContexts: () => {
+    if (!window._openAudioContexts) return;
+    
+    console.log(`Cleaning up ${window._openAudioContexts.length} AudioContexts`);
+    window._openAudioContexts.forEach((ctx: AudioContext) => {
+      try {
+        if (ctx && ctx.state !== 'closed') {
+          ctx.close().catch(err => console.warn('Error closing AudioContext:', err));
+        }
+      } catch (e) {
+        console.warn('Error closing AudioContext:', e);
+      }
+    });
+    window._openAudioContexts = [];
+  }
+});
 
 export type Channels =
   | 'ipc-5ire'
@@ -97,16 +139,20 @@ export type Channels =
   | 'save-embedding-model-file'
   | 'remove-embedding-model'
   | 'close-app'
-  | 'mcp-server-loaded';
+  | 'mcp-server-loaded'
+  | 'fetch-audio-data'
+  | 'system-info'
+  | 'settings-info';
 
 const electronHandler = {
   store: {
-    get(key: string, defaultValue?: any | undefined): any {
-      return ipcRenderer.sendSync('get-store', key, defaultValue);
+    get(key: string, defaultValue?: any | undefined): Promise<any> {
+      return ipcRenderer.invoke('get-store', key, defaultValue);
     },
-    set(key: string, val: any) {
-      ipcRenderer.sendSync('set-store', key, val);
+    set(key: string, val: any): Promise<void> {
+      return ipcRenderer.invoke('set-store', key, val);
     },
+    delete: (key: string) => ipcRenderer.send('electron-store-delete', key),
   },
   mcp: {
     init() {
@@ -153,6 +199,14 @@ const electronHandler = {
       return ipcRenderer.invoke('mcp-get-active-servers');
     },
   },
+  prompts: {
+    get() {
+      return ipcRenderer.invoke('prompts:get');
+    },
+    refresh() {
+      return ipcRenderer.invoke('prompts:refresh');
+    }
+  },
   crypto: {
     encrypt(text: string, key: string) {
       return ipcRenderer.invoke('encrypt', text, key);
@@ -166,6 +220,9 @@ const electronHandler = {
   },
   openExternal(url: string) {
     return ipcRenderer.invoke('open-external', url);
+  },
+  getMediaAccessStatus(mediaType: 'camera' | 'microphone' | 'screen') {
+    return ipcRenderer.invoke('get-media-access-status', mediaType);
   },
   getUserDataPath(paths?: string[]) {
     return ipcRenderer.invoke('get-user-data-path', paths);
@@ -236,28 +293,39 @@ const electronHandler = {
   setNativeTheme: (theme: 'light' | 'dark' | 'system') =>
     ipcRenderer.invoke('set-native-theme', theme),
   ingestEvent: (data: any) => ipcRenderer.invoke('ingest-event', data),
+  // Add proxy function for Replicate API calls
+  proxyReplicate: (options: { url: string, method: string, headers: Record<string, string>, body?: string }) => {
+    return ipcRenderer.invoke('proxy-replicate', options);
+  },
   ipcRenderer: {
     sendMessage(channel: Channels, ...args: unknown[]) {
       ipcRenderer.send(channel, ...args);
     },
-    on(channel: Channels, func: (...args: unknown[]) => void) {
-      const subscription = (_event: IpcRendererEvent, ...args: unknown[]) =>
-        func(...args);
+    on(channel: Channels, func: (...args: unknown[]) => void): () => void {
+      const subscription = (_event: IpcRendererEvent, ...args: unknown[]) => func(...args);
       ipcRenderer.on(channel, subscription);
-
       return () => {
+        console.log(`[Preload] Removing listener for channel: ${channel}`);
         ipcRenderer.removeListener(channel, subscription);
       };
     },
     once(channel: Channels, func: (...args: unknown[]) => void) {
       ipcRenderer.once(channel, (_event, ...args) => func(...args));
     },
-    unsubscribe(channel: Channels, func: (...args: unknown[]) => void) {
-      ipcRenderer.removeListener(channel, func);
+    invoke(channel: Channels, ...args: unknown[]): Promise<any> {
+      return ipcRenderer.invoke(channel, ...args);
     },
-    unsubscribeAll(channel: Channels) {
+    unsubscribe(channel: Channels): void {
+      console.log(`[Preload] Removing all listeners for channel: ${channel}`);
       ipcRenderer.removeAllListeners(channel);
     },
+  },
+  fetchAudioData: (url: string): Promise<string> => {
+    console.log(`[Preload] Invoking fetch-audio-data for: ${url}`);
+    return ipcRenderer.invoke('fetch-audio-data', url);
+  },
+  fetchRemoteConfig: (url: string): Promise<any> => {
+    return ipcRenderer.invoke('fetch-remote-config', url);
   },
 };
 
@@ -271,5 +339,13 @@ const envVars = {
 };
 contextBridge.exposeInMainWorld('envVars', envVars);
 
-export type ElectronHandler = typeof electronHandler;
+export type ElectronHandler = Omit<typeof electronHandler, 'ipcRenderer'> & {
+  ipcRenderer: {
+    sendMessage: (channel: Channels, ...args: unknown[]) => void;
+    on: (channel: Channels, func: (...args: unknown[]) => void) => () => void;
+    once: (channel: Channels, func: (...args: unknown[]) => void) => void;
+    invoke: (channel: Channels, ...args: unknown[]) => Promise<any>;
+    unsubscribe: (channel: Channels) => void;
+  };
+};
 export type EnvVars = typeof envVars;

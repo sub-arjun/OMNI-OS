@@ -12,6 +12,7 @@ import {
   makeStyles,
   OptionOnSelectData,
   SelectionEvents,
+  Tooltip,
 } from '@fluentui/react-components';
 import Mousetrap from 'mousetrap';
 import { useState, useEffect } from 'react';
@@ -129,10 +130,10 @@ export default function KnowledgeCtrl({
     loadSelectedCollections();
     
     // Setup keyboard shortcuts
-    Mousetrap.bind('mod+shift+3', () => setIsDialogOpen(true));
+    Mousetrap.bind('shift+alt+k', () => setIsDialogOpen(true));
     
     return () => {
-      Mousetrap.unbind('mod+shift+3');
+      Mousetrap.unbind('shift+alt+k');
       Mousetrap.unbind('esc');
     };
   }, [chat.id, listChatCollections]);
@@ -226,18 +227,28 @@ export default function KnowledgeCtrl({
   
   return (
     <div>
-      <Button
-        title="Mod+Shift+3"
-        aria-label={t('Common.Knowledge')}
-        className="justify-start text-color-secondary"
-        style={{ padding: 1, minWidth: 20, borderColor: 'transparent', boxShadow: 'none' }}
-        icon={<KnowledgeIcon />}
-        size="small"
-        appearance="subtle"
-        onClick={openDialog}
+      <Tooltip 
+        content={
+          <div>
+            <div style={{ fontWeight: 'bold', marginBottom: '3px' }}>{t('Common.Knowledge')}</div>
+            <div>Attach knowledge sources to search for relevant context (Shift+Alt+K)</div>
+          </div>
+        } 
+        relationship="description"
+        positioning="above"
       >
-        {selectedCollections.length > 0 && selectedCollections.length}
-      </Button>
+        <Button
+          aria-label={t('Common.Knowledge')}
+          className="justify-start text-color-secondary"
+          style={{ padding: 1, minWidth: 20, borderColor: 'transparent', boxShadow: 'none' }}
+          icon={<KnowledgeIcon />}
+          size="small"
+          appearance="subtle"
+          onClick={openDialog}
+        >
+          {selectedCollections.length > 0 && selectedCollections.length}
+        </Button>
+      </Tooltip>
 
       <Dialog open={isDialogOpen} onOpenChange={(event, data) => data.open === false && closeDialog()}>
         <DialogSurface style={{ width: '500px', maxWidth: '90vw' }}>

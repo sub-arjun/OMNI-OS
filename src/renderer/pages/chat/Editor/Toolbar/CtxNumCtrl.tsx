@@ -8,11 +8,12 @@ import {
   Slider,
   SliderOnChangeData,
   PopoverProps,
+  Tooltip,
 } from '@fluentui/react-components';
 import {
   bundleIcon,
-  AttachText20Regular,
-  AttachText20Filled,
+  History20Regular,
+  History20Filled,
 } from '@fluentui/react-icons';
 import { useState, ChangeEvent, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -26,7 +27,7 @@ import { MIN_CTX_MESSAGES, MAX_CTX_MESSAGES, NUM_CTX_MESSAGES } from 'consts';
 
 const debug = Debug('OMNI-OS:pages:chat:Editor:Toolbar:CtxNumCtrl');
 
-const AttacheTextIcon = bundleIcon(AttachText20Filled, AttachText20Regular);
+const HistoryIcon = bundleIcon(History20Filled, History20Regular);
 
 export default function CtxNumCtrl({
   ctx,
@@ -74,29 +75,38 @@ export default function CtxNumCtrl({
   return (
     <Popover trapFocus withArrow open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger disableButtonEnhancement>
-        <Button
-          size="small"
-          title="Mod+Shift+6"
-          aria-label={t('Common.Temperature')}
-          appearance="subtle"
-          icon={<AttacheTextIcon className="mr-0" />}
-          className="justify-start text-color-secondary flex-shrink-0"
-          style={{
-            padding: 1,
-            minWidth: 30,
-            borderColor: 'transparent',
-            boxShadow: 'none',
-          }}
+        <Tooltip
+          content={
+            <div>
+              <div style={{ fontWeight: 'bold', marginBottom: '3px' }}>{t('Common.MaxNumOfContextMessages')}</div>
+              <div>{t('Tooltip.CtxNumDesc')} {t('Tooltip.CtxNumShortcut')}</div>
+              <div style={{ marginTop: '3px', fontSize: '12px' }}>
+                {t('Tooltip.CurrentMessages', { count: ctxMessages })}
+              </div>
+            </div>
+          }
+          relationship="description"
+          positioning="above"
         >
-          <span className="latin">{ctxMessages}</span>
-        </Button>
+          <Button
+            size="small"
+            icon={<HistoryIcon />}
+            aria-label={t('Common.MaxNumOfContextMessages')}
+            appearance="subtle"
+            style={{ borderColor: 'transparent', boxShadow: 'none' }}
+            className="text-color-secondary justify-center"
+          >
+            {ctxMessages}
+          </Button>
+        </Tooltip>
       </PopoverTrigger>
       <PopoverSurface aria-labelledby="temperature">
-        <div className="w-80">
+        <div className="w-80 flex flex-col items-center p-2">
           <Field
             label={`${t('Common.MaxNumOfContextMessages')} (${ctxMessages})`}
+            className="w-full"
           >
-            <div className="flex items-center p-1.5">
+            <div className="flex items-center p-1.5 w-full">
               <Label aria-hidden>{MIN_CTX_MESSAGES}</Label>
               <Slider
                 id="chat-max-context"
@@ -104,7 +114,7 @@ export default function CtxNumCtrl({
                 min={MIN_CTX_MESSAGES}
                 max={MAX_CTX_MESSAGES}
                 value={ctxMessages}
-                className="flex-grow"
+                className="flex-grow mx-2"
                 onChange={updateCtxMessages}
               />
               <Label aria-hidden>{MAX_CTX_MESSAGES}</Label>

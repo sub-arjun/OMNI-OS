@@ -178,6 +178,7 @@ export interface IChat {
   prompt: IPrompt | string | null;
   input: string | null;
   isPersisted?: boolean;
+  folderId?: string | null;
 }
 
 export interface IChatMessage {

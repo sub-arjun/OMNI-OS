@@ -65,6 +65,9 @@ export default function DeepThoughtCtrl({
   
   // Handle button click
   const toggleDeepThought = () => {
+    // Get current input value to preserve it
+    const currentInput = useChatStore.getState().chat.input || '';
+    
     if (!deepThoughtEnabled) {
       // Enable Deep Thought
       
@@ -94,7 +97,9 @@ export default function DeepThoughtCtrl({
           systemMessage: systemMessageRef.current,
           temperature: temperatureRef.current,
           maxTokens: maxTokensRef.current,
-          maxCtxMessages: maxCtxMessagesRef.current
+          maxCtxMessages: maxCtxMessagesRef.current,
+          // Preserve the current input text
+          input: currentInput
         });
       }
     } else {
@@ -103,22 +108,24 @@ export default function DeepThoughtCtrl({
       // Clear the specialized model
       setSpecializedModel(null);
       
-      // Enable OMNI Agent (previously AUTO/Agent)
+      // Enable Agent02 (previously AUTO/Agent)
       setAutoEnabled(true);
       
-      // Get the OMNI Agent model
+      // Get the Agent02 model
       const agentModel = allModels.find(model => model.autoEnabled === true || model.agentEnabled === true);
       
-      // Switch back to OMNI Agent model
+      // Switch back to Agent02 model
       if (agentModel) {
-        // Switch to OMNI Agent model with the same settings
+        // Switch to Agent02 model with the same settings
         editStage(chat.id, { 
           model: agentModel.label,
           // Keep the same settings
           systemMessage: systemMessageRef.current,
           temperature: temperatureRef.current,
           maxTokens: maxTokensRef.current,
-          maxCtxMessages: maxCtxMessagesRef.current
+          maxCtxMessages: maxCtxMessagesRef.current,
+          // Preserve the current input text
+          input: currentInput
         });
       }
     }
@@ -141,40 +148,54 @@ export default function DeepThoughtCtrl({
   
   // Add an effect to handle switching back after receiving a response
   useEffect(() => {
+    // Store the current messages in a ref to avoid dependency changes
     const currentMessages = useChatStore.getState().messages;
+    
+    // Skip if not enabled or no new messages
     if (!deepThoughtEnabled || currentMessages.length <= messageCount) {
       return;
     }
+    
+    // Get current input value to preserve it
+    const currentInput = useChatStore.getState().chat.input || '';
     
     // Check if we have both prompt messages and replies
     const userMessageCount = currentMessages.filter(m => m.prompt && m.prompt.trim() !== '').length;
     const assistantMessageCount = currentMessages.filter(m => m.reply && m.reply.trim() !== '').length;
     
-    // Only switch back if we've received a response
+    // Only switch back if we've received a response and store the action in a ref
     if (userMessageCount > 0 && assistantMessageCount > 0 && assistantMessageCount >= userMessageCount - 1) {
+      // Use a timeout to avoid React render cycle issues
+      const timeoutId = setTimeout(() => {
       // Disable Deep Thought
       setSpecializedModel(null);
       
-      // Enable OMNI Agent
+        // Enable Agent02
       setAutoEnabled(true);
       
-      // Get the OMNI Agent model
+        // Get the Agent02 model
       const agentModel = allModels.find(model => model.autoEnabled === true || model.agentEnabled === true);
       
-      // Switch back to OMNI Agent model
+        // Switch back to Agent02 model
       if (agentModel) {
-        // Switch to OMNI Agent model with the same settings
+          // Switch to Agent02 model with the same settings
         editStage(chat.id, { 
           model: agentModel.label,
           // Keep the same settings
           systemMessage: systemMessageRef.current,
           temperature: temperatureRef.current,
           maxTokens: maxTokensRef.current,
-          maxCtxMessages: maxCtxMessagesRef.current
+          maxCtxMessages: maxCtxMessagesRef.current,
+          // Preserve the current input text
+          input: currentInput
         });
       }
+      }, 100);
+      
+      return () => clearTimeout(timeoutId);
     }
-  }, [messages, messageCount, deepThoughtEnabled, chat.id, editStage, setSpecializedModel, setAutoEnabled, allModels]);
+  // Only depend on messageCount changes and deepThoughtEnabled to avoid continuous re-renders
+  }, [messageCount, deepThoughtEnabled, chat.id, editStage, setSpecializedModel, setAutoEnabled, allModels]);
   
   // Always render the component, even if the model isn't found
   return (
@@ -189,7 +210,7 @@ export default function DeepThoughtCtrl({
                 <li>Excels at complex problem-solving</li>
                 <li>Provides balanced, thoughtful responses</li>
               </ul>
-              <p className="text-xs italic mt-2">Returns to OMNI Agent after use</p>
+              <p className="text-xs italic mt-2">Returns to Agent02 after use</p>
             </div>
           ),
         }}

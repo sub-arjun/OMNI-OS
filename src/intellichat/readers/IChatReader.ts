@@ -22,4 +22,9 @@ export default interface IChatReader {
     onProgress: (chunk: string, reasoning?: string) => void;
     onToolCalls: (toolCalls: any) => void;
   }): Promise<IReadResult>;
+
+  /**
+   * Optional cleanup method to release resources and prevent memory leaks
+   */
+  cleanup?(): void;
 }

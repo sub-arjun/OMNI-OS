@@ -50,6 +50,7 @@ const useAppearanceStore = create<IAppearanceStore>((set, get) => ({
   toggleChatSidebarVisibility: () => {
     set((state) => {
       const show = !state.chatSidebar.show;
+      console.log(`AppearanceStore: Toggling chatSidebar visibility to: ${show}`);
       localStorage.setItem('chat-sidebar-show', String(show));
       window.electron.ingestEvent([{ app: 'toggle-chat-sidebar-visibility' }]);
       return { chatSidebar: { show } };

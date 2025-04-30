@@ -131,7 +131,8 @@ export default function useProvider() {
     
     return Object.keys(provider.chat.models).map((modelKey) => {
       const model = provider.chat.models[modelKey];
-      model.label = modelKey;
+      // Preserve the provider-defined label if it exists, otherwise fall back to the key
+      model.label = model.label || modelKey;
       return model;
     });
   }

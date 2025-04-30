@@ -25,6 +25,7 @@ function createTableChats() {
     "prompt" TEXT,
     "input" TEXT,
     "createdAt" integer,
+    "folderId" text(31) NULL,
     PRIMARY KEY ("id")
   )`,
     )
@@ -174,6 +175,19 @@ function createTableChatKnowledgeRels() {
     .run();
 }
 
+function createTableChatFolders() {
+  database
+    .prepare(
+      `CREATE TABLE IF NOT EXISTS "chat_folders" (
+      "id" text(31) NOT NULL,
+      "name" text NOT NULL,
+      "createdAt" integer,
+      PRIMARY KEY ("id")
+    )`,
+    )
+    .run();
+}
+
 function alertTableChats() {
   const columns = database.prepare(`PRAGMA table_info(chats)`).all();
   const hasPromptColumn = columns.some(
@@ -272,6 +286,19 @@ function alterTableKnowledgeCollectionsAddOMNIBase() {
   }
 }
 
+function alterTableChatsAddFolderId() {
+  const columns = database.prepare(`PRAGMA table_info(chats)`).all();
+  const hasFolderIdColumn = columns.some(
+    (column: any) => column.name === 'folderId',
+  );
+  if (!hasFolderIdColumn) {
+    database.prepare(`ALTER TABLE chats ADD COLUMN folderId TEXT`).run();
+    logging.debug('Added [folderId] column to [chats] table');
+  } else {
+    logging.debug('[folderId] column already exists in [chats] table');
+  }
+}
+
 const initDatabase = database.transaction(() => {
   logging.debug('Init database...');
 
@@ -284,6 +311,7 @@ const initDatabase = database.transaction(() => {
   createTableKnowledgeCollections();
   createTableKnowledgeFiles();
   createTableChatKnowledgeRels();
+  createTableChatFolders();
   // v0.9.6
   alertTableChats();
   // v.0.9.7
@@ -293,6 +321,8 @@ const initDatabase = database.transaction(() => {
   alertTableMessagesCitations();
   // Add OMNIBase columns
   alterTableKnowledgeCollectionsAddOMNIBase();
+  // Add folder support
+  alterTableChatsAddFolderId();
   logging.info('Database initialized.');
 });
 
@@ -303,6 +333,10 @@ ipcMain.handle('db-all', (event, data) => {
   const { sql, params } = data;
   logging.debug('db-all', sql, params);
   try {
+    // If params is null or undefined, call .all() without parameters
+    if (params === null || params === undefined) {
+      return database.prepare(sql).all();
+    }
     return database.prepare(sql).all(params);
   } catch (err: any) {
     logging.captureException(err);
@@ -342,7 +376,12 @@ ipcMain.handle('db-run', (_, data) => {
     }
     
     // Proceed with normal operation
-    database.prepare(sql).run(params);
+    // If params is null or undefined, call .run() without parameters
+    if (params === null || params === undefined) {
+      database.prepare(sql).run();
+    } else {
+      database.prepare(sql).run(params);
+    }
     return true;
   } catch (err: any) {
     logging.captureException(err);
@@ -423,6 +462,10 @@ ipcMain.handle('db-get', (_, data) => {
   const { sql, id } = data;
   logging.debug('db-get', sql, id);
   try {
+    // If id is null or undefined, call .get() without parameters
+    if (id === null || id === undefined) {
+      return database.prepare(sql).get();
+    }
     return database.prepare(sql).get(id);
   } catch (err: any) {
     logging.captureException(err);

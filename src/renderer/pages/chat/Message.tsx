@@ -29,6 +29,32 @@ import {
 
 const debug = Debug('OMNI-OS:pages:chat:Message');
 
+// Define the array of thinking phrases - Funny OMNI Theme
+const thinkingPhrases = [
+  "Recalibrating the OMNI-matrix...",
+  "Accessing OMNI's vast neural net... careful, it tickles!",
+  "Engaging OMNI-warp drive... prepare for insight!",
+  "OMNI is processing... please hold while awesome is compiled.",
+  "Consulting the OMNI-codex for optimal results...",
+  "OMNI-bots are assembling your answer...",
+  "Running OMNI-simulations... probability of success: high!",
+  "Charging the OMNI-capacitors... Zzzzt!",
+  "Polishing the OMNI-crystal ball (it's digital, mostly)...",
+  "OMNI's gears are turning (metaphorically, of course)...",
+  "Decoding the OMNI-stream of consciousness...",
+  "Just conferring with the OMNI hive-mind...",
+  "OMNI is thinking... so you don't have to (as hard)!",
+  "Activating OMNI-level analysis protocols...",
+  "Unpacking OMNI-knowledge... handle with care!",
+  "OMNI-gnostic circuits engaged!",
+  "Searching the OMNI-verse for enlightenment...",
+  "Tuning the OMNI-frequencies for maximum clarity...",
+];
+
+// Helper function to get a random phrase
+const getRandomThinkingPhrase = () => 
+  thinkingPhrases[Math.floor(Math.random() * thinkingPhrases.length)];
+
 export default function Message({ message }: { message: IChatMessage }) {
   const { t } = useTranslation();
   const { notifyInfo } = useToast();
@@ -36,6 +62,15 @@ export default function Message({ message }: { message: IChatMessage }) {
   const keywords = useChatStore((state: any) => state.keywords);
   const states = useChatStore().getCurState();
   const { showCitation } = useKnowledgeStore();
+  const [isReasoning, setIsReasoning] = useState(true);
+  const [reasoningSeconds, setReasoningSeconds] = useState(0);
+  const [isReasoningShow, setIsReasoningShow] = useState(false);
+  const messageRef = useRef(message);
+  const isReasoningRef = useRef(isReasoning);
+  const reasoningInterval = useRef<NodeJS.Timeout | null>(null);
+  const reasoningRef = useRef('');
+  const replyRef = useRef('');
+
   const keyword = useMemo(
     () => keywords[message.chatId],
     [keywords, message.chatId],
@@ -156,15 +191,6 @@ export default function Message({ message }: { message: IChatMessage }) {
 
   const [reply, setReply] = useState('');
   const [reasoning, setReasoning] = useState('');
-
-  const [isReasoning, setIsReasoning] = useState(true);
-  const [reasoningSeconds, setReasoningSeconds] = useState(0);
-  const [isReasoningShow, setIsReasoningShow] = useState(false);
-  const messageRef = useRef(message);
-  const isReasoningRef = useRef(isReasoning);
-  const reasoningInterval = useRef<NodeJS.Timeout | null>(null);
-  const reasoningRef = useRef('');
-  const replyRef = useRef('');
 
   useEffect(() => {
     messageRef.current = message;
@@ -294,6 +320,12 @@ export default function Message({ message }: { message: IChatMessage }) {
         ) : null}
         {isLoading && isEmpty ? (
           <>
+            {/* Randomly display a thinking phrase ~40% of the time */}
+            {Math.random() < 0.4 && (
+              <div className="thinking-indicator text-sm text-gray-500 dark:text-gray-400 italic mb-1">
+                {getRandomThinkingPhrase()} 
+              </div>
+            )}
             <span className="skeleton-box" style={{ width: '80%' }} />
             <span className="skeleton-box" style={{ width: '90%' }} />
           </>
@@ -356,7 +388,10 @@ export default function Message({ message }: { message: IChatMessage }) {
   ]);
 
   return (
-    <div className="leading-6 message" id={message.id}>
+    <div 
+      className={`leading-6 message ${message.isActive ? 'streaming-active' : ''}`}
+      id={message.id}
+    >
       <div>
         <a
           id={`prompt-${message.id}`}
@@ -476,6 +511,32 @@ export default function Message({ message }: { message: IChatMessage }) {
         
         <MessageToolbar message={message} />
       </div>
+      <style>{`
+        @keyframes subtleGlow {
+          0% { box-shadow: 0 0 3px rgba(var(--shadow-color-rgb), 0.1); }
+          50% { box-shadow: 0 0 10px rgba(var(--shadow-color-rgb), 0.3); }
+          100% { box-shadow: 0 0 3px rgba(var(--shadow-color-rgb), 0.1); }
+        }
+        
+        /* Target .msg-reply descendant within .streaming-active */
+        .streaming-active .msg-reply {
+          animation: subtleGlow 1.8s ease-in-out infinite;
+          border-radius: var(--borderRadiusMedium); /* Keep matching radius */
+          /* Define shadow color variable - adjust RGB values as needed */
+          /* Example: using a semi-transparent neutral color */
+          --shadow-color-rgb: 100, 100, 100; 
+        }
+
+        /* Dark mode adjustment for shadow */
+        .dark .streaming-active .msg-reply {
+          --shadow-color-rgb: 180, 180, 180; 
+        }
+        
+        /* Ensure blinking cursor is visible against pulsing background/glow */
+        .streaming-active .blinking-cursor {
+            background-color: var(--colorNeutralForeground1);
+        }
+      `}</style>
     </div>
   );
 }

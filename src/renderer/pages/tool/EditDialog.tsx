@@ -149,13 +149,19 @@ export default function ToolEditDialog(options: {
 
   useEffect(() => {
     if (open && server) {
-      // Set server details for editing
+      // Set server details for editing with explicit fallbacks
       console.log('Setting server details for editing:', server);
       setName(server.name || '');
-      setKey(server.key);
+      setKey(server.key || ''); // Fallback for key, though it should always exist
       setDescription(server.description || '');
-      setCommand([server.command, ...server.args].join(' '));
+      // Ensure command and args are arrays before joining, provide fallbacks
+      const cmdPart = server.command || '';
+      const argsPart = Array.isArray(server.args) ? server.args : [];
+      setCommand([cmdPart, ...argsPart].join(' ').trim()); 
       setEnv(server.env || {});
+      // Reset temp env fields when editing
+      setEnvName(''); 
+      setEnvValue('');
     } else if (open) {
       // Reset form for new server
       console.log('Resetting form for new server');
@@ -166,6 +172,11 @@ export default function ToolEditDialog(options: {
       setEnv({});
       setEnvName('');
       setEnvValue('');
+      setKeyValidationState('none');
+      setCommandValidationState('none');
+    }
+    // Ensure validation states are reset if dialog closes or server changes
+    if (!open) {
       setKeyValidationState('none');
       setCommandValidationState('none');
     }

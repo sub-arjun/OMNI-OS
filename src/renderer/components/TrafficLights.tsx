@@ -35,7 +35,7 @@ type TrafficLightButtonProps = {
 
 const TrafficLightButton = ({ message, children }: TrafficLightButtonProps) => (
   <button
-    style={{ width: 20, height: 20, position: 'relative' }}
+    style={{ width: 20, height: 20, position: 'relative', WebkitAppRegion: 'no-drag' } as React.CSSProperties}
     onClick={() => {
       window.electron.ipcRenderer.sendMessage(message);
     }}

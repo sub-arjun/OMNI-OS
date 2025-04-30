@@ -537,3 +537,13 @@ mark {
   background-color: rgba(var(--color-accent), 0.5);
   color: #000000 !important;
 }
+
+/* Add global spin animation */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.refresh-spin-animation {
+  animation: spin 1s linear infinite;
+}
