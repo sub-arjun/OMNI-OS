@@ -521,6 +521,30 @@ ipcMain.handle('select-image-with-base64', async () => {
   }
 });
 
+// Add handler to read PDF file content as base64
+ipcMain.handle('read-pdf-as-base64', async (_, filePath: string) => {
+  try {
+    const fileInfo: any = await getFileInfo(filePath);
+    if (fileInfo.size > MAX_FILE_SIZE) {
+      throw new Error(`File size exceeds the limit (${MAX_FILE_SIZE / (1024 * 1024)} MB)`);
+    }
+    
+    // Read the file as a buffer
+    const buffer = await fs.promises.readFile(filePath);
+    const base64 = buffer.toString('base64');
+    
+    return {
+      name: fileInfo.name,
+      size: fileInfo.size,
+      base64: `data:application/pdf;base64,${base64}`,
+    };
+  } catch (err: any) {
+    logging.error('Error reading PDF file:', err);
+    logging.captureException(err);
+    throw err;
+  }
+});
+
 ipcMain.handle(
   'search-knowledge',
   async (_, collectionIds: string[], query: string) => {

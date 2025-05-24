@@ -547,3 +547,44 @@ mark {
 .refresh-spin-animation {
   animation: spin 1s linear infinite;
 }
+
+/* Enable text selection for important content areas */
+.message,
+.message *,
+.message-content,
+.message-content *,
+.chat-content,
+.chat-content *,
+.markdown-body,
+.markdown-body *,
+.hljs,
+.hljs *,
+pre,
+pre *,
+code,
+code *,
+p,
+span,
+div.text,
+.selectable,
+.selectable * {
+  user-select: text !important;
+  -webkit-user-select: text !important;
+  -moz-user-select: text !important;
+  -ms-user-select: text !important;
+}
+
+/* Ensure the main content area allows text selection */
+main,
+.main-content,
+.content-wrapper {
+  user-select: text !important;
+  -webkit-user-select: text !important;
+}
+
+/* Override any drag regions that might interfere with text selection */
+.message-container,
+.chat-messages,
+.chat-container {
+  -webkit-app-region: no-drag !important;
+}

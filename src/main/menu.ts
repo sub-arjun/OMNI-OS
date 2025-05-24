@@ -19,12 +19,8 @@ export default class MenuBuilder {
   }
 
   buildMenu(): Menu {
-    if (
-      process.env.NODE_ENV === 'development' ||
-      process.env.DEBUG_PROD === 'true'
-    ) {
-      this.setupDevelopmentEnvironment();
-    }
+    // Setup context menu for both development and production
+    this.setupContextMenu();
 
     const template =
       process.platform === 'darwin'
@@ -37,19 +33,78 @@ export default class MenuBuilder {
     return menu;
   }
 
-  setupDevelopmentEnvironment(): void {
+  setupContextMenu(): void {
     this.mainWindow.webContents.on('context-menu', (_, props) => {
-      const { x, y } = props;
+      const { x, y, selectionText, isEditable } = props;
+      const hasText = selectionText.trim().length > 0;
 
-      Menu.buildFromTemplate([
-        {
+      const menuItems: MenuItemConstructorOptions[] = [];
+
+      // Add copy option if text is selected
+      if (hasText) {
+        menuItems.push({
+          label: 'Copy',
+          accelerator: process.platform === 'darwin' ? 'Command+C' : 'Ctrl+C',
+          role: 'copy',
+        });
+      }
+
+      // Add paste option for editable fields
+      if (isEditable) {
+        menuItems.push({
+          label: 'Paste',
+          accelerator: process.platform === 'darwin' ? 'Command+V' : 'Ctrl+V',
+          role: 'paste',
+        });
+      }
+
+      // Add cut option for editable fields with selected text
+      if (hasText && isEditable) {
+        menuItems.unshift({
+          label: 'Cut',
+          accelerator: process.platform === 'darwin' ? 'Command+X' : 'Ctrl+X',
+          role: 'cut',
+        });
+      }
+
+      // Add select all option
+      if (isEditable || hasText) {
+        if (menuItems.length > 0) {
+          menuItems.push({ type: 'separator' });
+        }
+        menuItems.push({
+          label: 'Select All',
+          accelerator: process.platform === 'darwin' ? 'Command+A' : 'Ctrl+A',
+          role: 'selectAll',
+        });
+      }
+
+      // Add developer tools option in development mode
+      if (
+        process.env.NODE_ENV === 'development' ||
+        process.env.DEBUG_PROD === 'true'
+      ) {
+        if (menuItems.length > 0) {
+          menuItems.push({ type: 'separator' });
+        }
+        menuItems.push({
           label: 'Inspect element',
           click: () => {
             this.mainWindow.webContents.inspectElement(x, y);
           },
-        },
-      ]).popup({ window: this.mainWindow });
+        });
+      }
+
+      // Only show menu if there are items to show
+      if (menuItems.length > 0) {
+        Menu.buildFromTemplate(menuItems).popup({ window: this.mainWindow });
+      }
     });
+  }
+
+  setupDevelopmentEnvironment(): void {
+    // This method is now deprecated in favor of setupContextMenu
+    // Keeping it empty for backward compatibility
   }
 
   buildDarwinTemplate(): MenuItemConstructorOptions[] {
