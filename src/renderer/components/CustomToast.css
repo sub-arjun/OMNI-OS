@@ -1,0 +1,138 @@
+.custom-toast-container {
+  position: fixed;
+  top: 25px;
+  right: 20px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 400px;
+}
+
+.custom-toast {
+  display: flex;
+  align-items: flex-start;
+  padding: 12px 16px;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  background: white;
+  border: 1px solid;
+  animation: slideIn 0.3s ease-out;
+  min-width: 300px;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.custom-toast--error {
+  border-color: #c42b1c;
+  background-color: #fdf3f4;
+}
+
+.custom-toast--warning {
+  border-color: #f7630c;
+  background-color: #fff9f5;
+}
+
+.custom-toast--info {
+  border-color: #0078d4;
+  background-color: #f3f9ff;
+}
+
+.custom-toast--success {
+  border-color: #107c10;
+  background-color: #f1faf1;
+}
+
+.custom-toast__content {
+  flex: 1;
+  margin-right: 8px;
+}
+
+.custom-toast__title {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.custom-toast--error .custom-toast__title {
+  color: #c42b1c;
+}
+
+.custom-toast--warning .custom-toast__title {
+  color: #f7630c;
+}
+
+.custom-toast--info .custom-toast__title {
+  color: #0078d4;
+}
+
+.custom-toast--success .custom-toast__title {
+  color: #107c10;
+}
+
+.custom-toast__message {
+  color: #323130;
+  font-size: 14px;
+}
+
+.custom-toast__close {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  color: #605e5c;
+}
+
+.custom-toast__close:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+/* Dark theme support */
+[data-theme="dark"] .custom-toast {
+  background: #1f1f1f;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="dark"] .custom-toast--error {
+  background-color: #442726;
+  border-color: #ff99a4;
+}
+
+[data-theme="dark"] .custom-toast--warning {
+  background-color: #4a2e1f;
+  border-color: #ffc470;
+}
+
+[data-theme="dark"] .custom-toast--info {
+  background-color: #1f3b5c;
+  border-color: #6cb8f6;
+}
+
+[data-theme="dark"] .custom-toast--success {
+  background-color: #1d3a1d;
+  border-color: #92c353;
+}
+
+[data-theme="dark"] .custom-toast__message {
+  color: #f3f2f1;
+}
+
+[data-theme="dark"] .custom-toast__close {
+  color: #c8c6c4;
+}
+
+[data-theme="dark"] .custom-toast__close:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+} 

@@ -4,12 +4,13 @@ import { MemoryRouter as Router, Routes, Route, Navigate } from 'react-router-do
 import { captureException } from '../logging';
 import {
   FluentProvider,
-  Toaster,
   BrandVariants,
   createLightTheme,
   Theme,
   createDarkTheme,
+  IdPrefixProvider,
 } from '@fluentui/react-components';
+import { CustomToastProvider } from './CustomToast';
 import useSettingsStore from '../../stores/useSettingsStore';
 import useAppearanceStore from '../../stores/useAppearanceStore';
 import AppHeader from './layout/AppHeader';
@@ -166,7 +167,8 @@ export default function FluentApp() {
   }, []);
 
   useEffect(() => {
-    const handleThemeChange = (theme: 'light' | 'dark') => {
+    const handleThemeChange = (...args: unknown[]) => {
+      const theme = args[0] as 'light' | 'dark';
       setTheme(theme);
     };
 
@@ -208,50 +210,53 @@ export default function FluentApp() {
   }, [themeSettings, setTheme]);
 
   return (
-    <FluentProvider
-      theme={theme === 'light' ? lightTheme : darkTheme}
-      data-theme={theme}
-      className={`theme-${theme}`}
-    >
-      <Router>
-        {user && <AppHeader />}
-        <Toaster toasterId="toaster" limit={5} offset={{ vertical: 25 }} />
-        <div className="relative flex h-screen w-full overflow-hidden main-container">
-          {user && <AppSidebar />}
-          <main className="relative px-5 flex h-full w-full flex-col overflow-hidden">
-            <Routes>
-              {/* Public routes that don't require authentication */}
-              <Route path="/user/login" element={<Login />} />
-              <Route path="/user/register" element={<ComingSoonAuth />} />
-              
-              {/* Protected routes that require authentication */}
-              <Route element={<ProtectedRoute />}>
-                <Route index element={<Chat />} />
-                <Route path="/chats/:id?/:anchor?" element={<Chat />} />
-                <Route path="/knowledge" element={<Knowledge />} />
-                <Route
-                  path="/knowledge/collection-form/:id?"
-                  element={<KnowledgeCollectionForm />}
-                />
-                <Route path="/tool/:id?" element={<Tool />} />
-                <Route path="/apps/:key" element={<AppLoader />} />
-                <Route path="/bookmarks" element={<Bookmarks />} />
-                <Route path="/bookmark/:id" element={<Bookmark />} />
-                <Route path="/usage" element={<Usage />} />
-                <Route path="/user/account" element={<Account />} />
-                <Route path="/prompts" element={<Prompts />} />
-                <Route path="/prompts/form/:id?" element={<PromptForm />} />
-                <Route path="/settings" element={<Settings />} />
-              </Route>
-              <Route path="*" element={<Navigate to="/chats" replace />} />
-            </Routes>
-            <div
-              id="portal"
-              style={{ zIndex: 9999999, position: 'absolute' }}
-            ></div>
-          </main>
-        </div>
-      </Router>
-    </FluentProvider>
+    <IdPrefixProvider value="omni-os-">
+      <FluentProvider
+        theme={theme === 'light' ? lightTheme : darkTheme}
+        data-theme={theme}
+        className={`theme-${theme}`}
+      >
+        <CustomToastProvider>
+          <Router>
+            {user && <AppHeader />}
+            <div className="relative flex h-screen w-full overflow-hidden main-container">
+              {user && <AppSidebar />}
+              <main className="relative px-5 flex h-full w-full flex-col overflow-hidden">
+                <Routes>
+                  {/* Public routes that don't require authentication */}
+                  <Route path="/user/login" element={<Login />} />
+                  <Route path="/user/register" element={<ComingSoonAuth />} />
+                  
+                  {/* Protected routes that require authentication */}
+                  <Route element={<ProtectedRoute />}>
+                    <Route index element={<Chat />} />
+                    <Route path="/chats/:id?/:anchor?" element={<Chat />} />
+                    <Route path="/knowledge" element={<Knowledge />} />
+                    <Route
+                      path="/knowledge/collection-form/:id?"
+                      element={<KnowledgeCollectionForm />}
+                    />
+                    <Route path="/tool/:id?" element={<Tool />} />
+                    <Route path="/apps/:key" element={<AppLoader />} />
+                    <Route path="/bookmarks" element={<Bookmarks />} />
+                    <Route path="/bookmark/:id" element={<Bookmark />} />
+                    <Route path="/usage" element={<Usage />} />
+                    <Route path="/user/account" element={<Account />} />
+                    <Route path="/prompts" element={<Prompts />} />
+                    <Route path="/prompts/form/:id?" element={<PromptForm />} />
+                    <Route path="/settings" element={<Settings />} />
+                  </Route>
+                  <Route path="*" element={<Navigate to="/chats" replace />} />
+                </Routes>
+                <div
+                  id="portal"
+                  style={{ zIndex: 9999999, position: 'absolute' }}
+                ></div>
+              </main>
+            </div>
+          </Router>
+        </CustomToastProvider>
+      </FluentProvider>
+    </IdPrefixProvider>
   );
 }

@@ -20,6 +20,19 @@ export default class GoogleReader extends BaseReader {
   protected parseReply(chunk: string): IChatResponseMessage {
     let _chunk = chunk.trim();
     try {
+      // Handle SSE (Server-Sent Events) format from OpenRouter
+      if (_chunk.startsWith('data: ')) {
+        _chunk = _chunk.substring(6).trim();
+      }
+      
+      // Skip empty chunks or [DONE] markers
+      if (!_chunk || _chunk === '[DONE]') {
+        return {
+          content: '',
+          isEnd: _chunk === '[DONE]',
+        };
+      }
+      
       const data = JSON.parse(_chunk);
       
       // Handle OpenRouter format for all model types
@@ -99,6 +112,12 @@ export default class GoogleReader extends BaseReader {
       }
     } catch (err) {
       console.error('Error parsing JSON:', err);
+      // Log the problematic chunk for debugging
+      if (_chunk.length < 200) {
+        console.error('Problematic chunk:', _chunk);
+      } else {
+        console.error('Problematic chunk (truncated):', _chunk.substring(0, 200) + '...');
+      }
       return {
         content: '',
         isEnd: false,
@@ -276,25 +295,74 @@ export default class GoogleReader extends BaseReader {
           debug('Raw response chunk:', value.substring(0, 200) + (value.length > 200 ? '...' : ''));
         }
         
-        const items = extractFirstLevelBrackets(value);
-        for (const item of items) {
-          const response = this.parseReply(item);
-          content += response.content;
-          if (response.inputTokens) {
-            inputTokens = response.inputTokens;
-          }
-          if (response.outputTokens) {
-            outputTokens += response.outputTokens;
-          }
-          if (response.toolCalls) {
-            debug('Tool call detected in reader, raw data:', JSON.stringify(response.toolCalls).substring(0, 200));
-            tool = this.parseTools(response);
-            if (tool && tool.name) {
-              debug('Parsed tool with name:', tool.name, 'args:', JSON.stringify(tool.args));
-              onToolCalls(tool.name);
+        // Handle Server-Sent Events (SSE) format from OpenRouter
+        // Split by newlines to handle multiple data: lines
+        const lines = value.split('\n');
+        
+        for (const line of lines) {
+          const trimmedLine = line.trim();
+          
+          // Skip empty lines
+          if (!trimmedLine) continue;
+          
+          // Check if this is an SSE data line
+          if (trimmedLine.startsWith('data: ')) {
+            const dataContent = trimmedLine.substring(6).trim();
+            
+            // Skip [DONE] markers
+            if (dataContent === '[DONE]') {
+              done = true;
+              continue;
+            }
+            
+            // For SSE format, each data line should contain a complete JSON object
+            if (dataContent.startsWith('{') && dataContent.endsWith('}')) {
+              const response = this.parseReply(dataContent);
+              content += response.content;
+              if (response.inputTokens) {
+                inputTokens = response.inputTokens;
+              }
+              if (response.outputTokens) {
+                outputTokens += response.outputTokens;
+              }
+              if (response.toolCalls) {
+                debug('Tool call detected in reader, raw data:', JSON.stringify(response.toolCalls).substring(0, 200));
+                tool = this.parseTools(response);
+                if (tool && tool.name) {
+                  debug('Parsed tool with name:', tool.name, 'args:', JSON.stringify(tool.args));
+                  onToolCalls(tool.name);
+                }
+              }
+              onProgress(response.content || '');
+              
+              // Check if this response indicates the end
+              if (response.isEnd) {
+                done = true;
+              }
+            }
+          } else if (trimmedLine.startsWith('{')) {
+            // Handle non-SSE format (direct JSON)
+            const items = extractFirstLevelBrackets(trimmedLine);
+            for (const item of items) {
+              const response = this.parseReply(item);
+              content += response.content;
+              if (response.inputTokens) {
+                inputTokens = response.inputTokens;
+              }
+              if (response.outputTokens) {
+                outputTokens += response.outputTokens;
+              }
+              if (response.toolCalls) {
+                debug('Tool call detected in reader, raw data:', JSON.stringify(response.toolCalls).substring(0, 200));
+                tool = this.parseTools(response);
+                if (tool && tool.name) {
+                  debug('Parsed tool with name:', tool.name, 'args:', JSON.stringify(tool.args));
+                  onToolCalls(tool.name);
+                }
+              }
+              onProgress(response.content || '');
             }
           }
-          onProgress(response.content || '');
         }
       }
     } catch (err) {

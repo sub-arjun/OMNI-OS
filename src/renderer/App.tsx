@@ -3,7 +3,6 @@ import Debug from 'debug';
 import FluentApp from './components/FluentApp';
 import useAuthStore from 'stores/useAuthStore';
 import { useEffect } from 'react';
-import useToast from 'hooks/useToast';
 import { useTranslation } from 'react-i18next';
 import useKnowledgeStore from 'stores/useKnowledgeStore';
 import useMCPStore from 'stores/useMCPStore';
@@ -36,7 +35,6 @@ export default function App() {
   const setSession = useAuthStore((state) => state.setSession);
   const { loadConfig, updateLoadingState } = useMCPStore();
   const { onAuthStateChange } = useAuthStore();
-  const { notifyError } = useToast();
   const { t } = useTranslation();
   const { createFile } = useKnowledgeStore();
   const loadSettings = useSettingsStore((state) => state.loadSettings);
@@ -68,11 +66,13 @@ export default function App() {
       if (authData.accessToken && authData.refreshToken) {
         const { error } = await setSession(authData);
         if (error) {
-          notifyError(error.message);
+          console.error('Auth error:', error.message);
+          // Toast notification will be handled by the auth store or login component
         }
       } else {
         debug('🚩 Invalid Auth Data:', authData);
-        notifyError(t('Auth.Notification.LoginCallbackFailed'));
+        console.error('Invalid auth data:', t('Auth.Notification.LoginCallbackFailed'));
+        // Toast notification will be handled by the auth store or login component
       }
     });
     

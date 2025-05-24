@@ -39,7 +39,6 @@ import { css, cx } from '@emotion/css';
 import { ProviderType } from '@/types/llm';
 import { MenuButtonProps } from './MenuButton';
 import { useChat } from '@/renderer/hooks/useChat';
-import { useToast as useToastRenderer } from '@/renderer/hooks/useToast';
 
 const debug = Debug('OMNI:components:layout:aside:WorkspaceMenu');
 

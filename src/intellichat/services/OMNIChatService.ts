@@ -557,14 +557,6 @@ export default class OMNIChatService
         debug(`Specialized model request - Model: ${model.name}, Payload model: ${extendedPayload.model}`);
       }
       
-      // Ensure OMNI Agent uses the correct model and has agentEnabled flag
-      if (model.label === 'Agent02' && extendedPayload.model !== 'anthropic/claude-3.7-sonnet:beta') {
-        if (shouldLog) {
-          console.warn('OMNI Agent model mismatch detected - forcing correct model');
-        }
-        extendedPayload.model = 'anthropic/claude-3.7-sonnet:beta';
-      }
-      
       const response = await fetch(finalUrl.toString(), {
         method: 'POST',
         headers,
