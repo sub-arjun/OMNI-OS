@@ -1,6 +1,6 @@
 import fs from 'fs';
 import * as logging from './logging';
-import pdf from 'pdf-parse';
+const pdf = require('pdf-parse');
 import officeParser from 'officeparser';
 
 abstract class BaseLoader {

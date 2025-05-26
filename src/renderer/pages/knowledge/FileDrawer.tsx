@@ -20,7 +20,7 @@ import {
   DocumentArrowRight20Regular,
 } from '@fluentui/react-icons';
 import { useTranslation } from 'react-i18next';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import useToast from 'hooks/useToast';
 import { typeid } from 'typeid-js';
 import useKnowledgeStore from 'stores/useKnowledgeStore';
@@ -77,9 +77,16 @@ export default function FileDrawer({
     return Object.values(fileStatus).every((item) => item);
   }, [fileStatus]);
 
+  const componentMounted = useRef(true);
+
   useEffect(() => {
+    // Only run the effect when the drawer is open
+    if (!open) return;
+
     window.electron.embeddings.getModelFileStatus().then((fileStatus: any) => {
-      setFileStatus(fileStatus);
+      if (componentMounted.current) {
+        setFileStatus(fileStatus);
+      }
     });
     setFiles([]);
     setProgresses({});
@@ -87,10 +94,12 @@ export default function FileDrawer({
     // Listener for import progress
     const progressHandler = (filePath: unknown, total: unknown, done: unknown) => {
       const percent = Math.ceil(((done as number) / (total as number)) * 100);
-      setProgresses((prev) => ({
-        ...prev,
-        [filePath as string]: percent,
-      }));
+      if (componentMounted.current) {
+        setProgresses((prev) => ({
+          ...prev,
+          [filePath as string]: percent,
+        }));
+      }
     };
     
     // Store the cleanup function
@@ -100,14 +109,17 @@ export default function FileDrawer({
     );
 
     listFiles(collection.id).then((files: any[]) => {
-      setFileList(files);
+      if (componentMounted.current) {
+        setFileList(files);
+      }
     });
 
     return () => {
       console.log("Cleaning up knowledge-import-progress listener");
       cleanupProgressListener(); // Call the specific cleanup function
+      componentMounted.current = false;
     };
-  }, [collection]);
+  }, [collection, open, listFiles]);
 
   const importFiles = async (files: File[]) => {
     // Reset files
@@ -177,7 +189,9 @@ export default function FileDrawer({
               
               // Only update the file list after a successful file creation
               const updatedFiles = await listFiles(collection.id);
-              setFileList(updatedFiles);
+              if (componentMounted.current) {
+                setFileList(updatedFiles);
+              }
               
               // Only show success message for the first file to avoid flooding
               if (importedCount.value === 1) {
@@ -204,7 +218,9 @@ export default function FileDrawer({
                 
                 // Refresh file list to show the existing file
                 const updatedFiles = await listFiles(collection.id);
-                setFileList(updatedFiles);
+                if (componentMounted.current) {
+                  setFileList(updatedFiles);
+                }
                 
                 // Mark this file ID as used to prevent further attempts
                 usedFileIds.add(fileId);
@@ -323,7 +339,7 @@ export default function FileDrawer({
       // to allow any pending success events to be processed
       setTimeout(() => {
         console.log('Removing knowledge-import-success event listener');
-        window.electron.ipcRenderer.unsubscribe('knowledge-import-success', successHandler);
+        window.electron.ipcRenderer.unsubscribe('knowledge-import-success');
       }, 3000); // Use a longer timeout to ensure all events are processed
     }
   };
@@ -337,7 +353,9 @@ export default function FileDrawer({
     await deleteFile(fileId);
     notifySuccess(t('Knowledge.Notification.FileDeleted'));
     listFiles(collection.id).then((files: any[]) => {
-      setFileList(files);
+      if (componentMounted.current) {
+        setFileList(files);
+      }
     });
   };
 

@@ -33,17 +33,78 @@ export default function PdfCtrl({
   const pickPdfFile = async () => {
     try {
       const result = await window.electron.knowledge.selectFiles();
-      const files = JSON.parse(result as string) as Array<{ path: string; name: string; size: number; type: string }>;
-      if (files.length > 0) {
-        const { path: filePath, name } = files[0];
-        const response = await fetch(`file://${filePath}`);
-        const blob = await response.blob();
-        const file = new File([blob], name, { type: 'application/pdf' });
-        console.log('PDF selected via native dialog:', name);
-        onFileSelect(file);
+      
+      // Validate result
+      if (!result) {
+        console.warn('No result from file selection');
+        return;
       }
+      
+      let files;
+      try {
+        files = JSON.parse(result as string) as Array<{ path: string; name: string; size: number; type: string }>;
+      } catch (parseError) {
+        console.error('Error parsing file selection result:', parseError);
+        return;
+      }
+      
+      if (!files || files.length === 0) {
+        console.log('No files selected');
+        return;
+      }
+      
+      const { path: filePath, name, type } = files[0];
+      
+      // Validate that it's a PDF file
+      if (type !== 'pdf' && !name.toLowerCase().endsWith('.pdf')) {
+        console.error('Selected file is not a PDF:', name);
+        return;
+      }
+      
+      console.log('Reading PDF file:', name);
+      
+      // Use the IPC handler to read the PDF file
+      const pdfData = await window.electron.knowledge.readPdfAsBase64(filePath);
+      
+      // Validate the response
+      if (!pdfData || !pdfData.base64) {
+        console.error('Invalid response from readPdfAsBase64');
+        return;
+      }
+      
+      // Extract the base64 content from the data URL
+      const base64String = pdfData.base64.split(',')[1];
+      
+      if (!base64String) {
+        console.error('Invalid base64 data URL format');
+        return;
+      }
+      
+      // Convert base64 to binary data
+      const binaryString = atob(base64String);
+      
+      // Create an array buffer from the binary string
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      
+      // Create a blob from the array buffer
+      const blob = new Blob([bytes], { type: 'application/pdf' });
+      
+      // Validate blob size
+      if (blob.size === 0) {
+        console.error('Created blob has zero size');
+        return;
+      }
+      
+      // Create a File object from the blob
+      const file = new File([blob], name, { type: 'application/pdf' });
+      console.log('PDF successfully processed:', name, 'Size:', blob.size);
+      onFileSelect(file);
     } catch (err) {
       console.error('Error selecting PDF file:', err);
+      // You might want to show a user-friendly error message here
     }
   };
 

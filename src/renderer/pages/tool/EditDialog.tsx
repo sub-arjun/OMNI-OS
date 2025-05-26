@@ -185,7 +185,7 @@ export default function ToolEditDialog(options: {
   return (
     <div>
       <Dialog open={open}>
-        <DialogSurface mountNode={document.body.querySelector('#portal')}>
+        <DialogSurface>
           <DialogBody>
             <DialogTitle
               action={

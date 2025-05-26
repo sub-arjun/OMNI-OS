@@ -167,14 +167,14 @@ export default function SearchDialog(args: {
   const singleChatSearch = !!chatId;
 
   useEffect(() => {
-    Mousetrap.bind('esc', () => setOpen(false));
     if (open) {
+      Mousetrap.bind('esc', () => setOpen(false));
       window.electron.ingestEvent([{ app: 'search' }]);
     }
     return () => {
       Mousetrap.unbind('esc');
     };
-  }, [open]);
+  }, [open, setOpen]);
 
   const search = useMemo(
     () =>
@@ -248,15 +248,22 @@ export default function SearchDialog(args: {
     search(data.value);
   };
 
-  const jumpTo = useCallback((chatId: string, key: string) => {
-    // Extract the message ID from the key (remove "prompt-" or "reply-" prefix)
-    const messageId = key.includes('-') ? key.split('-')[1] : key;
-    navigate(`/chats/${chatId}/${messageId}`);
-    setOpen(false);
-  }, [navigate, setOpen]);
+  const jumpTo = useCallback(
+    (chatId: string, key: string) => {
+      // Extract the message ID from the key (remove "prompt-" or "reply-" prefix)
+      const messageId = key.includes('-') ? key.split('-')[1] : key;
+      navigate(`/chats/${chatId}/${messageId}`);
+      setOpen(false);
+    },
+    [navigate, setOpen],
+  );
+
+  const handleOpenChange = useCallback((event: any, data: any) => {
+    setOpen(data.open);
+  }, [setOpen]);
 
   return (
-    <Dialog open={open}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogSurface>
         <DialogBody>
           <DialogTitle

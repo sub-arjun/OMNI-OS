@@ -375,7 +375,12 @@ export default function GlobalNav({ collapsed }: { collapsed: boolean }) {
       {/* Create Folder Dialog */}
       <Dialog 
         open={isCreateFolderDialogOpen}
-        onOpenChange={(event, data) => setIsCreateFolderDialogOpen(data.open)}
+        onOpenChange={(event, data) => {
+          if (!data.open) {
+            setFolderName(''); // Reset folder name when closing
+          }
+          setIsCreateFolderDialogOpen(data.open);
+        }}
       >
         <DialogSurface>
           <DialogBody>

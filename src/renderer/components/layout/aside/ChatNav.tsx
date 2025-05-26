@@ -1014,7 +1014,12 @@ export default function ChatNav({ collapsed }: { collapsed: boolean }) {
       {/* Create Folder Dialog */}
       <Dialog 
         open={isCreateFolderDialogOpen}
-        onOpenChange={(event, data) => setIsCreateFolderDialogOpen(data.open)}
+        onOpenChange={(event, data) => {
+          if (!data.open) {
+            setFolderName(''); // Reset folder name when closing
+          }
+          setIsCreateFolderDialogOpen(data.open);
+        }}
       >
         <DialogSurface>
           <DialogBody>
@@ -1041,7 +1046,12 @@ export default function ChatNav({ collapsed }: { collapsed: boolean }) {
       {/* Rename Folder Dialog */}
       <Dialog 
         open={isRenameFolderDialogOpen}
-        onOpenChange={(event, data) => setIsRenameFolderDialogOpen(data.open)}
+        onOpenChange={(event, data) => {
+          if (!data.open) {
+            setFolderName(''); // Reset folder name when closing
+          }
+          setIsRenameFolderDialogOpen(data.open);
+        }}
       >
         <DialogSurface>
           <DialogBody>

@@ -32,6 +32,10 @@ export default function ConfirmDialog(args: {
     confirmAndClose();
   }, [setOpen, onConfirm]);
 
+  const handleOpenChange = useCallback((event: any, data: any) => {
+    setOpen(data.open);
+  }, [setOpen]);
+
   useEffect(() => {
     if (open) {
       setTimeout(() => confirmButtonRef.current?.focus(), 200);
@@ -40,10 +44,10 @@ export default function ConfirmDialog(args: {
     return ()=>{
       Mousetrap.unbind('esc')
     }
-  }, [open]);
+  }, [open, setOpen]);
 
   return (
-    <Dialog open={open}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogSurface>
         <DialogBody>
           <DialogTitle

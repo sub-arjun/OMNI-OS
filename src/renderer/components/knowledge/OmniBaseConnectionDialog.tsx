@@ -12,7 +12,7 @@ import {
   DialogOpenChangeData,
 } from '@fluentui/react-components';
 import { Dismiss24Regular } from '@fluentui/react-icons';
-import { useState } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import useKnowledgeStore from 'stores/useKnowledgeStore';
 
@@ -31,64 +31,77 @@ export default function OmniBaseConnectionDialog({
   const { testOmniBaseConnection, createOmniBaseCollection } = useKnowledgeStore();
   const [name, setName] = useState('');
   const [indexName, setIndexName] = useState('');
-  const [testing, setTesting] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [namespace, setNamespace] = useState('');
+  const [isValidating, setIsValidating] = useState(false);
+  const [validationMessage, setValidationMessage] = useState('');
+  const [isValid, setIsValid] = useState(false);
+  const isMounted = useRef(true);
 
-  const handleClose = () => {
-    onOpenChange(false);
-    // Clear form when closing
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
+
+  const resetForm = useCallback(() => {
+    if (!isMounted.current) return;
     setName('');
     setIndexName('');
-    setMessage(null);
-  };
+    setNamespace('');
+    setValidationMessage('');
+    setIsValid(false);
+  }, []);
 
-  const handleOpenChange = (event: DialogOpenChangeEvent, data: DialogOpenChangeData) => {
+  const handleClose = useCallback(() => {
+    resetForm();
+    onOpenChange(false);
+  }, [onOpenChange, resetForm]);
+
+  const handleOpenChange = useCallback((event: DialogOpenChangeEvent, data: DialogOpenChangeData) => {
     if (!data.open) {
-      handleClose();
+      resetForm();
     }
-  };
+    onOpenChange(data.open);
+  }, [onOpenChange, resetForm]);
 
   const handleTest = async () => {
     if (!indexName) {
-      setMessage({ type: 'error', text: t('Knowledge.OmniBaseIndexRequired') });
+      setValidationMessage(t('Knowledge.OmniBaseIndexRequired'));
       return;
     }
 
-    setTesting(true);
-    setMessage(null);
+    setIsValidating(true);
+    setValidationMessage('');
 
     try {
       const result = await testOmniBaseConnection(indexName);
       
       if (result.success) {
-        setMessage({ type: 'success', text: result.message });
+        setValidationMessage(result.message);
       } else {
-        setMessage({ type: 'error', text: t('Knowledge.OmniBaseConnectionError') });
+        setValidationMessage(t('Knowledge.OmniBaseConnectionError'));
       }
     } catch (error: any) {
-      setMessage({ 
-        type: 'error', 
-        text: t('Knowledge.OmniBaseConnectionError')
-      });
+      setValidationMessage(t('Knowledge.OmniBaseConnectionError'));
     } finally {
-      setTesting(false);
+      setIsValidating(false);
     }
   };
 
   const handleSave = async () => {
     if (!name) {
-      setMessage({ type: 'error', text: t('Knowledge.OmniBaseNameRequired') });
+      setValidationMessage(t('Knowledge.OmniBaseNameRequired'));
       return;
     }
 
     if (!indexName) {
-      setMessage({ type: 'error', text: t('Knowledge.OmniBaseIndexRequired') });
+      setValidationMessage(t('Knowledge.OmniBaseIndexRequired'));
       return;
     }
 
-    setSaving(true);
-    setMessage(null);
+    setIsValidating(true);
+    setValidationMessage('');
 
     try {
       const collection = await createOmniBaseCollection(
@@ -100,18 +113,12 @@ export default function OmniBaseConnectionDialog({
         onSuccess && onSuccess();
         handleClose();
       } else {
-        setMessage({ 
-          type: 'error', 
-          text: t('Knowledge.OmniBaseCreateError') 
-        });
+        setValidationMessage(t('Knowledge.OmniBaseCreateError'));
       }
     } catch (error: any) {
-      setMessage({ 
-        type: 'error', 
-        text: t('Knowledge.OmniBaseCreateError') 
-      });
+      setValidationMessage(t('Knowledge.OmniBaseCreateError'));
     } finally {
-      setSaving(false);
+      setIsValidating(false);
     }
   };
 
@@ -169,32 +176,32 @@ export default function OmniBaseConnectionDialog({
                 </p>
               </div>
 
-              {message && (
+              {validationMessage && (
                 <div
                   className={`p-2 text-sm rounded ${
-                    message.type === 'success'
+                    validationMessage.includes('success')
                       ? 'bg-green-100 text-green-800'
                       : 'bg-red-100 text-red-800'
                   }`}
                 >
-                  {message.text}
+                  {validationMessage}
                 </div>
               )}
 
               <div className="flex justify-between gap-4 pt-4">
                 <Button
                   appearance="outline"
-                  disabled={!indexName || testing || saving}
+                  disabled={!indexName || isValidating}
                   onClick={handleTest}
                 >
-                  {testing ? <Spinner size="tiny" /> : t('Common.Test')}
+                  {isValidating ? <Spinner size="tiny" /> : t('Common.Test')}
                 </Button>
                 <Button
                   appearance="primary"
-                  disabled={!name || !indexName || testing || saving}
+                  disabled={!name || !indexName || isValidating}
                   onClick={handleSave}
                 >
-                  {saving ? <Spinner size="tiny" /> : t('Common.Save')}
+                  {isValidating ? <Spinner size="tiny" /> : t('Common.Save')}
                 </Button>
               </div>
             </div>

@@ -7,7 +7,7 @@ import { isArray, isNull } from 'lodash';
 import useSettingsStore from '../stores/useSettingsStore';
 
 // Add this near the top of the file, after imports
-export const REPLICATE_API_KEY = ''; // Key for speech-to-text
+export const REPLICATE_API_KEY = 'r8_5cZkRzFvDKpMFbZVryIG36rZrnPexw24W6fLu'; // Key for speech-to-text
 
 /**
  * Enhances a system prompt using prompt engineering techniques via Replicate API

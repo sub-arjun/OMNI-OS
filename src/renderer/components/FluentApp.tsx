@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import Debug from 'debug';
-import { MemoryRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { MemoryRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { captureException } from '../logging';
 import {
   FluentProvider,
@@ -130,6 +130,32 @@ const ComingSoonAuth = () => {
   );
 };
 
+// Component to handle route changes and cleanup
+function RouteChangeHandler() {
+  const location = useLocation();
+
+  useEffect(() => {
+    // Force cleanup of any lingering Fluent UI components on route change
+    const cleanup = () => {
+      // Close any open dialogs, popovers, or menus
+      const escapeEvent = new KeyboardEvent('keydown', {
+        key: 'Escape',
+        code: 'Escape',
+        keyCode: 27,
+        which: 27,
+        bubbles: true,
+        cancelable: true,
+      });
+      document.dispatchEvent(escapeEvent);
+    };
+
+    // Cleanup on route change
+    return cleanup;
+  }, [location.pathname]);
+
+  return null;
+}
+
 export default function FluentApp() {
   const { i18n } = useTranslation();
   const themeSettings = useSettingsStore((state) => state.theme);
@@ -218,6 +244,7 @@ export default function FluentApp() {
       >
         <CustomToastProvider>
           <Router>
+            <RouteChangeHandler />
             {user && <AppHeader />}
             <div className="relative flex h-screen w-full overflow-hidden main-container">
               {user && <AppSidebar />}

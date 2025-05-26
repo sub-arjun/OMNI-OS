@@ -256,6 +256,7 @@ const electronHandler = {
   },
   knowledge: {
     selectFiles: () => ipcRenderer.invoke('select-knowledge-files'),
+    readPdfAsBase64: (filePath: string) => ipcRenderer.invoke('read-pdf-as-base64', filePath),
     importFile: ({
       file,
       collectionId,

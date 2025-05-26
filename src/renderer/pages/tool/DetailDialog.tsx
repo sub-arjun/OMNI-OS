@@ -46,7 +46,7 @@ export default function ToolDetailDialog(options: {
 
   return (
     <Dialog open={open}>
-      <DialogSurface mountNode={document.body.querySelector('#portal')}>
+      <DialogSurface>
         <DialogBody>
           <DialogTitle
             action={
