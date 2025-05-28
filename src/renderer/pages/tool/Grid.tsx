@@ -40,7 +40,7 @@ import {
   WrenchScrewdriver20Filled,
   WrenchScrewdriver20Regular,
 } from '@fluentui/react-icons';
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import useMCPStore from 'stores/useMCPStore';
 import useToast from 'hooks/useToast';
@@ -76,9 +76,13 @@ export default function Grid({
   const { activateServer, deactivateServer, loadConfig } = useMCPStore((state) => state);
   const [localServers, setLocalServers] = useState<IMCPServer[]>(servers);
   
+  // Track optimistic states for each server
+  const [optimisticStates, setOptimisticStates] = useState<Record<string, boolean>>({});
+  
   // Update localServers when the props change
   useEffect(() => {
     setLocalServers(servers);
+    // Don't clear all optimistic states here - only clear them when operations complete
   }, [servers]);
 
   const [innerHeight, setInnerHeight] = useState(window.innerHeight);
@@ -114,6 +118,72 @@ export default function Grid({
       window.dispatchEvent(delayedEvent);
     }, 200);
   }, []);
+
+  // Function to toggle server state
+  const toggleServerState = useCallback(async (item: IMCPServer) => {
+    if (loadingServers[item.key]) return; // Don't toggle if already loading
+    
+    // Calculate the new state based on current display state
+    const currentDisplayState = optimisticStates.hasOwnProperty(item.key) 
+      ? optimisticStates[item.key] 
+      : item.isActive;
+    const newState = !currentDisplayState;
+    
+    // Set optimistic state IMMEDIATELY for instant UI feedback
+    setOptimisticStates(prev => ({ ...prev, [item.key]: newState }));
+    
+    if (newState) {
+      try {
+        // Dispatch event to trigger loading state
+        dispatchMCPStateChangeEvent(item.key, true);
+        
+        // Then activate the server
+        await activateServer(item.key);
+        
+        // Clear optimistic state after success
+        setOptimisticStates(prev => {
+          const newStates = { ...prev };
+          delete newStates[item.key];
+          return newStates;
+        });
+      } catch (error: any) {
+        // Revert optimistic state on error
+        setOptimisticStates(prev => {
+          const newStates = { ...prev };
+          delete newStates[item.key];
+          return newStates;
+        });
+        notifyError(
+          error.message || t('MCP.ServerActivationFailed'),
+        );
+      }
+    } else {
+      try {
+        // Dispatch event to trigger loading state
+        dispatchMCPStateChangeEvent(item.key, false);
+        
+        // Then deactivate the server
+        await deactivateServer(item.key);
+        
+        // Clear optimistic state after success
+        setOptimisticStates(prev => {
+          const newStates = { ...prev };
+          delete newStates[item.key];
+          return newStates;
+        });
+      } catch (error: any) {
+        // Revert optimistic state on error
+        setOptimisticStates(prev => {
+          const newStates = { ...prev };
+          delete newStates[item.key];
+          return newStates;
+        });
+        notifyError(
+          error.message || t('MCP.ServerDeactivationFailed'),
+        );
+      }
+    }
+  }, [loadingServers, activateServer, deactivateServer, dispatchMCPStateChangeEvent, notifyError, t, optimisticStates]);
   
   // Listen for MCP state changes from ToolCtrl
   useEffect(() => {
@@ -132,6 +202,13 @@ export default function Grid({
               server.key === serverKey ? { ...server, isActive } : server
             )
           );
+          
+          // Clear optimistic state for this server since the operation completed
+          setOptimisticStates(prev => {
+            const newStates = { ...prev };
+            delete newStates[serverKey];
+            return newStates;
+          });
           
           // Do another update after a delay to catch any race conditions
           setTimeout(async () => {
@@ -161,6 +238,14 @@ export default function Grid({
     };
   }, []);
 
+  // Helper function to get the display state for a server
+  const getServerDisplayState = useCallback((item: IMCPServer) => {
+    // If we have an optimistic state, use it; otherwise use the actual state
+    return optimisticStates.hasOwnProperty(item.key) 
+      ? optimisticStates[item.key] 
+      : item.isActive;
+  }, [optimisticStates]);
+
   // Define columns with memoization to prevent unnecessary recalculations
   const columns = useMemo<TableColumnDefinition<IMCPServer>[]>(() => [
     createTableColumn<IMCPServer>({
@@ -172,13 +257,18 @@ export default function Grid({
         return t('Common.Name');
       },
       renderCell: (item) => {
+        const displayState = getServerDisplayState(item);
+        
         return (
           <TableCell>
             <TableCellLayout truncate>
-              <div className="flex flex-start items-center flex-grow overflow-y-hidden">
+              <div 
+                className="flex flex-start items-center flex-grow overflow-y-hidden cursor-pointer"
+                onClick={() => toggleServerState(item)}
+              >
                 {loadingServers[item.key] ? (
                   <CircleHintHalfVertical16Filled className="animate-spin -mb-1" />
-                ) : item.isActive ? (
+                ) : displayState ? (
                   <Circle16Filled className="text-green-500 -mb-0.5" />
                 ) : (
                   <CircleOff16Regular className="text-gray-400 dark:text-gray-400 -mb-0.5" />
@@ -207,6 +297,7 @@ export default function Grid({
                         icon={<Info16Regular />}
                         size="small"
                         appearance="subtle"
+                        onClick={(e) => e.stopPropagation()}
                       />
                     </Tooltip>
                   </div>
@@ -217,26 +308,27 @@ export default function Grid({
                       <Button
                         icon={<MoreHorizontalIcon />}
                         appearance="subtle"
+                        onClick={(e) => e.stopPropagation()}
                       />
                     </MenuTrigger>
                     <MenuPopover>
                       <MenuList>
                         <MenuItem
-                          disabled={item.isActive}
+                          disabled={displayState || loadingServers[item.key]}
                           icon={<EditIcon />}
                           onClick={() => onEdit(item)}
                         >
                           {t('Common.Edit')}
                         </MenuItem>
                         <MenuItem
-                          disabled={item.isActive}
+                          disabled={displayState || loadingServers[item.key]}
                           icon={<DeleteIcon />}
                           onClick={() => onDelete(item)}
                         >
                           {t('Common.Delete')}
                         </MenuItem>
                         <MenuItem
-                          disabled={!item.isActive}
+                          disabled={!displayState || loadingServers[item.key]}
                           icon={<WrenchScrewdriverIcon />}
                           onClick={() => onInspect(item)}
                         >
@@ -251,26 +343,63 @@ export default function Grid({
             <TableCellActions>
               <Switch
                 disabled={loadingServers[item.key]}
-                checked={item.isActive}
+                checked={getServerDisplayState(item)}
                 aria-label={t('Common.State')}
+                onClick={(e) => e.stopPropagation()}
                 onChange={async (ev: any, data: any) => {
+                  // Set optimistic state IMMEDIATELY for instant UI feedback
+                  setOptimisticStates(prev => ({ ...prev, [item.key]: data.checked }));
+                  
                   if (data.checked) {
                     try {
-                      // Dispatch event first to trigger loading state immediately
+                      // Dispatch event to trigger loading state
                       dispatchMCPStateChangeEvent(item.key, true);
                       
                       // Then activate the server
                       await activateServer(item.key);
+                      
+                      // Clear optimistic state after success
+                      setOptimisticStates(prev => {
+                        const newStates = { ...prev };
+                        delete newStates[item.key];
+                        return newStates;
+                      });
                     } catch (error: any) {
+                      // Revert optimistic state on error
+                      setOptimisticStates(prev => {
+                        const newStates = { ...prev };
+                        delete newStates[item.key];
+                        return newStates;
+                      });
                       notifyError(
                         error.message || t('MCP.ServerActivationFailed'),
                       );
                     }
                   } else {
-                    // For deactivation, keep the current order as it's working correctly
-                    await deactivateServer(item.key);
-                    // Dispatch event to notify other components
-                    dispatchMCPStateChangeEvent(item.key, false);
+                    try {
+                      // Dispatch event to trigger loading state
+                      dispatchMCPStateChangeEvent(item.key, false);
+                      
+                      // Then deactivate the server
+                      await deactivateServer(item.key);
+                      
+                      // Clear optimistic state after success
+                      setOptimisticStates(prev => {
+                        const newStates = { ...prev };
+                        delete newStates[item.key];
+                        return newStates;
+                      });
+                    } catch (error: any) {
+                      // Revert optimistic state on error
+                      setOptimisticStates(prev => {
+                        const newStates = { ...prev };
+                        delete newStates[item.key];
+                        return newStates;
+                      });
+                      notifyError(
+                        error.message || t('MCP.ServerDeactivationFailed'),
+                      );
+                    }
                   }
                 }}
               />
@@ -279,16 +408,27 @@ export default function Grid({
         );
       },
     }),
-  ], [t, loadingServers, onEdit, onDelete, onInspect, activateServer, deactivateServer, dispatchMCPStateChangeEvent, notifyError]);
+  ], [t, loadingServers, onEdit, onDelete, onInspect, activateServer, deactivateServer, dispatchMCPStateChangeEvent, notifyError, toggleServerState, getServerDisplayState]);
 
   // Memoize renderRow function to avoid recreating on every render
   const renderRow = useMemo<RowRenderer<IMCPServer>>(() => 
     ({ item, rowId }, style) => (
-      <DataGridRow<IMCPServer> key={rowId} style={style}>
+      <DataGridRow<IMCPServer> 
+        key={rowId} 
+        style={{ ...style, cursor: 'pointer' }}
+        onClick={(e: React.MouseEvent) => {
+          // Only toggle if the click wasn't on an interactive element
+          const target = e.target as HTMLElement;
+          const isInteractive = target.closest('button, [role="button"], [role="menuitem"], [role="switch"]');
+          if (!isInteractive) {
+            toggleServerState(item);
+          }
+        }}
+      >
         {({ renderCell }) => <DataGridCell>{renderCell(item)}</DataGridCell>}
       </DataGridRow>
     ), 
-  []);
+  [toggleServerState]);
 
   return (
     <div className="w-full pr-4">

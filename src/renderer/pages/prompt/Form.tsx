@@ -35,7 +35,7 @@ function MessageField({
 }) {
   const { t } = useTranslation();
   const { notifySuccess, notifyError } = useToast();
-  const isSystemMessage = label === t('Common.SystemMessage');
+  const isSystemMessage = label === t('Common.Instructions');
   const [isVariablesSelectorOpen, setIsVariablesSelectorOpen] = useState(false);
   const [enhancingPrompt, setEnhancingPrompt] = useState<boolean>(false);
 
@@ -48,7 +48,6 @@ function MessageField({
       setEnhancingPrompt(true);
       const enhancedPrompt = await enhanceSystemPrompt(value);
       
-      // Create a synthetic event to pass to the onChange handler
       const syntheticEvent = {
         target: {
           value: enhancedPrompt
@@ -90,7 +89,7 @@ function MessageField({
               size="medium"
               iconPosition="before"
             >
-              {t('Common.EnhanceSystemPrompt')}
+              {t('Common.EnhanceInstructions')}
             </Button>
           </div>
         )}
@@ -278,8 +277,8 @@ export default function Form() {
             <div className="space-y-4 mb-4 w-full">
               <div className="relative w-full">
                 <MessageField
-                  label={t('Common.SystemMessage')}
-                  tooltip={t('Tooltip.SystemMessage')}
+                  label={t('Common.Instructions')}
+                  tooltip={t('Tooltip.Instructions')}
                   value={systemMessage}
                   onChange={onSystemMessageChange}
                   variables={systemVariables}
@@ -287,7 +286,7 @@ export default function Form() {
               </div>
               <div className="relative w-full">
                 <MessageField
-                  label={t('Common.UserMessage')}
+                  label={t('Common.FirstMessageTemplate')}
                   value={userMessage}
                   onChange={onUserMessageChange}
                   variables={userVariables}

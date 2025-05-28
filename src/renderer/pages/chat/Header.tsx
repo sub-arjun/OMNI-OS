@@ -180,14 +180,15 @@ const Header = () => {
         </div>
       </div>
       
-      {/* Add search button to the left corner - Positioned Lower */}
-      <div
+      {/* Improved buttonbar overlay - styled to match original */}
+      <div 
         style={{
           position: 'absolute',
-          top: '50px', // Adjusted top position to be lower
-          left: '16px',
+          top: '8px',
+          right: '16px',
           zIndex: 1000,
           display: 'flex',
+          gap: '2px',
           background: 'rgba(var(--color-bg-base), 0.65)',
           backdropFilter: 'blur(15px)',
           WebkitBackdropFilter: 'blur(15px)',
@@ -197,7 +198,7 @@ const Header = () => {
           boxShadow: '0 3px 12px rgba(0, 0, 0, 0.07)',
         } as React.CSSProperties}
       >
-        {/* In-conversation search button - MOVED BACK & LOWERED */}
+        {/* In-conversation search button - NOW LEFTMOST IN TOOLBAR */}
         {isPersisted && (
           <Tooltip
             content={
@@ -207,7 +208,7 @@ const Header = () => {
               </div>
             }
             relationship="description"
-            positioning="below"
+            positioning="above"
           >
             <button
               onClick={handleOpenSearch}
@@ -232,26 +233,7 @@ const Header = () => {
             </button>
           </Tooltip>
         )}
-      </div>
-      
-      {/* Improved buttonbar overlay - styled to match original */}
-      <div 
-        style={{
-          position: 'absolute',
-          top: '8px',
-          right: '16px',
-          zIndex: 1000,
-          display: 'flex',
-          gap: '2px',
-          background: 'rgba(var(--color-bg-base), 0.65)',
-          backdropFilter: 'blur(15px)',
-          WebkitBackdropFilter: 'blur(15px)',
-          borderRadius: '8px',
-          padding: '3px 6px',
-          border: '1px solid rgba(var(--color-border), 0.15)',
-          boxShadow: '0 3px 12px rgba(0, 0, 0, 0.07)',
-        } as React.CSSProperties}
-      >
+        
         {/* Delete button */}
         {activeChatId !== tempChatId && (
           <>
@@ -362,7 +344,7 @@ const Header = () => {
         <Tooltip 
           content={
             <div>
-              <div style={{ fontWeight: 'bold', marginBottom: '3px' }}>{t('Common.SystemPrompt')}</div>
+              <div style={{ fontWeight: 'bold', marginBottom: '3px' }}>{t('Common.Instructions')}</div>
               <div>Define instructions for the AI's behavior</div>
               <div style={{ marginTop: '3px', fontSize: '12px', opacity: 0.8 }}>
                 Customize model responses and personality
@@ -386,7 +368,7 @@ const Header = () => {
               color: 'var(--color-text-secondary)',
               transition: 'all 0.2s ease'
             } as React.CSSProperties}
-            title={t('Common.SystemPrompt') || "System Prompt"}
+            title={t('Common.Instructions') || "Instructions"}
             data-testid="system-prompt-btn"
             onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'rgba(var(--color-bg-surface-1), 0.4)'}
             onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}

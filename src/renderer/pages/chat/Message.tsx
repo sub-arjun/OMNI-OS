@@ -2,8 +2,9 @@
 /* eslint-disable react/no-danger */
 import Debug from 'debug';
 import useChatStore from 'stores/useChatStore';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import useMarkdown from 'hooks/useMarkdown';
+import useMermaidRenderer from 'hooks/useMermaidRenderer';
 import { IChatMessage } from 'intellichat/types';
 import { useTranslation } from 'react-i18next';
 import { Divider } from '@fluentui/react-components';
@@ -49,11 +50,93 @@ const thinkingPhrases = [
   "OMNI-gnostic circuits engaged!",
   "Searching the OMNI-verse for enlightenment...",
   "Tuning the OMNI-frequencies for maximum clarity...",
+  "Bribing the digital hamsters to run faster on their wheels...",
+  "Asking the rubber duck for its expert opinion...",
+  "Performing ancient AI rituals... *chants in binary*",
+  "Feeding the neural network some brain food (electrons)...",
+  "Untangling the spaghetti code of the universe...",
+  "Negotiating with the quantum particles for better answers...",
+  "Downloading more RAM from the cloud (just kidding)...",
+  "Teaching the neurons how to dance in formation...",
+  "Consulting the magic 8-ball database...",
+  "Warming up the thinking tubes... almost there!",
+  "Asking my AI friends for their hot takes...",
+  "Dividing by zero to see what happens... wait, no!",
+  "Turning thoughts into words, words into wisdom...",
+  "Shaking the knowledge tree to see what falls out...",
+  "Applying percussive maintenance to the logic circuits...",
+  "Convincing the bits to become bytes...",
+  "Summoning the spirit of Alan Turing...",
+  "Calculating the meaning of life, universe, and your question...",
+  "Defragmenting the wisdom hard drive...",
+  "Asking the wise old mainframe for advice...",
+  "Rebooting creativity.exe... please wait...",
+  "Translating your thoughts from human to awesome...",
+  "Brewing a fresh pot of digital coffee for inspiration...",
+  "Tickling the neurons until they cooperate...",
+  "Performing interpretive dance with data structures...",
+  "Consulting the ancient scrolls of Stack Overflow...",
+  "Waking up the lazy algorithms from their nap...",
+  "Convincing the CPU to work overtime (no pay)...",
+  "Playing 20 questions with the knowledge base...",
+  "Teaching monkeys to type Shakespeare... getting close!",
+  "Googling how to be an AI... wait, that's cheating!",
+  "Spinning up the hamster wheels of innovation...",
+  "Asking the pixels to arrange themselves meaningfully...",
+  "Borrowing processing power from nearby calculators...",
+  "Sacrificing bugs to the coding gods...",
+  "Converting caffeine into code at maximum efficiency...",
+  "Herding the cat videos away from the important data...",
+  "Negotiating peace between tabs and spaces...",
+  "Consulting the fortune cookies in the database...",
+  "Teaching electrons to do the electric slide...",
+  "Mining for bitcoins of wisdom in the data caves...",
+  "Asking the wise owl of the internet for guidance...",
+  "Performing a rain dance for a shower of insights...",
+  "Assembling Voltron from scattered thoughts...",
+  "Baking knowledge cookies at 350°F (in CPU temp)...",
+  "Convincing shy ideas to come out and play...",
+  "Rolling dice to determine the best answer... all sixes!",
+  "Dusting off the old encyclopedia neurons...",
+  "Practicing mental gymnastics... stuck the landing!",
+  "Mixing a cocktail of wisdom and wit...",
+  "Training carrier pigeons to deliver thoughts faster...",
+  "Building a bridge between question and answer...",
+  "Painting a masterpiece with words and logic...",
+  "Conducting the symphony of synapses...",
+  "Knitting a cozy sweater of knowledge...",
+  "Playing chess with the decision tree... checkmate soon!",
+  "Fishing for insights in the data lake...",
+  "Climbing the mountain of understanding...",
+  "Solving the Rubik's cube of your request...",
+  "Assembling IKEA furniture... I mean, your answer...",
+  "Teaching the AI to juggle multiple concepts...",
+  "Practicing telepathy with the mainframe...",
+  "Watering the idea garden for fresh thoughts...",
 ];
 
 // Helper function to get a random phrase
 const getRandomThinkingPhrase = () => 
   thinkingPhrases[Math.floor(Math.random() * thinkingPhrases.length)];
+
+// Simple thinking phrase display with inline styles
+const ThinkingPhraseDisplay = React.memo(() => {
+  const [currentPhrase, setCurrentPhrase] = useState(
+    thinkingPhrases[Math.floor(Math.random() * thinkingPhrases.length)]
+  );
+  
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentPhrase(thinkingPhrases[Math.floor(Math.random() * thinkingPhrases.length)]);
+    }, 8000);
+    
+    return () => clearInterval(interval);
+  }, []);
+  
+  return (
+    <div className="omni-thinking-phrase">{currentPhrase}</div>
+  );
+});
 
 export default function Message({ message }: { message: IChatMessage }) {
   const { t } = useTranslation();
@@ -70,7 +153,7 @@ export default function Message({ message }: { message: IChatMessage }) {
   const reasoningInterval = useRef<NodeJS.Timeout | null>(null);
   const reasoningRef = useRef('');
   const replyRef = useRef('');
-
+  
   const keyword = useMemo(
     () => keywords[message.chatId],
     [keywords, message.chatId],
@@ -84,7 +167,8 @@ export default function Message({ message }: { message: IChatMessage }) {
     return JSON.parse(message.citedChunks || '[]');
   }, [message.citedChunks]);
 
-  const { render, processMermaidDiagrams } = useMarkdown();
+  const { render } = useMarkdown();
+  const { processMermaidDiagrams } = useMermaidRenderer(message.id);
 
   // Parse citations if they exist as a JSON string
   const messageCitations = useMemo(() => {
@@ -206,6 +290,24 @@ export default function Message({ message }: { message: IChatMessage }) {
     const _reply = getNormalContent(message.reply);
     const _reasoning = getReasoningContent(message.reply, message.reasoning);
     
+    // DEBUG: Test with a hardcoded mermaid diagram
+    if (_reply && _reply.includes('test-mermaid')) {
+      console.log('[Mermaid] Testing with hardcoded mermaid diagram');
+      const testReply = `Here's a test diagram:
+
+\`\`\`mermaid
+graph TD
+    A[Start] --> B{Is it working?}
+    B -->|Yes| C[Great!]
+    B -->|No| D[Debug more]
+\`\`\`
+
+End of test.`;
+      setReply(testReply);
+      replyRef.current = testReply;
+      return;
+    }
+    
     // We only want to update state if the values are actually different
     // to prevent unnecessary re-renders
     if (replyRef.current !== _reply) {
@@ -282,11 +384,12 @@ export default function Message({ message }: { message: IChatMessage }) {
       // When message is no longer active, clean up
       setIsReasoning(false);
       
-      // Only process mermaid diagrams when the message is complete
-      // Use a small timeout to ensure DOM is fully updated
-      setTimeout(() => {
+      console.log(`[Mermaid] Message ${message.id} is no longer active, processing mermaid diagrams`);
+      // Process mermaid diagrams when the message is complete
+      // Use a requestAnimationFrame to ensure DOM is fully updated
+      requestAnimationFrame(() => {
         processMermaidDiagrams();
-      }, 200);
+      });
     }
     
     return () => {
@@ -297,6 +400,17 @@ export default function Message({ message }: { message: IChatMessage }) {
       setReasoningSeconds(0);
     };
   }, [message.isActive, processMermaidDiagrams]);
+
+  // Process mermaid diagrams whenever the reply content changes
+  useEffect(() => {
+    if (reply && reply.includes('mermaid-placeholder')) {
+      console.log(`[Mermaid] Reply contains mermaid-placeholder for message ${message.id}, processing...`);
+      // Use requestAnimationFrame to ensure DOM is updated
+      requestAnimationFrame(() => {
+        processMermaidDiagrams();
+      });
+    }
+  }, [reply, processMermaidDiagrams]);
 
   const toggleThink = useCallback(() => {
     setIsReasoningShow(!isReasoningShow);
@@ -310,6 +424,12 @@ export default function Message({ message }: { message: IChatMessage }) {
     const thinkTitle =
       (isReasoning ? t('Reasoning.Thinking') : t('Reasoning.Thought')) +
       `${reasoningSeconds > 0 ? ` ${reasoningSeconds}s` : ''}`;
+    
+    // Debug: Check if reply contains mermaid
+    if (reply && reply.includes('```mermaid')) {
+      console.log('[Mermaid] Reply contains mermaid code block:', reply);
+    }
+    
     return (
       <div className={`w-full mt-1.5 ${isLoading ? 'is-loading' : ''}`}>
         {message.isActive && states.runningTool ? (
@@ -320,14 +440,20 @@ export default function Message({ message }: { message: IChatMessage }) {
         ) : null}
         {isLoading && isEmpty ? (
           <>
-            {/* Randomly display a thinking phrase ~40% of the time */}
-            {Math.random() < 0.4 && (
-              <div className="thinking-indicator text-sm text-gray-500 dark:text-gray-400 italic mb-1">
-                {getRandomThinkingPhrase()} 
-              </div>
-            )}
-            <span className="skeleton-box" style={{ width: '80%' }} />
-            <span className="skeleton-box" style={{ width: '90%' }} />
+            {/* Display thinking phrase with transform reset */}
+            <div style={{ 
+              transform: 'none !important',
+              transition: 'none !important',
+              animation: 'none !important',
+            }}>
+              <ThinkingPhraseDisplay />
+            </div>
+            <div style={{ marginTop: '8px' }}>
+              <span className="skeleton-box" style={{ width: '80%' }} />
+            </div>
+            <div style={{ marginTop: '4px' }}>
+              <span className="skeleton-box" style={{ width: '90%' }} />
+            </div>
           </>
         ) : (
           <div className="-mt-1">
@@ -350,11 +476,14 @@ export default function Message({ message }: { message: IChatMessage }) {
                   <div
                     className={fontSize === 'large' ? 'font-lg' : ''}
                     dangerouslySetInnerHTML={{
-                      __html: render(
-                        `${
-                          highlight(reasoning, keyword) || ''
-                        }${isReasoning && reasoning ? '<span class="blinking-cursor" /></span>' : ''}`,
-                      ),
+                      __html: (() => {
+                        const renderedHtml = render(
+                          `${reasoning || ''}${isReasoning && reasoning ? '<span class="blinking-cursor" /></span>' : ''}`
+                        );
+                        return keyword && !renderedHtml.includes('mermaid-placeholder') 
+                          ? highlight(renderedHtml, keyword) 
+                          : renderedHtml;
+                      })(),
                     }}
                   />
                 </div>
@@ -365,11 +494,14 @@ export default function Message({ message }: { message: IChatMessage }) {
                 fontSize === 'large' ? 'font-lg' : ''
               }`}
               dangerouslySetInnerHTML={{
-                __html: render(
-                  `${
-                    highlight(reply, keyword) || ''
-                  }${isLoading && reply ? '<span class="blinking-cursor" /></span>' : ''}`,
-                ),
+                __html: (() => {
+                  const renderedHtml = render(
+                    `${reply || ''}${isLoading && reply ? '<span class="blinking-cursor" /></span>' : ''}`
+                  );
+                  return keyword && !renderedHtml.includes('mermaid-placeholder')
+                    ? highlight(renderedHtml, keyword)
+                    : renderedHtml;
+                })(),
               }}
             />
           </div>
@@ -385,6 +517,7 @@ export default function Message({ message }: { message: IChatMessage }) {
     isReasoning,
     reasoningSeconds,
     isReasoningShow,
+    t,
   ]);
 
   return (
@@ -408,7 +541,12 @@ export default function Message({ message }: { message: IChatMessage }) {
               fontSize === 'large' ? 'font-lg' : ''
             }`}
             dangerouslySetInnerHTML={{
-              __html: render(highlight(message.prompt, keyword) || ''),
+              __html: (() => {
+                const renderedHtml = render(message.prompt || '');
+                return keyword && !renderedHtml.includes('mermaid-placeholder')
+                  ? highlight(renderedHtml, keyword)
+                  : renderedHtml;
+              })(),
             }}
           />
         </div>
@@ -518,6 +656,11 @@ export default function Message({ message }: { message: IChatMessage }) {
           100% { box-shadow: 0 0 3px rgba(var(--shadow-color-rgb), 0.1); }
         }
         
+        @keyframes fadeIn {
+          0% { opacity: 0; transform: translateY(-5px); }
+          100% { opacity: 1; transform: translateY(0); }
+        }
+        
         /* Target .msg-reply descendant within .streaming-active */
         .streaming-active .msg-reply {
           animation: subtleGlow 1.8s ease-in-out infinite;
@@ -536,6 +679,41 @@ export default function Message({ message }: { message: IChatMessage }) {
         .streaming-active .blinking-cursor {
             background-color: var(--colorNeutralForeground1);
         }
+        
+        /* Override any transforms on thinking phrases */
+        .omni-thinking-phrase {
+          font-size: 0.875rem !important;
+          color: #000000 !important; /* Black for light mode */
+          font-style: italic !important;
+          display: block !important;
+          margin-bottom: 0.5rem !important;
+          transform: none !important;
+          transition: none !important;
+          animation: none !important;
+          position: static !important;
+          opacity: 1 !important;
+          visibility: visible !important;
+          left: auto !important;
+          top: auto !important;
+          translate: none !important;
+          rotate: none !important;
+          scale: none !important;
+        }
+
+        /* Dark mode styling for thinking phrase */
+        [data-theme='dark'] .omni-thinking-phrase {
+          color: #ffffff !important; /* White for dark mode */
+        }
+        
+        /* Ensure no parent transforms affect the thinking phrase */
+        .msg-reply .omni-thinking-phrase,
+        .msg-content .omni-thinking-phrase,
+        .is-loading .omni-thinking-phrase {
+          transform: none !important;
+          transition: none !important;
+          animation: none !important;
+        }
+
       `}</style>
     </div>
   );

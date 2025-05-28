@@ -38,8 +38,88 @@ import { insertAtCursor } from 'utils/util';
 import useChatStore from 'stores/useChatStore';
 import ClickAwayListener from 'renderer/components/ClickAwayListener';
 import React from 'react';
+import { initializeMediaLocale } from 'utils/localePolyfill';
 
 const ImageAddIcon = bundleIcon(ImageAdd20Filled, ImageAdd20Regular);
+
+// Safe video component wrapper to handle locale issues
+const SafeVideo = React.forwardRef<HTMLVideoElement, React.VideoHTMLAttributes<HTMLVideoElement>>(
+  (props, ref) => {
+    const [hasError, setHasError] = React.useState(false);
+    const videoRef = React.useRef<HTMLVideoElement>(null);
+    
+    // Combine refs
+    React.useImperativeHandle(ref, () => videoRef.current!);
+    
+    React.useEffect(() => {
+      // Ensure locale is set before video element renders
+      try {
+        // Force locale context at multiple levels
+        document.documentElement.lang = document.documentElement.lang || 'en-US';
+        document.documentElement.setAttribute('lang', 'en-US');
+        
+        // Set locale on body as well
+        if (document.body) {
+          document.body.lang = 'en-US';
+        }
+        
+        // Force locale initialization through a dummy element
+        const dummyDiv = document.createElement('div');
+        dummyDiv.lang = 'en-US';
+        dummyDiv.setAttribute('lang', 'en-US');
+        
+        // Test locale operations to ensure they work
+        try {
+          const testDate = new Date();
+          testDate.toLocaleDateString('en-US');
+          new Intl.NumberFormat('en-US').format(1234);
+        } catch (localeError) {
+          console.warn('Locale test failed:', localeError);
+        }
+      } catch (e) {
+        console.warn('Could not set document language:', e);
+      }
+    }, []);
+    
+    React.useLayoutEffect(() => {
+      // Additional safety: set lang attribute directly on video element after mount
+      if (videoRef.current) {
+        videoRef.current.lang = 'en-US';
+        videoRef.current.setAttribute('lang', 'en-US');
+        
+        // Disable native controls to prevent media control initialization issues
+        videoRef.current.controls = false;
+        
+        // Set additional attributes that might help with locale issues
+        videoRef.current.setAttribute('data-locale', 'en-US');
+        videoRef.current.setAttribute('xml:lang', 'en-US');
+      }
+    });
+    
+    if (hasError) {
+      return <div style={{ ...props.style, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#000' }}>
+        <Text style={{ color: '#fff' }}>Camera preview unavailable</Text>
+      </div>;
+    }
+    
+    return (
+      <video 
+        {...props} 
+        ref={videoRef}
+        lang="en-US"
+        onError={(e) => {
+          setHasError(true);
+          props.onError?.(e);
+        }}
+        // Ensure controls are disabled
+        controls={false}
+        // Add data attributes for locale
+        data-locale="en-US"
+      />
+    );
+  }
+);
+SafeVideo.displayName = 'SafeVideo';
 
 // Define styles outside the component
 const useStyles = makeStyles({
@@ -192,88 +272,6 @@ export default function ImgCtrl({ ctx, chat }: ImgCtrlProps) {
     };
   }, [visionEnabled, model?.vision]);
   
-  // Handle dialog state
-  useEffect(() => {
-    if (open) {
-      Mousetrap.bind('esc', () => setOpen(false));
-    } else {
-      Mousetrap.unbind('esc');
-      // Stop webcam when dialog closes
-      stopWebcam();
-    }
-  }, [open]);
-  
-  // Handle webcam state
-  useEffect(() => {
-    if (open && imgType === 'webcam' && !imgBase64) {
-      startWebcam();
-    } else if (imgType !== 'webcam' || !open) {
-      stopWebcam();
-    }
-  }, [open, imgType, imgBase64]);
-  
-  // Start webcam safely
-  const startWebcam = useCallback(async () => {
-    console.log('[ImgCtrl] startWebcam called');
-    // Clean up any existing stream first
-    stopWebcam();
-    
-    if (!navigator.mediaDevices) {
-      setWebcamState(prev => ({ ...prev, hasPermission: false }));
-      setErrMsg(t('Webcam access is not available in this browser.'));
-      return;
-    }
-    
-    // Check Windows camera permission
-    const status = await window.electron.getMediaAccessStatus('camera');
-    if (status !== 'granted') {
-      setWebcamState(prev => ({ ...prev, hasPermission: false }));
-      setErrMsg(t('Camera access was denied. Please enable access in Windows Settings.'));
-      await window.electron.openExternal('ms-settings:privacy-webcam');
-      return;
-    }
-    
-    console.log('[ImgCtrl] Secure context:', window.isSecureContext, 'mediaDevices:', !!navigator.mediaDevices);
-    navigator.mediaDevices.getUserMedia({ 
-      video: { 
-        width: { ideal: 1280 },
-        height: { ideal: 720 }
-      }
-    }).then(stream => {
-      if (!mountedRef.current) {
-        stopMediaStream(stream);
-        return;
-      }
-      
-      if (webcamRef.current) {
-        webcamRef.current.srcObject = stream;
-        streamRef.current = stream;
-        setWebcamState({ active: true, hasPermission: true });
-        setErrMsg('');
-      } else {
-        stopMediaStream(stream);
-      }
-    }).catch(error => {
-      console.error('Error accessing webcam:', error);
-      if (mountedRef.current) setErrMsg(`Webcam error: ${error.name} - ${error.message}`);
-      if (mountedRef.current) {
-        setWebcamState(prev => ({ ...prev, hasPermission: false }));
-        
-        // Handle specific error types more gracefully
-        if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
-          // This typically happens when the camera is already in use by another application
-          setErrMsg(t('Camera is already in use by another application. Please close other applications using the camera and try again.'));
-        } else if (error.name === 'NotFoundError') {
-          setErrMsg(t('No camera was found on your device.'));
-        } else if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
-          setErrMsg(t('Camera access was denied. Please allow access to use this feature.'));
-        } else {
-        setErrMsg(t('Could not access webcam. Please check permissions.'));
-        }
-      }
-    });
-  }, [t]);
-  
   // Stop webcam safely
   const stopWebcam = useCallback(() => {
     if (webcamRef.current && webcamRef.current.srcObject) {
@@ -290,6 +288,122 @@ export default function ImgCtrl({ ctx, chat }: ImgCtrlProps) {
       setWebcamState(prev => ({ ...prev, active: false }));
     }
   }, []);
+  
+  // Start webcam safely
+  const startWebcam = useCallback(async () => {
+    console.log('[ImgCtrl] startWebcam called');
+    // Clean up any existing stream first
+    stopWebcam();
+    
+    // Ensure locale is properly initialized before accessing media
+    try {
+      // Force locale initialization to prevent Chromium crashes
+      initializeMediaLocale();
+      
+      const testDate = new Date();
+      testDate.toLocaleDateString('en-US');
+      
+      // Set document language if not set
+      if (!document.documentElement.lang) {
+        document.documentElement.lang = 'en-US';
+      }
+      
+      // CRITICAL: Add a delay to ensure locale is fully initialized
+      // This helps prevent the race condition that causes the crash
+      await new Promise(resolve => setTimeout(resolve, 50));
+      
+      // Double-check locale is still set after delay
+      if (!document.documentElement.lang) {
+        document.documentElement.lang = 'en-US';
+      }
+    } catch (e) {
+      console.warn('Locale initialization warning:', e);
+    }
+    
+    if (!navigator.mediaDevices) {
+      setWebcamState(prev => ({ ...prev, hasPermission: false }));
+      setErrMsg(t('Webcam access is not available in this browser.'));
+      return;
+    }
+    
+    // Check Windows camera permission
+    try {
+      const status = await window.electron.getMediaAccessStatus('camera');
+      if (status !== 'granted') {
+        setWebcamState(prev => ({ ...prev, hasPermission: false }));
+        setErrMsg(t('Camera access was denied. Please enable access in Windows Settings.'));
+        await window.electron.openExternal('ms-settings:privacy-webcam');
+        return;
+      }
+    } catch (e) {
+      console.warn('Could not check camera permission status:', e);
+    }
+    
+    console.log('[ImgCtrl] Secure context:', window.isSecureContext, 'mediaDevices:', !!navigator.mediaDevices);
+    
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { 
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        }
+      });
+      
+      if (!mountedRef.current) {
+        stopMediaStream(stream);
+        return;
+      }
+      
+      if (webcamRef.current) {
+        // Add a small delay to ensure DOM is ready
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        webcamRef.current.srcObject = stream;
+        streamRef.current = stream;
+        setWebcamState({ active: true, hasPermission: true });
+        setErrMsg('');
+      } else {
+        stopMediaStream(stream);
+      }
+    } catch (error: any) {
+      console.error('Error accessing webcam:', error);
+      if (!mountedRef.current) return;
+      
+      setWebcamState(prev => ({ ...prev, hasPermission: false }));
+      
+      // Handle specific error types more gracefully
+      if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
+        // This typically happens when the camera is already in use by another application
+        setErrMsg(t('Camera is already in use by another application. Please close other applications using the camera and try again.'));
+      } else if (error.name === 'NotFoundError') {
+        setErrMsg(t('No camera was found on your device.'));
+      } else if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+        setErrMsg(t('Camera access was denied. Please allow access to use this feature.'));
+      } else {
+        setErrMsg(t('Could not access webcam. Please check permissions.'));
+      }
+    }
+  }, [t, stopWebcam]);
+  
+  // Handle dialog state
+  useEffect(() => {
+    if (open) {
+      Mousetrap.bind('esc', () => setOpen(false));
+    } else {
+      Mousetrap.unbind('esc');
+      // Stop webcam when dialog closes
+      stopWebcam();
+    }
+  }, [open, stopWebcam]);
+  
+  // Handle webcam state
+  useEffect(() => {
+    if (open && imgType === 'webcam' && !imgBase64) {
+      startWebcam();
+    } else if (imgType !== 'webcam' || !open) {
+      stopWebcam();
+    }
+  }, [open, imgType, imgBase64, startWebcam, stopWebcam]);
   
   // Capture image from webcam
   const captureImage = useCallback(() => {
@@ -453,12 +567,21 @@ export default function ImgCtrl({ ctx, chat }: ImgCtrlProps) {
         <div className={styles.webcamContainer}>
           {webcamState.hasPermission ? (
             <>
-              <video 
+              <SafeVideo
                 ref={webcamRef}
                 className={styles.webcamVideo}
                 autoPlay
                 playsInline
                 muted
+                lang="en-US"
+                controls={false}
+                onError={(e) => {
+                  console.error('Video element error:', e);
+                  setErrMsg(t('Failed to initialize camera view.'));
+                }}
+                onLoadedMetadata={() => {
+                  console.log('[ImgCtrl] Video metadata loaded successfully');
+                }}
               />
               {webcamState.active && (
                 <button 

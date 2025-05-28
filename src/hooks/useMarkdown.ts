@@ -5,94 +5,60 @@ import MarkdownIt from 'markdown-it';
 // @ts-ignore
 import mathjax3 from 'markdown-it-mathjax3';
 import hljs from 'highlight.js/lib/common';
-// Remove static import of mermaid
 import MarkdownItCodeCopy from '../libs/markdownit-plugins/CodeCopy';
 import useToast from './useToast';
-import { useEffect, useRef } from 'react';
-
-// Define mermaid module type for dynamic import
-type MermaidAPI = {
-  initialize: (config: any) => void;
-  run: (options: { nodes: HTMLElement[] }) => Promise<void>;
-};
+import { useCallback } from 'react';
 
 // Unique ID generator for Mermaid diagrams
-function generateMermaidId() {
-  return `mermaid-diagram-${Math.random().toString(36).substring(2, 10)}`;
+function generateMermaidId(content: string) {
+  // Create a simple hash of the content to generate a consistent ID
+  let hash = 0;
+  for (let i = 0; i < content.length; i++) {
+    const char = content.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32-bit integer
+  }
+  return `mermaid-diagram-${Math.abs(hash).toString(36)}`;
 }
 
 export default function useMarkdown() {
   const { notifySuccess } = useToast();
   const { t } = useTranslation();
-  // Reference to store the mermaid module once loaded
-  const mermaidRef = useRef<MermaidAPI | null>(null);
-  // Track if we're currently loading mermaid
-  const loadingMermaid = useRef(false);
-  
-  // Load mermaid dynamically
-  const loadMermaid = async (): Promise<MermaidAPI | null> => {
-    // Return existing reference if already loaded
-    if (mermaidRef.current) {
-      return mermaidRef.current;
-    }
-    
-    // Prevent multiple concurrent loads
-    if (loadingMermaid.current) {
-      // Wait for current load to finish
-      return new Promise((resolve) => {
-        const checkInterval = setInterval(() => {
-          if (mermaidRef.current) {
-            clearInterval(checkInterval);
-            resolve(mermaidRef.current);
-          }
-        }, 100);
-      });
-    }
-    
-    try {
-      loadingMermaid.current = true;
-      // Dynamic import
-      const mermaidModule = await import('mermaid');
-      const mermaid = mermaidModule.default;
-      
-      // Initialize with current theme
-      mermaid.initialize({
-        startOnLoad: false,
-        theme: document.body.getAttribute('data-theme') === 'dark' ? 'dark' : 'default',
-        fontSize: 14,
-        securityLevel: 'loose' // May help with certain rendering issues
-      });
-      
-      mermaidRef.current = mermaid;
-      return mermaid;
-    } catch (error) {
-      console.error('Failed to load mermaid:', error);
-      return null;
-    } finally {
-      loadingMermaid.current = false;
-    }
-  };
-  
-  // Initialize mermaid and set up theme observer
-  useEffect(() => {
-    // Load mermaid initially
-    loadMermaid();
-    
-    // We don't need the theme observer anymore since we're using a fixed white background
-    return () => {};
-  }, []);
   
   const md = new MarkdownIt({
     breaks: true,
     linkify: true,
     html: true,
     typographer: true,
-    highlight(str: string, lang: string) {
+    highlight(str: string, lang: string, attrs: string) {
       // Special handling for Mermaid diagrams
       if (lang === 'mermaid') {
-        const diagramId = generateMermaidId();
-        // Just mark it as mermaid and let external processor handle it
-        return `<pre class="mermaid-diagram" data-lang="mermaid"><code id="${diagramId}">${str}</code></pre>`;
+        console.log(`[Mermaid] Highlight called with lang="${lang}", content length=${str.length}`);
+        
+        // Clean up the mermaid content - replace HTML tags with their text equivalents
+        let cleanContent = str
+          .replace(/<br\s*\/?>/gi, '\n') // Replace <br> with newline
+          .replace(/<[^>]+>/g, ''); // Remove any other HTML tags
+        
+        // Additional cleaning for Mermaid syntax compatibility
+        // Replace parentheses in node labels to avoid parsing issues
+        cleanContent = cleanContent
+          .replace(/\[([^\]]*)\]/g, (match, content) => {
+            // Replace parentheses inside square brackets with dashes
+            const cleanedContent = content.replace(/[()]/g, '-');
+            return `[${cleanedContent}]`;
+          });
+        
+        console.log(`[Mermaid] Cleaned content:`, cleanContent);
+        
+        const diagramId = generateMermaidId(cleanContent);
+        // Return a placeholder that will be processed by useMermaidRenderer
+        const encodedContent = btoa(encodeURIComponent(cleanContent));
+        const placeholder = `<div class="mermaid-placeholder" data-diagram-id="${diagramId}" data-content="${encodedContent}">
+          <pre class="mermaid-source"><code>${str}</code></pre>
+        </div>`;
+        console.log(`[Mermaid] Generated placeholder for diagram ${diagramId}`);
+        return placeholder;
       }
 
       // notice: 硬编码解决 ellipsis-loader 被转移为代码显示的问题。
@@ -106,7 +72,7 @@ export default function useMarkdown() {
       if (lang && hljs.getLanguage(lang)) {
         try {
           return (
-            `<pre className="hljs">` +
+            `<pre class="hljs">` +
             `<code>${
               hljs.highlight(code, {
                 language: lang,
@@ -116,7 +82,7 @@ export default function useMarkdown() {
           );
         } catch (__) {
           return (
-            `<pre className="hljs">` +
+            `<pre class="hljs">` +
             `<code>${hljs.highlightAuto(code).value}${
               isLoading ? loader : ''
             }</code>` +
@@ -125,7 +91,7 @@ export default function useMarkdown() {
         }
       }
       return (
-        `<pre className="hljs">` +
+        `<pre class="hljs">` +
         `<code>${hljs.highlightAuto(code).value}${
           isLoading ? loader : ''
         }</code>` +
@@ -141,6 +107,9 @@ export default function useMarkdown() {
         notifySuccess(t('Common.Notification.Copied'));
       },
     });
+  
+  // Enable fenced code blocks (should be enabled by default, but good to be explicit)
+  md.enable('fence');
   
   // Override paragraph rendering to ensure word wrapping
   const defaultParagraphRenderer = md.renderer.rules.paragraph_open || function(
@@ -183,97 +152,25 @@ export default function useMarkdown() {
     return defaultRender(tokens, idx, options, env, self);
   };
   
-  // Process mermaid diagrams after they've been rendered as code blocks
-  const processMermaidDiagrams = async () => {
-    try {
-      const mermaid = await loadMermaid();
-      if (!mermaid) {
-        console.error('Mermaid library not available');
-        return;
-      }
-      
-      // Always use light theme with white background regardless of app theme
-      mermaid.initialize({
-        startOnLoad: false,
-        theme: 'default',
-        fontSize: 14,
-        securityLevel: 'loose',
-        themeVariables: {
-          background: '#ffffff',
-          primaryColor: '#f4f4f4',
-          secondaryColor: '#f4f4f4',
-          tertiaryColor: '#ffffff',
-          primaryTextColor: '#333333',
-          secondaryTextColor: '#333333',
-          tertiaryTextColor: '#333333',
-          noteTextColor: '#333333',
-          noteBkgColor: '#fff5ad'
-        }
-      });
-      
-      // Only select diagrams that haven't been processed yet
-      const diagrams = document.querySelectorAll('pre.mermaid-diagram:not(.processed)');
-      if (diagrams.length === 0) return;
-      
-      diagrams.forEach(async (pre) => {
-        try {
-          // Mark as processed immediately to prevent double processing
-          pre.classList.add('processed');
-          
-          const code = pre.querySelector('code');
-          if (!code || !code.textContent) return;
-          
-          // Create a new div for the rendered diagram
-          const container = document.createElement('div');
-          container.className = 'mermaid-container';
-          container.style.backgroundColor = '#ffffff'; // Force white background
-          
-          // Create a div to hold the actual diagram with proper classes
-          const mermaidDiv = document.createElement('div');
-          mermaidDiv.className = 'mermaid';
-          mermaidDiv.style.visibility = 'hidden'; // Hide until rendered
-          mermaidDiv.textContent = code.textContent;
-          
-          // Add a fallback message in case rendering fails
-          const fallbackDiv = document.createElement('div');
-          fallbackDiv.className = 'mermaid-error-fallback';
-          fallbackDiv.style.display = 'none';
-          fallbackDiv.innerHTML = `<p>Failed to render diagram. Showing source code instead:</p>
-                                  <pre>${code.textContent}</pre>`;
-          
-          container.appendChild(mermaidDiv);
-          container.appendChild(fallbackDiv);
-          
-          // Replace the pre element with the mermaid container
-          if (pre.parentNode) {
-            pre.parentNode.replaceChild(container, pre);
-          }
-          
-          try {
-            // Render the diagram using the imported mermaid library
-            await mermaid.run({ nodes: [mermaidDiv] });
-            mermaidDiv.style.visibility = 'visible';
-          } catch (renderError) {
-            console.error('Error rendering Mermaid diagram:', renderError);
-            // Show fallback on error
-            mermaidDiv.style.display = 'none';
-            fallbackDiv.style.display = 'block';
-          }
-        } catch (diagramError) {
-          console.error('Error processing Mermaid diagram:', diagramError);
-        }
-      });
-    } catch (error) {
-      console.error('Error in processMermaidDiagrams:', error);
+  const render = useCallback((str: string): string => {
+    // Only log if the input contains mermaid-related content
+    if (str.includes('```mermaid')) {
+      console.log('[Mermaid] Render called with mermaid content:', str.substring(0, 200) + '...');
+      console.log('[Mermaid] Input contains mermaid code block');
     }
-  };
+    
+    const result = md.render(str);
+    
+    // Only log if the result contains mermaid placeholders
+    if (result.includes('mermaid-placeholder')) {
+      console.log('[Mermaid] Rendered markdown contains mermaid placeholder');
+      console.log('[Mermaid] Result preview:', result.substring(0, 500) + '...');
+    }
+    
+    return result;
+  }, []);
   
   return {
-    render: (str: string): string => {
-      const result = md.render(str);
-      return result;
-    },
-    // Add separate function to process diagrams that can be called after message is complete
-    processMermaidDiagrams
+    render
   };
 }

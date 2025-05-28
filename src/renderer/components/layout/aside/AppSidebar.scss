@@ -100,6 +100,13 @@
   
   /* Ensure consistent button alignment when collapsed */
   &.collapsed {
+    /* Ensure sidebar stays visible and maintains minimum width */
+    width: 5rem !important; /* w-20 = 5rem */
+    min-width: 5rem !important;
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    
     button {
       justify-content: center !important;
       text-align: center;

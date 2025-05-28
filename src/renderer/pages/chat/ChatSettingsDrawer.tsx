@@ -115,10 +115,10 @@ export default function ChatSettingsDrawer({
         </DrawerHeader>
         <DrawerBody className="mt-2.5 flex flex-col gap-2 relative">
           <div className="mb-1.5">
-            <Divider>{t('Common.SystemPrompt')}</Divider>
+            <Divider>{t('Common.Instructions')}</Divider>
           </div>
           <div className="mb-4 relative">
-            <Field label={t('Common.SystemMessage')} className="w-full">
+            <Field label={t('Common.Instructions')} className="w-full">
               <div className="relative w-full">
                 <Textarea
                   rows={40}
@@ -137,7 +137,7 @@ export default function ChatSettingsDrawer({
               </div>
               <div className="flex justify-between items-center mt-2 mb-3">
                 <Label htmlFor="system-message" size="large">
-                  {t('ChatSettings.SystemMessage')}
+                  {t('ChatSettings.Instructions')}
                 </Label>
                 <Button
                   icon={enhancingPrompt ? <Spinner size="tiny" /> : <SparkleRegular />}
@@ -148,14 +148,14 @@ export default function ChatSettingsDrawer({
                   size="medium"
                   iconPosition="before"
                 >
-                  {t('Common.EnhanceSystemPrompt')}
+                  {t('Common.EnhanceInstructions')}
                 </Button>
               </div>
               <div className="text-xs text-gray-500 dark:text-gray-400 p-2 bg-gray-100 dark:bg-gray-800 rounded">
-                <p><strong>Tip:</strong> System messages give instructions to the AI about how to behave.</p>
+                <p><strong>Tip:</strong> Instructions give directions to the AI about how to behave.</p>
                 <p className="mt-1">For beginners: Use this to set the AI's role (e.g., "You are a helpful math tutor") or give specific instructions.</p>
                 <p className="mt-1">For advanced users: Define constraints, formatting requirements, or custom behaviors to control the model's responses.</p>
-                <p className="mt-1">Click the ✨ icon to enhance your system prompt using AI-powered prompt engineering techniques.</p>
+                <p className="mt-1">Click the ✨ icon to enhance your instructions using AI-powered prompt engineering techniques.</p>
               </div>
             </Field>
           </div>

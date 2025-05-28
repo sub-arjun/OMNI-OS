@@ -539,6 +539,22 @@ div.think-body{
 }
 
 /* Mermaid diagram styling */
+.mermaid-placeholder {
+  /* Temporary debug styling */
+  border: 2px dashed red !important;
+  padding: 10px !important;
+  margin: 10px 0 !important;
+  background-color: #ffeeee !important;
+  
+  .mermaid-source {
+    display: block !important; /* Make source visible for debugging */
+    background-color: #f0f0f0;
+    padding: 10px;
+    border-radius: 4px;
+    overflow-x: auto;
+  }
+}
+
 .mermaid-container {
   margin: 1rem 0;
   padding: 1rem;

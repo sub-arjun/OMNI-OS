@@ -40,7 +40,7 @@ import {
 import ConfirmDialog from 'renderer/components/ConfirmDialog';
 import ExportPromptDialog from 'renderer/components/ExportPromptDialog';
 import useNav from 'hooks/useNav';
-import { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { IPromptDef } from '../../../intellichat/types';
 import { fmtDateTime, unix2date, highlight, date2unix } from 'utils/util';
@@ -143,7 +143,10 @@ export default function Grid({
         return (
           <TableCell>
             <TableCellLayout truncate>
-              <div className="flex flex-start items-center">
+              <div 
+                className="flex flex-start items-center cursor-pointer"
+                onClick={() => navigate(`/prompts/form/${item.id}`)}
+              >
                 <div
                   dangerouslySetInnerHTML={{
                     __html: highlight(item.name.value, keyword),
@@ -155,7 +158,11 @@ export default function Grid({
             <TableCellActions>
               <Menu>
                 <MenuTrigger disableButtonEnhancement>
-                  <Button icon={<OptionsIcon />} appearance="subtle" />
+                  <Button 
+                    icon={<OptionsIcon />} 
+                    appearance="subtle"
+                    onClick={(e) => e.stopPropagation()}
+                  />
                 </MenuTrigger>
                 <MenuPopover>
                   <MenuList>
@@ -271,22 +278,6 @@ export default function Grid({
       },
     }),
     createTableColumn<Item>({
-      columnId: 'models',
-      compare: (a, b) => {
-        return a.models.value.join(',').localeCompare(b.models.value.join(','));
-      },
-      renderHeaderCell: () => {
-        return t('Prompt.Form.ApplicableModels');
-      },
-      renderCell: (item) => {
-        return (
-          <TableCellLayout truncate>
-            <span className="latin">{item.models.value.join(', ')}</span>
-          </TableCellLayout>
-        );
-      },
-    }),
-    createTableColumn<Item>({
       columnId: 'updatedAt',
       compare: (a, b) => {
         return a.updatedAt.value.localeCompare(b.updatedAt.value);
@@ -296,7 +287,10 @@ export default function Grid({
       },
       renderCell: (item) => {
         return (
-          <TableCellLayout>
+          <TableCellLayout 
+            className="cursor-pointer"
+            onClick={() => navigate(`/prompts/form/${item.id}`)}
+          >
             <span className="latin">{item.updatedAt.value}</span>
           </TableCellLayout>
         );
@@ -305,7 +299,18 @@ export default function Grid({
   ];
 
   const renderRow: RowRenderer<Item> = ({ item, rowId }, style) => (
-    <DataGridRow<Item> key={rowId} style={style}>
+    <DataGridRow<Item> 
+      key={rowId} 
+      style={{ ...style, cursor: 'pointer' }}
+      onClick={(e: React.MouseEvent) => {
+        // Only navigate if the click wasn't on an interactive element
+        const target = e.target as HTMLElement;
+        const isInteractive = target.closest('button, [role="button"], [role="menuitem"]');
+        if (!isInteractive) {
+          navigate(`/prompts/form/${item.id}`);
+        }
+      }}
+    >
       {({ renderCell }) => <DataGridCell>{renderCell(item)}</DataGridCell>}
     </DataGridRow>
   );

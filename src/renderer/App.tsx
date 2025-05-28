@@ -12,9 +12,36 @@ import { createRoot } from 'react-dom/client';
 import { StrictMode } from 'react';
 import { initSuppressResizeObserverErrors } from '../utils/suppressResizeObserverErrors';
 import useSettingsStore from 'stores/useSettingsStore';
+import 'utils/localePolyfill'; // Import locale polyfill early to prevent crashes
 
 // Apply ResizeObserver suppression immediately, before anything else
 initSuppressResizeObserverErrors();
+
+// Early locale initialization to prevent media element crashes
+(() => {
+  try {
+    // Ensure document has a language set
+    if (typeof document !== 'undefined') {
+      document.documentElement.lang = document.documentElement.lang || 'en-US';
+      document.documentElement.dir = document.documentElement.dir || 'ltr';
+    }
+    
+    // Initialize Intl APIs that might be used by media controls
+    new Intl.NumberFormat('en-US').format(1234.5);
+    new Intl.DateTimeFormat('en-US').format(new Date());
+    
+    // Force Chrome's locale system to initialize
+    if ('chrome' in window && (window as any).chrome?.i18n?.getUILanguage) {
+      try {
+        (window as any).chrome.i18n.getUILanguage();
+      } catch (e) {
+        // Ignore if not available
+      }
+    }
+  } catch (e) {
+    console.warn('Early locale initialization warning:', e);
+  }
+})();
 
 import './App.scss';
 import './fluentui.scss';

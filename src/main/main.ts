@@ -95,6 +95,29 @@ protocol.registerSchemesAsPrivileged([
 // On Windows, disable MediaFoundationVideoCapture to avoid camera-caused GPU-process crashes
 if (process.platform === 'win32') {
   app.commandLine.appendSwitch('disable-features', 'MediaFoundationVideoCapture');
+  // Additional Windows-specific fixes for locale issues
+  app.commandLine.appendSwitch('disable-features', 'MediaFoundationVideoCapture,HardwareMediaKeyHandling');
+  // Force specific locale for Windows to prevent LCID corruption
+  process.env.LANG = 'en_US.UTF-8';
+  process.env.LC_ALL = 'en_US.UTF-8';
+}
+
+// Early locale initialization
+try {
+  // Force a safe locale initialization early in the process
+  app.commandLine.appendSwitch('lang', 'en-US');
+  // Disable GPU features that can cause locale issues
+  app.commandLine.appendSwitch('disable-gpu-sandbox');
+  // Force software rendering for media elements to avoid locale crashes
+  app.commandLine.appendSwitch('disable-accelerated-video-decode');
+  // Additional Chrome flags to prevent locale-related crashes
+  app.commandLine.appendSwitch('disable-features', 'UseModernMediaControls');
+  // Ensure locale is properly set at process level
+  if (!process.env.LANG) {
+    process.env.LANG = 'en_US.UTF-8';
+  }
+} catch (e) {
+  logging.captureException(e as Error);
 }
 
 // IPCs
@@ -736,6 +759,10 @@ const createWindow = async () => {
       contextIsolation: true,
       backgroundThrottling: false,
       spellcheck: false, // Disable spellcheck to avoid locale issues
+      // Add additional preferences to prevent locale-related crashes
+      additionalArguments: ['--lang=en-US'],
+      // Disable features that might cause locale issues
+      disableBlinkFeatures: 'MediaStreamTrack',
       preload: app.isPackaged
         ? path.join(__dirname, 'preload.js')
         : path.join(__dirname, '../../.erb/dll/preload.js'),
@@ -910,6 +937,19 @@ if (app.dock) {
 }
 
 app.whenReady().then(async () => {
+  // Set locale environment variables before creating any windows
+  try {
+    // Force locale to en-US to prevent LCID issues
+    process.env.LC_ALL = 'en_US.UTF-8';
+    process.env.LANG = 'en_US.UTF-8';
+    process.env.LANGUAGE = 'en_US.UTF-8';
+    
+    // Log current locale for debugging
+    console.log('[Main] App locale:', app.getLocale());
+  } catch (e) {
+    console.warn('Could not set locale environment:', e);
+  }
+  
   if (app.isPackaged) {
     // Serve static files from dist/renderer via HTTP on localhost
     const server = http.createServer((req, res) => {

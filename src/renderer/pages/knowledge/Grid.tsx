@@ -44,7 +44,7 @@ import {
 } from '@fluentui/react-icons';
 import ConfirmDialog from 'renderer/components/ConfirmDialog';
 import useNav from 'hooks/useNav';
-import { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { fmtDateTime, unix2date, date2unix } from 'utils/util';
 import useToast from 'hooks/useToast';
@@ -80,6 +80,11 @@ export default function Grid({ collections }: { collections: any[] }) {
   };
   const unpin = (id: string) => {
     updateCollection({ id, pinedAt: null });
+  };
+
+  // Helper to check if a collection is an OMNIBase collection
+  const isOmnibaseCollection = (collection: any) => {
+    return collection.type === 'omnibase' || (collection.id && collection.id.startsWith('omnibase:'));
   };
 
   useEffect(() => {
@@ -150,7 +155,15 @@ export default function Grid({ collections }: { collections: any[] }) {
         return (
           <TableCell>
             <TableCellLayout truncate>
-              <div className="flex flex-start items-center gap-1">
+              <div 
+                className={`flex flex-start items-center gap-1 ${!isOmnibaseCollection(item) ? 'cursor-pointer' : ''}`}
+                onClick={() => {
+                  if (!isOmnibaseCollection(item)) {
+                    setActiveCollection(item);
+                    setFileDrawerOpen(true);
+                  }
+                }}
+              >
                 {isOmnibaseCollection(item) && <CloudIcon className="text-blue-500" />}
                 <div className="-mt-0.5">{item.name}</div>
                 {item.memo && (
@@ -164,6 +177,7 @@ export default function Grid({ collections }: { collections: any[] }) {
                       icon={<Info16Regular />}
                       size="small"
                       appearance="subtle"
+                      onClick={(e) => e.stopPropagation()}
                     />
                   </Tooltip>
                 )}
@@ -176,7 +190,8 @@ export default function Grid({ collections }: { collections: any[] }) {
                   <Button 
                     icon={<DocumentFolderIcon />} 
                     appearance="subtle"
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation();
                       setActiveCollection(item);
                       setFileDrawerOpen(true);
                     }}
@@ -188,7 +203,8 @@ export default function Grid({ collections }: { collections: any[] }) {
                   <Button 
                     icon={<CloudIcon />} 
                     appearance="subtle"
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation();
                       notifySuccess(
                         `${t('Knowledge.OmniBaseDetails')}: ${item.indexName}${item.namespace ? ` (${t('Knowledge.Namespace')}: ${item.namespace})` : ''}`
                       );
@@ -198,7 +214,11 @@ export default function Grid({ collections }: { collections: any[] }) {
               )}
               <Menu>
                 <MenuTrigger disableButtonEnhancement>
-                  <Button icon={<MoreHorizontalIcon />} appearance="subtle" />
+                  <Button 
+                    icon={<MoreHorizontalIcon />} 
+                    appearance="subtle"
+                    onClick={(e) => e.stopPropagation()}
+                  />
                 </MenuTrigger>
                 <MenuPopover>
                   <MenuList>
@@ -251,7 +271,15 @@ export default function Grid({ collections }: { collections: any[] }) {
       },
       renderCell: (item) => {
         return (
-          <TableCellLayout>
+          <TableCellLayout
+            className={!isOmnibaseCollection(item) ? 'cursor-pointer' : ''}
+            onClick={() => {
+              if (!isOmnibaseCollection(item)) {
+                setActiveCollection(item);
+                setFileDrawerOpen(true);
+              }
+            }}
+          >
             <span className="latin">{item.updatedAt.value}</span>
           </TableCellLayout>
         );
@@ -278,7 +306,13 @@ export default function Grid({ collections }: { collections: any[] }) {
         }
         
         return (
-          <TableCellLayout>
+          <TableCellLayout
+            className="cursor-pointer"
+            onClick={() => {
+              setActiveCollection(item);
+              setFileDrawerOpen(true);
+            }}
+          >
             <span className="latin">{item.numOfFiles}</span>
           </TableCellLayout>
         );
@@ -287,17 +321,29 @@ export default function Grid({ collections }: { collections: any[] }) {
   ];
 
   const renderRow: RowRenderer<Item> = ({ item, rowId }, style) => (
-    <DataGridRow<Item> key={rowId} style={style}>
+    <DataGridRow<Item> 
+      key={rowId} 
+      style={{ 
+        ...style, 
+        cursor: !isOmnibaseCollection(item) ? 'pointer' : 'default' 
+      }}
+      onClick={(e: React.MouseEvent) => {
+        // Only open file drawer if:
+        // 1. It's not an OmniBase collection
+        // 2. The click wasn't on an interactive element
+        const target = e.target as HTMLElement;
+        const isInteractive = target.closest('button, [role="button"], [role="menuitem"]');
+        if (!isInteractive && !isOmnibaseCollection(item)) {
+          setActiveCollection(item);
+          setFileDrawerOpen(true);
+        }
+      }}
+    >
       {({ renderCell }) => <DataGridCell>{renderCell(item)}</DataGridCell>}
     </DataGridRow>
   );
   const { targetDocument } = useFluent();
   const scrollbarWidth = useScrollbarWidth({ targetDocument });
-
-  // Helper to check if a collection is an OMNIBase collection
-  const isOmnibaseCollection = (collection: Item) => {
-    return collection.type === 'omnibase' || (collection.id && collection.id.startsWith('omnibase:'));
-  };
 
   return (
     <div className="w-full">

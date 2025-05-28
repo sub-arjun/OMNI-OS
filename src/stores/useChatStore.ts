@@ -1043,7 +1043,7 @@ const useChatStore = create<IChatStore>((set, get) => ({
       
       return false;
     }
-  }
+  },
 }));
 
 export default useChatStore;

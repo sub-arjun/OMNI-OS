@@ -6,10 +6,7 @@
   -webkit-app-region: drag;
   width: 100%;
   
-  /* Properly position elements with space for the collapsed sidebar */
-  @media (min-width: 768px) {
-    padding-left: 5.5rem; /* Adjusted to match the new sidebar width (w-20 = 5rem + a bit extra for alignment) */
-  }
+  /* Dynamic padding is now handled in the component based on sidebar state */
 }
 
 .search-icon-container {

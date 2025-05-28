@@ -20,6 +20,7 @@ import IChatReader, { ITool, IReadResult } from 'intellichat/readers/IChatReader
 import { IChatResponseMessage } from 'intellichat/types';
 import OMNIAgentReader from 'intellichat/readers/OMNIAgentReader';
 import useSettingsStore from 'stores/useSettingsStore';
+import { getSystemPrompt } from 'config/systemPrompt';
 
 const debug = Debug('OMNI-OS:intellichat:OMNIChatService');
 
@@ -275,14 +276,14 @@ export default class OMNIChatService
   
   /**
    * Override the system message with OMNI-specific default prompt when appropriate
-   * @returns Modified system message with OMNI identification
+   * @returns Promise that resolves to modified system message with OMNI identification
    */
-  protected getSystemMessage(): string {
+  protected async getSystemMessage(): Promise<string> {
     // Get the original system message from context
     const originalSystemMessage = this.context.getSystemMessage();
     
-    // Default OMNI prompt to use when no system message is set or as base for custom prompts
-    const defaultOMNIPrompt = "Your name is OMNI. You are developed by OMNI AI.";
+    // Load OMNI prompt from file - using a fallback if file can't be read
+    const defaultOMNIPrompt = await this.loadOMNISystemPrompt();
     
     // If no system message is set, use the default OMNI prompt
     if (!originalSystemMessage || originalSystemMessage.trim() === '') {
@@ -292,7 +293,19 @@ export default class OMNIChatService
     
     // If a custom system message is set, combine default OMNI prompt with the custom prompt
     debug('Combining default OMNI prompt with custom system message');
-    return `${defaultOMNIPrompt} Your Base AI Model Name is OMNI unless the it is specified otherwise in the remaining prompt. If a new name is specified, use that name instead of OMNI. ${originalSystemMessage}`;
+    return `${defaultOMNIPrompt}\n\n${originalSystemMessage}`;
+  }
+  
+  /**
+   * Load the OMNI system prompt from the bundled configuration
+   * @returns Promise that resolves to the system prompt content
+   */
+  private async loadOMNISystemPrompt(): Promise<string> {
+    // Simply return the system prompt from the imported configuration
+    const promptContent = getSystemPrompt();
+    debug('Successfully loaded OMNI system prompt from bundled configuration');
+    console.log('[OMNIChatService] Loaded system prompt:', promptContent.substring(0, 50) + '...');
+    return promptContent;
   }
   
   /**
@@ -594,7 +607,7 @@ export default class OMNIChatService
     // For Anthropic models (Claude), use the system field
     if (modelName.includes('claude') || modelName.includes('anthropic') || modelGroup.includes('claude')) {
       // Replace or set the system field with our custom system message
-      const customSystemMessage = this.getSystemMessage();
+      const customSystemMessage = await this.getSystemMessage();
       if (customSystemMessage) {
         payload.system = customSystemMessage;
       }
@@ -611,7 +624,7 @@ export default class OMNIChatService
   ): Promise<IChatRequestMessage[]> {
     const result = [];
     // Use our custom getSystemMessage method instead of context.getSystemMessage()
-    const systemMessage = this.getSystemMessage();
+    const systemMessage = await this.getSystemMessage();
     let sysRole = 'system';
     
     // Use different role for certain models like o1, o3

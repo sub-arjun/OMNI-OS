@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Mermaid Test</title>
+    <script src="https://cdn.jsdelivr.net/npm/markdown-it@13/dist/markdown-it.min.js"></script>
+    <style>
+        .mermaid-placeholder {
+            border: 2px dashed red;
+            padding: 10px;
+            margin: 10px 0;
+            background-color: #ffeeee;
+        }
+        .mermaid-source {
+            display: block;
+            background-color: #f0f0f0;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>Mermaid Markdown Test</h1>
+    <div id="output"></div>
+    
+    <script>
+        const md = window.markdownit({
+            breaks: true,
+            linkify: true,
+            html: true,
+            typographer: true,
+            highlight: function(str, lang) {
+                console.log('Highlight called with lang:', lang, 'content:', str.substring(0, 50) + '...');
+                
+                if (lang === 'mermaid') {
+                    const diagramId = 'mermaid-' + Math.random().toString(36).substring(2, 10);
+                    const encodedContent = btoa(encodeURIComponent(str));
+                    return `<div class="mermaid-placeholder" data-diagram-id="${diagramId}" data-content="${encodedContent}">
+                        <pre class="mermaid-source"><code>${str}</code></pre>
+                    </div>`;
+                }
+                
+                return `<pre><code class="language-${lang}">${str}</code></pre>`;
+            }
+        });
+        
+        const testContent = `
+Here's a test mermaid diagram:
+
+\`\`\`mermaid
+graph TD
+    A[Start] --> B{Is it working?}
+    B -->|Yes| C[Great!]
+    B -->|No| D[Debug more]
+\`\`\`
+
+End of test.
+`;
+        
+        const result = md.render(testContent);
+        console.log('Rendered result:', result);
+        document.getElementById('output').innerHTML = result;
+    </script>
+</body>
+</html> 

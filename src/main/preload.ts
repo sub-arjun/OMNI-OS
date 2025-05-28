@@ -9,6 +9,51 @@
     Intl.DateTimeFormat('en-US');
     // Force locale initialization
     new Date().toLocaleDateString('en-US');
+    
+    // Additional locale safety checks for media elements
+    // Create a dummy locale to ensure the locale subsystem is initialized
+    if (typeof Intl.Locale !== 'undefined') {
+      try {
+        new Intl.Locale('en-US');
+      } catch (e) {
+        console.warn('Intl.Locale initialization failed, using fallback');
+      }
+    }
+    
+    // Initialize locale-dependent APIs that might be used by media controls
+    try {
+      new Intl.DisplayNames(['en'], { type: 'language' });
+    } catch (e) {
+      console.warn('Intl.DisplayNames not supported');
+    }
+    
+    // Force initialization of locale-dependent DOM APIs
+    if (typeof document !== 'undefined' && document.createElement) {
+      const testElem = document.createElement('div');
+      testElem.lang = 'en-US';
+      testElem.dir = 'ltr';
+    }
+    
+    // CRITICAL: Patch document.createElement to ensure video elements have lang attribute
+    if (typeof document !== 'undefined') {
+      const originalCreateElement = document.createElement.bind(document);
+      (document as any).createElement = function(tagName: string, options?: ElementCreationOptions) {
+        const element = originalCreateElement(tagName, options) as any;
+        
+        // Ensure video elements always have a lang attribute
+        if (tagName.toLowerCase() === 'video') {
+          element.lang = 'en-US';
+          element.setAttribute('lang', 'en-US');
+          
+          // Disable controls by default to prevent media control issues
+          element.controls = false;
+          
+          console.log('[Preload] Created video element with forced locale');
+        }
+        
+        return element;
+      };
+    }
   } catch (e) {
     console.error('Failed to initialize locales:', e);
   }
