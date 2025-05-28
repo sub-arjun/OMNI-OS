@@ -540,67 +540,83 @@ div.think-body{
 
 /* Mermaid diagram styling */
 .mermaid-placeholder {
-  /* Temporary debug styling */
-  border: 2px dashed red !important;
-  padding: 10px !important;
-  margin: 10px 0 !important;
-  background-color: #ffeeee !important;
+  border: 1px dashed #ddd;
+  padding: 20px;
+  margin: 10px 0;
+  background: #f9f9f9;
+}
+
+.mermaid-source {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: none;
+  font-size: 12px;
+  color: #666;
+}
+
+.mermaid-container {
+  display: flex;
+  justify-content: center;
+  margin: 20px 0;
+  overflow: auto;
+  background: white;
+  border-radius: 8px;
+  padding: 20px;
+}
+
+.mermaid {
+  max-width: 100%;
+  text-align: center;
   
-  .mermaid-source {
-    display: block !important; /* Make source visible for debugging */
-    background-color: #f0f0f0;
+  svg {
+    max-width: 100%;
+    height: auto;
+  }
+  
+  /* Force text to be selectable */
+  text {
+    user-select: text !important;
+    -webkit-user-select: text !important;
+  }
+  
+  /* Override any inline styles that might prevent selection */
+  * {
+    user-select: text !important;
+    -webkit-user-select: text !important;
+  }
+}
+
+.mermaid-error-fallback {
+  border: 1px solid #ffcccc;
+  background: #fff5f5;
+  padding: 15px;
+  margin: 10px 0;
+  border-radius: 4px;
+  
+  p {
+    margin: 0 0 10px 0;
+    color: #cc0000;
+  }
+  
+  pre {
+    margin: 0;
+    background: #f0f0f0;
     padding: 10px;
     border-radius: 4px;
     overflow-x: auto;
   }
 }
 
-.mermaid-container {
-  margin: 1rem 0;
-  padding: 1rem;
-  background-color: #ffffff !important; /* Force white background */
-  border-radius: 8px;
-  border: 1px solid rgba(var(--color-border), 0.3);
-  overflow: auto;
-  
-  .mermaid {
-    display: flex;
-    justify-content: center;
-    font-family: 'Barlow', sans-serif;
-    background-color: #ffffff !important; /* Force white background */
-    color: #333333 !important; /* Force dark text */
-    
-    svg {
-      max-width: 100%;
-      height: auto;
-      background-color: #ffffff !important; /* Force white background on SVG */
-    }
-    
-    /* Force all text elements to have dark color for visibility on white */
-    text, .messageText, .actor, .labelText, .loopText, .noteText {
-      fill: #333333 !important;
-      color: #333333 !important;
-    }
-    
-    /* Force all diagram elements to have proper visibility on white */
-    .node rect, .node circle, .node ellipse, .node polygon, .node path {
-      stroke: #333333 !important;
-    }
-    
-    .cluster rect {
-      fill: #f8f8f8 !important;
-      stroke: #cccccc !important;
-    }
-  }
-  
-  .mermaid-error-fallback {
-    color: #e74c3c;
-    font-size: 14px;
-    padding: 8px;
-    border-left: 3px solid #e74c3c;
-    background-color: rgba(231, 76, 60, 0.1);
-    border-radius: 4px;
-  }
+/* Hide mermaid library's default error display */
+#d0, #d1, #d2,
+.error-icon, 
+.error-text,
+text.error-text,
+g.error-icon,
+[id^="mermaid-"] .error-icon,
+[id^="mermaid-"] .error-text {
+  display: none !important;
 }
 
 /* Override dark theme styles for mermaid diagrams */

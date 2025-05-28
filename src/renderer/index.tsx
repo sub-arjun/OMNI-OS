@@ -2,6 +2,10 @@ import { createRoot } from 'react-dom/client';
 import { StrictMode } from 'react';
 import App from './App';
 import './i18n';
+import { initializeMermaidErrorInterceptor } from '../utils/mermaidErrorInterceptor';
+
+// Initialize mermaid error interceptor to prevent default error display
+initializeMermaidErrorInterceptor();
 
 // Override console.error to filter out Keyborg disposal warnings in development
 if (process.env.NODE_ENV === 'development') {
