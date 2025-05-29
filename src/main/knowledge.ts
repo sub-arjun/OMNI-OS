@@ -712,10 +712,12 @@ export default class Knowledge {
       const retriever = index.asRetriever({
         similarityTopK: options?.limit || 6,
         sparse_similarity_top_k: options?.limit || 6,
+        k: options?.limit || 6,
         alpha: 0.5,
         enable_reranking: true,
         rerank_top_n: options?.limit || 6,
-        retrieval_mode: 'auto_routed',
+        retrieval_mode: 'chunks',
+
       });
       
       log.debug(`Executing OMNIBase query with topK=${options?.limit || 6}`);

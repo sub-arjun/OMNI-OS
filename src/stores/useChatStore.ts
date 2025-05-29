@@ -434,6 +434,20 @@ const useChatStore = create<IChatStore>((set, get) => ({
       msg.citations = JSON.stringify(msg.citations) as any;
     }
     
+    // LOG MESSAGE CREATION FOR DEBUGGING
+    console.log('[CHAT STORE DEBUG] Creating message:', {
+      id: msg.id,
+      chatId: msg.chatId,
+      promptLength: msg.prompt?.length || 0,
+      promptPreview: msg.prompt?.substring(0, 100) + '...',
+      hasKnowledgeContext: msg.prompt?.includes('# Context #'),
+      estimatedPromptTokens: msg.prompt ? Math.ceil(msg.prompt.length / 4) : 0,
+      replyLength: msg.reply?.length || 0,
+      model: msg.model,
+      temperature: msg.temperature,
+      maxTokens: msg.maxTokens
+    });
+    
     const columns = Object.keys(msg);
     await window.electron.db.run(
       `INSERT INTO messages (${columns.join(',')})
@@ -651,6 +665,25 @@ const useChatStore = create<IChatStore>((set, get) => ({
       sql,
       params,
     )) as IChatMessage[];
+    
+    // LOG FETCHED MESSAGES FOR DEBUGGING
+    console.log('[CHAT STORE DEBUG] Fetched messages:', {
+      chatId,
+      totalMessages: messages.length,
+      messages: messages.map((msg, idx) => ({
+        index: idx,
+        id: msg.id,
+        promptLength: msg.prompt?.length || 0,
+        replyLength: msg.reply?.length || 0,
+        hasKnowledgeContext: msg.prompt?.includes('# Context #'),
+        estimatedPromptTokens: msg.prompt ? Math.ceil(msg.prompt.length / 4) : 0,
+        estimatedReplyTokens: msg.reply ? Math.ceil(msg.reply.length / 4) : 0,
+        model: msg.model,
+        inputTokens: msg.inputTokens,
+        outputTokens: msg.outputTokens
+      }))
+    });
+    
     set({ messages });
     return messages;
   },

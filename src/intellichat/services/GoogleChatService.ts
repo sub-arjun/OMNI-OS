@@ -206,14 +206,34 @@ export default class GoogleChatService
     messages: IChatRequestMessage[]
   ): Promise<IChatRequestMessage[]> {
     let result: IChatRequestMessage[] = [];
+    
+    console.log('[GEMINI DEBUG] makeMessages called with', messages.length, 'messages');
+    
     const systemMessage = this.context.getSystemMessage();
     if (!isBlank(systemMessage)) {
       result.push({
         role: 'user',
         parts: [{ text: systemMessage as string }],
       });
+      console.log('[GEMINI DEBUG] Added system message, length:', (systemMessage as string).length);
     }
-    for (let msg of this.context.getCtxMessages()) {
+    
+    // Process context messages
+    const ctxMessages = this.context.getCtxMessages();
+    console.log('[GEMINI DEBUG] Processing', ctxMessages.length, 'context messages');
+    
+    for (let i = 0; i < ctxMessages.length; i++) {
+      const msg = ctxMessages[i];
+      console.log(`[GEMINI DEBUG] Context message ${i + 1}:`, {
+        promptLength: msg.prompt.length,
+        replyLength: msg.reply.length,
+        promptPreview: msg.prompt.substring(0, 100) + '...',
+        replyPreview: msg.reply.substring(0, 100) + '...',
+        hasKnowledgeContext: msg.prompt.includes('# Context #'),
+        estimatedPromptTokens: Math.ceil(msg.prompt.length / 4),
+        estimatedReplyTokens: Math.ceil(msg.reply.length / 4)
+      });
+      
       result.push({
         role: 'user',
         parts: [{ text: msg.prompt }],
@@ -227,8 +247,19 @@ export default class GoogleChatService
         ],
       });
     }
+    
+    // Process current messages
+    console.log('[GEMINI DEBUG] Processing', messages.length, 'current messages');
     for (const msg of messages) {
       if (typeof msg.content === 'string') {
+        console.log('[GEMINI DEBUG] Current message:', {
+          role: msg.role,
+          contentLength: msg.content.length,
+          contentPreview: msg.content.substring(0, 100) + '...',
+          hasKnowledgeContext: msg.content.includes('# Context #'),
+          estimatedTokens: Math.ceil(msg.content.length / 4)
+        });
+        
         result.push({
           role: msg.role,
           parts: await this.convertPromptContent(msg.content),
@@ -240,6 +271,30 @@ export default class GoogleChatService
         });
       }
     }
+    
+    // Calculate total message size
+    let totalChars = 0;
+    for (const msg of result) {
+      if (msg.parts) {
+        for (const part of msg.parts) {
+          if (part.text) {
+            totalChars += part.text.length;
+          }
+        }
+      }
+    }
+    
+    console.log('[GEMINI DEBUG] Final message stats:', {
+      totalMessages: result.length,
+      totalCharacters: totalChars,
+      estimatedTotalTokens: Math.ceil(totalChars / 4),
+      breakdown: {
+        systemMessage: systemMessage ? (systemMessage as string).length : 0,
+        contextMessages: ctxMessages.length * 2, // user + model pairs
+        currentMessages: messages.length
+      }
+    });
+    
     return result;
   }
 

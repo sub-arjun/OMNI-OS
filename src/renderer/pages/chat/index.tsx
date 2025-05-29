@@ -752,6 +752,16 @@ export default function Chat() {
             // Log the content for debugging
             debug(`Chunk ${idx + 1} content: ${content.substring(0, 100)}${content.length > 100 ? '...' : ''}`);
             
+            // COMPREHENSIVE LOGGING FOR TOKEN DEBUGGING
+            console.log(`[KNOWLEDGE DEBUG] Chunk ${idx + 1}:`, {
+              id: k.id,
+              collectionId: k.collectionId,
+              isOmnibase,
+              contentLength: content.length,
+              contentPreview: content.substring(0, 200) + '...',
+              estimatedTokens: Math.ceil(content.length / 4) // Rough estimate
+            });
+            
             return {
               seqNo: idx + 1,
               file: fileName,
@@ -761,6 +771,17 @@ export default function Chat() {
           });
           
           debug(`Formatted ${formattedChunks.length} knowledge chunks for RAG`);
+          
+          // Calculate total knowledge size
+          const totalKnowledgeChars = formattedChunks.reduce((sum: number, chunk: any) => sum + chunk.content.length, 0);
+          const estimatedKnowledgeTokens = Math.ceil(totalKnowledgeChars / 4);
+          
+          console.log('[KNOWLEDGE DEBUG] Total knowledge stats:', {
+            numChunks: formattedChunks.length,
+            totalChars: totalKnowledgeChars,
+            estimatedTokens: estimatedKnowledgeTokens,
+            jsonStringLength: JSON.stringify(formattedChunks).length
+          });
           
           actualPrompt = `
 # Context #
@@ -780,6 +801,14 @@ ${JSON.stringify(formattedChunks)}
 # Objective #
 ${prompt}
 `;
+          
+          // Log the final prompt size
+          console.log('[KNOWLEDGE DEBUG] Final actualPrompt stats:', {
+            totalLength: actualPrompt.length,
+            estimatedTokens: Math.ceil(actualPrompt.length / 4),
+            originalPromptLength: prompt.length,
+            knowledgeOverhead: actualPrompt.length - prompt.length
+          });
         }
       }
 
