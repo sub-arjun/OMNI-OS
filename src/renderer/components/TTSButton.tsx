@@ -115,6 +115,12 @@ export default function TTSButton({
       currentAudio = null;
       currentButtonId = null;
     }
+    
+    // Clean up blob URL if it exists
+    if (audioUrlRef.current && audioUrlRef.current.startsWith('blob:')) {
+      URL.revokeObjectURL(audioUrlRef.current);
+      audioUrlRef.current = null;
+    }
   }, [id]);
   
   // Clean up on unmount
@@ -125,6 +131,12 @@ export default function TTSButton({
         audioElementRef.current.removeEventListener('ended', handleAudioEnded);
         currentAudio = null;
         currentButtonId = null;
+      }
+      
+      // Clean up blob URL on unmount
+      if (audioUrlRef.current && audioUrlRef.current.startsWith('blob:')) {
+        URL.revokeObjectURL(audioUrlRef.current);
+        audioUrlRef.current = null;
       }
     };
   }, [id, handleAudioEnded]);

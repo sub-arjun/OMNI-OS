@@ -1,7 +1,7 @@
 {
   "name": "OMNI",
   "productName": "OMNI",
-  "version": "1.0.11",
+  "version": "1.0.12",
   "description": "A Secure Desktop AI Assistant & MCP Client for industrial enterprises",
   "main": "src/main/main.ts",
   "repository": "https://github.com/sub-arjun/OMNI-OS.git",

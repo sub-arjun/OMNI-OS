@@ -214,22 +214,55 @@ export default function useChatContext(): IChatContext {
       const { chat } = useChatStore.getState();
       const { api } = useSettingsStore.getState();
       const model = getModel();
-      let maxTokens =
-        model.defaultMaxTokens || model.maxTokens || DEFAULT_MAX_TOKENS;
+      
+      // Debug logging to trace the issue
+      if (shouldLog('max_tokens_' + model.name)) {
+        console.log('[MAX TOKENS DEBUG]', {
+          modelName: model.name,
+          modelMaxTokens: model.maxTokens,
+          modelDefaultMaxTokens: model.defaultMaxTokens,
+          chatMaxTokens: chat?.maxTokens,
+          promptMaxTokens: (chat.prompt as IPrompt | null)?.maxTokens,
+          DEFAULT_MAX_TOKENS,
+        });
+      }
+      
+      // Priority order:
+      // 1. Use model's defaultMaxTokens as the safe default
+      // 2. Model's maxTokens defines the upper limit
+      // 3. Fall back to DEFAULT_MAX_TOKENS only if model has neither
+      const modelDefault = model.defaultMaxTokens || model.maxTokens || DEFAULT_MAX_TOKENS;
+      const modelLimit = model.maxTokens || model.defaultMaxTokens || DEFAULT_MAX_TOKENS;
+      
+      // Start with the conservative default
+      let maxTokens = modelDefault;
+      
+      // Check if prompt has a specific maxTokens override
       const prompt = chat.prompt as IPrompt | null;
       if (
         prompt?.maxTokens != null &&
-        isValidMaxTokens(prompt?.maxTokens, api.provider, model.name)
+        isValidMaxTokens(prompt?.maxTokens, api.provider, model.name) &&
+        prompt.maxTokens <= modelLimit
       ) {
-        maxTokens = prompt?.maxTokens || (prompt?.maxTokens as number);
+        maxTokens = prompt.maxTokens;
       }
+      
+      // Check if chat has a specific maxTokens setting
+      // Only use it if it's not the old hardcoded default and within model limits
       if (
         chat?.maxTokens != null &&
-        isValidMaxTokens(chat?.maxTokens, api.provider, model.name)
+        chat.maxTokens !== DEFAULT_MAX_TOKENS && // Ignore the old hardcoded 2048 value
+        isValidMaxTokens(chat?.maxTokens, api.provider, model.name) &&
+        chat.maxTokens <= modelLimit
       ) {
-        maxTokens = chat?.maxTokens as number;
+        maxTokens = chat.maxTokens;
       }
-      // debug(`Chat(${chat.id}):getMaxTokens: ${maxTokens}`);
+      
+      // Final debug log
+      if (shouldLog('max_tokens_final_' + model.name)) {
+        console.log('[MAX TOKENS DEBUG] Final value:', maxTokens, '(model default:', modelDefault, ', model limit:', modelLimit, ')');
+      }
+      
       return maxTokens as number;
     };
 

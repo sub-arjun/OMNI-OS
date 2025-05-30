@@ -44,8 +44,11 @@ export default function MaxTokens({
   const [open, setOpen] = useState<boolean>(false);
   const editStage = useChatStore((state) => state.editStage);
 
+  // Get the model's actual maximum limit (not the default)
   const modelMaxTokens = useMemo<number>(() => {
-    return (ctx.getModel().maxTokens as number) || MAX_TOKENS;
+    const model = ctx.getModel();
+    // Use maxTokens as the upper limit, fallback to defaultMaxTokens, then MAX_TOKENS
+    return model.maxTokens || model.defaultMaxTokens || MAX_TOKENS;
   }, [chat.model]);
 
   const [maxTokens, setMaxTokens] = useState<number>(1);
@@ -56,7 +59,9 @@ export default function MaxTokens({
         return !prevOpen;
       });
     });
-    setMaxTokens(modelMaxTokens);
+    // Use the current max tokens from context or default to model max tokens
+    const currentMaxTokens = ctx.getMaxTokens();
+    setMaxTokens(currentMaxTokens);
     return () => {
       Mousetrap.unbind('mod+shift+4');
     };
