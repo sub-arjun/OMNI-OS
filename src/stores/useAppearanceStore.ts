@@ -1,7 +1,22 @@
 import { create } from 'zustand';
 import { ThemeType } from 'types/appearance';
 
-const defaultTheme = 'light';
+// Get theme from localStorage or default to 'light'
+const getInitialTheme = (): 'light' | 'dark' => {
+  try {
+    // Try localStorage first as a reliable fallback
+    const localTheme = localStorage.getItem('app-theme');
+    if (localTheme === 'dark' || localTheme === 'light') {
+      return localTheme;
+    }
+    
+    // Default to light theme
+    return 'light';
+  } catch (error) {
+    console.warn('Failed to load theme from localStorage:', error);
+    return 'light';
+  }
+};
 
 interface IAppearanceStore {
   theme: Omit<ThemeType, 'system'>;
@@ -12,7 +27,8 @@ interface IAppearanceStore {
   chatSidebar: {
     show: boolean;
   };
-  setTheme: (theme: Omit<ThemeType, 'system'>) => void;
+  setTheme: (theme: 'light' | 'dark') => void;
+  initializeThemeFromSettings: (theme: ThemeType) => void;
   toggleSidebarCollapsed: () => void;
   toggleSidebarVisibility: () => void;
   toggleChatSidebarVisibility: () => void;
@@ -20,7 +36,7 @@ interface IAppearanceStore {
 }
 
 const useAppearanceStore = create<IAppearanceStore>((set, get) => ({
-  theme: defaultTheme,
+  theme: getInitialTheme(),
   sidebar: {
     hidden: localStorage.getItem('sidebar-hidden') === 'true',
     collapsed: localStorage.getItem('sidebar-collapsed') === 'true',
@@ -28,7 +44,42 @@ const useAppearanceStore = create<IAppearanceStore>((set, get) => ({
   chatSidebar: {
     show: localStorage.getItem('chat-sidebar-show') === 'true',
   },
-  setTheme: (theme: Omit<ThemeType, 'system'>) => set({ theme }),
+  setTheme: (theme: 'light' | 'dark') => {
+    set({ theme });
+    
+    // Persist theme to localStorage as backup
+    try {
+      localStorage.setItem('app-theme', theme);
+    } catch (error) {
+      console.warn('Failed to save theme to localStorage:', error);
+    }
+    
+    // Apply theme immediately to document to prevent transparency issues
+    try {
+      document.documentElement.setAttribute('data-theme', theme);
+      document.documentElement.className = document.documentElement.className
+        .replace(/theme-(light|dark)/g, '')
+        .trim() + ` theme-${theme}`;
+    } catch (error) {
+      console.warn('Failed to apply theme to document:', error);
+    }
+  },
+  initializeThemeFromSettings: (settingsTheme: ThemeType) => {
+    // This method will be called by FluentApp to sync with settings store
+    let resolvedTheme: 'light' | 'dark' = 'light';
+    
+    if (settingsTheme === 'dark') {
+      resolvedTheme = 'dark';
+    } else if (settingsTheme === 'light') {
+      resolvedTheme = 'light';
+    }
+    // For 'system', we'll let FluentApp handle the resolution
+    
+    const currentTheme = get().theme;
+    if (currentTheme !== resolvedTheme) {
+      get().setTheme(resolvedTheme);
+    }
+  },
   toggleSidebarCollapsed: () => {
     set((state) => {
       const collapsed = !state.sidebar.collapsed;

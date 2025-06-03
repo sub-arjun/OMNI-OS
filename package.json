@@ -1,7 +1,7 @@
 {
   "name": "OMNI",
   "productName": "OMNI",
-  "version": "1.0.12",
+  "version": "1.0.13",
   "description": "A Secure Desktop AI Assistant & MCP Client for industrial enterprises",
   "main": "src/main/main.ts",
   "repository": "https://github.com/sub-arjun/OMNI-OS.git",
@@ -18,8 +18,10 @@
     "postinstall": "tsx .erb/scripts/check-native-dep.js && electron-builder install-app-deps && cross-env NODE_ENV=development webpack --config ./.erb/configs/webpack.config.renderer.dev.dll.ts",
     "lint": "cross-env NODE_ENV=development eslint . --ext .js,.jsx,.ts,.tsx",
     "package": "tsx ./.erb/scripts/clean.js dist && npm run build && electron-builder build --publish never",
+    "publish-release": "tsx ./.erb/scripts/clean.js dist && npm run build && electron-builder build --publish always",
     "electron:build": "electron-builder build --publish never",
     "rebuild": "electron-rebuild --parallel --types prod,dev,optional --module-dir release/app",
+    "clear-update-cache": "node scripts/clear-update-cache.js",
     "start": "tsx ./.erb/scripts/check-port-in-use.js && npm run start:renderer",
     "start:main": "cross-env NODE_ENV=development DEBUG=5ire:* NODE_OPTIONS=\"--import tsx\" electronmon .",
     "start:preload": "cross-env NODE_ENV=development DEBUG=5ire:* webpack --config ./.erb/configs/webpack.config.preload.dev.ts",
@@ -240,6 +242,12 @@
       "zh_CN",
       "en"
     ],
+    "publish": {
+      "provider": "github",
+      "owner": "sub-arjun",
+      "repo": "OMNI-OS",
+      "releaseType": "release"
+    },
     "files": [
       "dist",
       "package.json",
@@ -300,12 +308,17 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "include": "installer.nsh",
-      "perMachine": true
+      "perMachine": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "OMNI"
     },
     "win": {
       "target": [
         "nsis"
-      ]
+      ],
+      "publisherName": "Latent Labs",
+      "verifyUpdateCodeSignature": false
     },
     "linux": {
       "target": [

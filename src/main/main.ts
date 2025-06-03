@@ -72,15 +72,244 @@ const mcp = new ModuleContext();
 const store = new Store();
 
 export default class AppUpdater {
+  private retryCount = 0;
+  private maxRetries = 3;
+  private isUpdating = false;
+  private updateCheckInterval: NodeJS.Timeout | null = null;
+
   constructor() {
     log.transports.file.level = 'info';
     autoUpdater.logger = log;
-    autoUpdater.checkForUpdatesAndNotify();
+    
+    // Configure auto-updater settings
+    autoUpdater.autoDownload = false; // We'll handle download manually for better control
+    autoUpdater.autoInstallOnAppQuit = true;
+    autoUpdater.allowPrerelease = false;
+    autoUpdater.allowDowngrade = false;
+    
+    this.setupEventHandlers();
+    this.initializeUpdater();
+  }
+
+  private setupEventHandlers() {
+    // Handle update checking
+    autoUpdater.on('checking-for-update', () => {
+      log.info('Checking for updates...');
+      store.set('updateInfo', { 
+        isChecking: true, 
+        isDownloading: false,
+        error: null 
+      });
+    });
+
+    // Handle update available
+    autoUpdater.on('update-available', (info) => {
+      log.info('Update available:', info.version);
+      store.set('updateInfo', {
+        version: info.version,
+        releaseNotes: info.releaseNotes,
+        releaseName: info.releaseName,
+        isChecking: false,
+        isDownloading: false,
+        isAvailable: true,
+        error: null
+      });
+      
+      // Start download automatically
+      this.downloadUpdate();
+    });
+
+    // Handle no update available
+    autoUpdater.on('update-not-available', (info) => {
+      log.info('Update not available. Current version is latest:', info.version);
+      store.set('updateInfo', {
+        isChecking: false,
+        isDownloading: false,
+        isAvailable: false,
+        error: null
+      });
+      this.retryCount = 0; // Reset retry count on successful check
+    });
+
+    // Handle download progress
+    autoUpdater.on('download-progress', (progressObj) => {
+      const message = `Download speed: ${progressObj.bytesPerSecond} - Downloaded ${progressObj.percent}% (${progressObj.transferred}/${progressObj.total})`;
+      log.info(message);
+      
+      const currentUpdateInfo = store.get('updateInfo', {}) as any;
+      store.set('updateInfo', {
+        ...currentUpdateInfo,
+        isDownloading: true,
+        downloadProgress: {
+          percent: Math.round(progressObj.percent),
+          transferred: progressObj.transferred,
+          total: progressObj.total,
+          bytesPerSecond: progressObj.bytesPerSecond
+        }
+      });
+    });
+
+    // Handle update downloaded
+    autoUpdater.on('update-downloaded', (info) => {
+      log.info('Update downloaded:', info.version);
+      store.set('updateInfo', {
+        version: info.version,
+        releaseNotes: info.releaseNotes,
+        releaseName: info.releaseName,
+        isChecking: false,
+        isDownloading: false,
+        isDownloaded: true,
+        isAvailable: true,
+        error: null
+      });
+      
+      // Notify user that update is ready
+      this.notifyUpdateReady(info);
+      this.retryCount = 0; // Reset retry count on successful download
+    });
+
+    // Handle errors with retry logic
+    autoUpdater.on('error', (error: Error) => {
+      log.error('Auto-updater error:', error);
+      
+      const errorMessage = error.message || 'Unknown update error';
+      const currentUpdateInfo = store.get('updateInfo', {}) as any;
+      store.set('updateInfo', {
+        ...currentUpdateInfo,
+        isChecking: false,
+        isDownloading: false,
+        error: errorMessage
+      });
+      
+      this.isUpdating = false;
+      
+      // Implement retry logic for transient errors
+      if (this.retryCount < this.maxRetries && this.isRetriableError(error)) {
+        this.retryCount++;
+        log.info(`Retrying update check in 30 seconds (attempt ${this.retryCount}/${this.maxRetries})`);
+        setTimeout(() => this.checkForUpdates(), 30000);
+      } else {
+        log.error('Max retries reached or non-retriable error. Stopping auto-update attempts.');
+        this.showUpdateError(errorMessage);
+      }
+    });
+  }
+
+  private isRetriableError(error: Error): boolean {
+    const retriableErrors = [
+      'ENOTFOUND',
+      'ECONNRESET',
+      'ETIMEDOUT',
+      'ECONNREFUSED',
+      'net::ERR_INTERNET_DISCONNECTED',
+      'net::ERR_NETWORK_CHANGED'
+    ];
+    
+    return retriableErrors.some(retriableError => 
+      error.message.includes(retriableError)
+    );
+  }
+
+  private initializeUpdater() {
+    // Check for updates immediately
+    this.checkForUpdates();
+    
+    // Set up periodic checks (every 4 hours)
+    this.updateCheckInterval = setInterval(() => {
+      this.checkForUpdates();
+    }, 4 * 60 * 60 * 1000);
+  }
+
+  public async checkForUpdates() {
+    if (this.isUpdating) {
+      log.info('Update check already in progress, skipping...');
+      return;
+    }
+    
+    try {
+      this.isUpdating = true;
+      await autoUpdater.checkForUpdates();
+    } catch (error) {
+      log.error('Error checking for updates:', error);
+      this.isUpdating = false;
+    }
+  }
+
+  private async downloadUpdate() {
+    try {
+      log.info('Starting update download...');
+      const currentUpdateInfo = store.get('updateInfo', {}) as any;
+      store.set('updateInfo', {
+        ...currentUpdateInfo,
+        isDownloading: true,
+        error: null
+      });
+      
+      await autoUpdater.downloadUpdate();
+    } catch (error: any) {
+      log.error('Error downloading update:', error);
+      const currentUpdateInfo = store.get('updateInfo', {}) as any;
+      store.set('updateInfo', {
+        ...currentUpdateInfo,
+        isDownloading: false,
+        error: error.message || 'Download failed'
+      });
+    }
+  }
+
+  private notifyUpdateReady(info: any) {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      // Send notification to renderer process
+      mainWindow.webContents.send('update-ready', {
+        version: info.version,
+        releaseNotes: info.releaseNotes,
+        releaseName: info.releaseName
+      });
+    }
+  }
+
+  private showUpdateError(errorMessage: string) {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      // Show error dialog to user
+      dialog.showErrorBox(
+        'Update Error',
+        `Failed to update OMNI: ${errorMessage}\n\nPlease try again later or download the latest version manually from our website.`
+      );
+    }
+  }
+
+  public quitAndInstall() {
+    try {
+      log.info('Quitting and installing update...');
+      
+      // Clear the update check interval
+      if (this.updateCheckInterval) {
+        clearInterval(this.updateCheckInterval);
+        this.updateCheckInterval = null;
+      }
+      
+      // Install the update
+      autoUpdater.quitAndInstall();
+    } catch (error) {
+      log.error('Error during quit and install:', error);
+      this.showUpdateError('Failed to install update. Please restart the application manually.');
+    }
+  }
+
+  public destroy() {
+    if (this.updateCheckInterval) {
+      clearInterval(this.updateCheckInterval);
+      this.updateCheckInterval = null;
+    }
+    
+    // Remove all listeners
+    autoUpdater.removeAllListeners();
   }
 }
 
 let downloader: Downloader;
 let mainWindow: BrowserWindow | null = null;
+let updater: AppUpdater | null = null;
 
 // Deep-linking scheme (remains for deeplink feature)
 const appProtocol = app.isPackaged ? 'app.omni' : 'app.omni.dev';
@@ -988,7 +1217,7 @@ app.whenReady().then(async () => {
   }
   // Remove this if your app does not use auto updates
   // eslint-disable-next-line
-  new AppUpdater();
+  updater = new AppUpdater();
   app.on('activate', () => {
     // On macOS it's common to re-create a window in the app when the
     // dock icon is clicked and there are no other windows open.
@@ -1011,6 +1240,12 @@ app.whenReady().then(async () => {
   app.on('before-quit', () => {
     ipcMain.removeAllListeners();
     mcp.close();
+    
+    // Clean up updater
+    if (updater) {
+      updater.destroy();
+      updater = null;
+    }
   });
 
   app.on(
@@ -1027,6 +1262,11 @@ app.whenReady().then(async () => {
   
   // Clean up resources on app quit
   app.on('quit', () => {
+    // Clean up updater if still exists
+    if (updater) {
+      updater.destroy();
+      updater = null;
+    }
     // ... other cleanup code ...
   });
 });
@@ -1183,5 +1423,18 @@ ipcMain.handle('fetch-remote-config', async (event, url: string) => {
     log.error(`Error fetching remote config from ${url}:`, error);
     // Re-throw the error so the renderer's catch block is triggered
     throw new Error(`Network error fetching config: ${error.message}`);
+  }
+});
+
+// Add IPC handlers for update functionality
+ipcMain.handle('quit-and-install-update', () => {
+  if (updater) {
+    updater.quitAndInstall();
+  }
+});
+
+ipcMain.handle('check-for-updates', () => {
+  if (updater) {
+    updater.checkForUpdates();
   }
 });

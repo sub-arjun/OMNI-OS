@@ -2,6 +2,7 @@ import * as logging from './logging';
 import Debug from 'debug';
 import FluentApp from './components/FluentApp';
 import useAuthStore from 'stores/useAuthStore';
+import useAppearanceStore from 'stores/useAppearanceStore';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import useKnowledgeStore from 'stores/useKnowledgeStore';
@@ -65,6 +66,16 @@ export default function App() {
   const { t } = useTranslation();
   const { createFile } = useKnowledgeStore();
   const loadSettings = useSettingsStore((state) => state.loadSettings);
+  const theme = useAppearanceStore((state) => state.theme);
+
+  // Early theme application to prevent background transparency
+  useEffect(() => {
+    // Apply current theme to document immediately
+    document.documentElement.setAttribute('data-theme', theme as string);
+    document.documentElement.className = document.documentElement.className
+      .replace(/theme-(light|dark)/g, '')
+      .trim() + ` theme-${theme as string}`;
+  }, [theme]);
 
   useEffect(() => {
     // Apply suppression again in case our component mounts after some errors occurred

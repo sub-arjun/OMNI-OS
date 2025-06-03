@@ -162,6 +162,7 @@ export default function FluentApp() {
   const theme = useAppearanceStore((state) => state.theme);
   const language = useSettingsStore((state) => state.language);
   const setTheme = useAppearanceStore((state) => state.setTheme);
+  const initializeThemeFromSettings = useAppearanceStore((state) => state.initializeThemeFromSettings);
   const user = useAuthStore((state) => state.user);
 
   // Define click handler outside useEffect to avoid recreation
@@ -194,8 +195,8 @@ export default function FluentApp() {
 
   useEffect(() => {
     const handleThemeChange = (...args: unknown[]) => {
-      const theme = args[0] as 'light' | 'dark';
-      setTheme(theme);
+      const nativeTheme = args[0] as 'light' | 'dark';
+      setTheme(nativeTheme);
     };
 
     // Use the cleanup function returned by window.electron.ipcRenderer.on
@@ -208,19 +209,20 @@ export default function FluentApp() {
       // Call the specific cleanup function
       cleanupThemeChangeListener();
     };
-  }, []);
+  }, [setTheme]);
 
   useEffect(() => {
     if (themeSettings === 'system') {
       window.electron
         .getNativeTheme()
-        .then((_theme) => {
-          debug(`Theme: ${_theme}`);
-          return setTheme(_theme);
+        .then((_theme: 'light' | 'dark') => {
+          debug(`System theme resolved to: ${_theme}`);
+          setTheme(_theme);
         })
         .catch(captureException);
     } else {
-      setTheme(themeSettings);
+      // Synchronize appearance store with settings store
+      initializeThemeFromSettings(themeSettings);
     }
 
     if (language === 'system') {
@@ -233,7 +235,16 @@ export default function FluentApp() {
     } else {
       i18n.changeLanguage(language);
     }
-  }, [themeSettings, setTheme]);
+  }, [themeSettings, setTheme, initializeThemeFromSettings, i18n, language]);
+
+  // Early theme application to prevent transparency issues
+  useEffect(() => {
+    // Apply theme immediately to document when theme changes
+    document.documentElement.setAttribute('data-theme', theme as string);
+    document.documentElement.className = document.documentElement.className
+      .replace(/theme-(light|dark)/g, '')
+      .trim() + ` theme-${theme as string}`;
+  }, [theme]);
 
   return (
     <IdPrefixProvider value="omni-os-">
